@@ -1,0 +1,225 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.75rem;
+
+    /* PDR System specific colors */
+    --pdr-draft: 43 74% 66%;
+    --pdr-submitted: 217 91% 60%;
+    --pdr-review: 262 83% 58%;
+    --pdr-midyear: 142 71% 45%;
+    --pdr-endyear: 24 100% 50%;
+    --pdr-completed: 142 76% 36%;
+    --pdr-locked: 0 0% 45%;
+
+    /* Rating colors */
+    --rating-1: 0 84% 60%;
+    --rating-2: 25 95% 53%;
+    --rating-3: 48 96% 53%;
+    --rating-4: 141 69% 58%;
+    --rating-5: 142 76% 36%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 94.1%;
+
+    /* PDR System dark mode colors */
+    --pdr-draft: 43 74% 66%;
+    --pdr-submitted: 217 91% 60%;
+    --pdr-review: 262 83% 58%;
+    --pdr-midyear: 142 71% 45%;
+    --pdr-endyear: 24 100% 50%;
+    --pdr-completed: 142 76% 36%;
+    --pdr-locked: 0 0% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* PDR Status badges */
+  .pdr-status-draft {
+    @apply bg-pdr-draft/10 text-pdr-draft border-pdr-draft/20;
+  }
+  
+  .pdr-status-submitted {
+    @apply bg-pdr-submitted/10 text-pdr-submitted border-pdr-submitted/20;
+  }
+  
+  .pdr-status-review {
+    @apply bg-pdr-review/10 text-pdr-review border-pdr-review/20;
+  }
+  
+  .pdr-status-midyear {
+    @apply bg-pdr-midyear/10 text-pdr-midyear border-pdr-midyear/20;
+  }
+  
+  .pdr-status-endyear {
+    @apply bg-pdr-endyear/10 text-pdr-endyear border-pdr-endyear/20;
+  }
+  
+  .pdr-status-completed {
+    @apply bg-pdr-completed/10 text-pdr-completed border-pdr-completed/20;
+  }
+  
+  .pdr-status-locked {
+    @apply bg-pdr-locked/10 text-pdr-locked border-pdr-locked/20;
+  }
+
+  /* Rating stars */
+  .rating-star {
+    @apply transition-colors duration-200 cursor-pointer;
+  }
+  
+  .rating-star-1 {
+    @apply text-rating-1;
+  }
+  
+  .rating-star-2 {
+    @apply text-rating-2;
+  }
+  
+  .rating-star-3 {
+    @apply text-rating-3;
+  }
+  
+  .rating-star-4 {
+    @apply text-rating-4;
+  }
+  
+  .rating-star-5 {
+    @apply text-rating-5;
+  }
+
+  /* Stepper styles */
+  .stepper-step {
+    @apply flex items-center justify-center w-8 h-8 rounded-full border-2 text-sm font-medium transition-all duration-200;
+  }
+  
+  .stepper-step-active {
+    @apply bg-primary text-primary-foreground border-primary;
+  }
+  
+  .stepper-step-completed {
+    @apply bg-green-500 text-white border-green-500;
+  }
+  
+  .stepper-step-inactive {
+    @apply bg-muted text-muted-foreground border-border;
+  }
+  
+  .stepper-connector {
+    @apply flex-1 h-0.5 bg-border mx-2;
+  }
+  
+  .stepper-connector-active {
+    @apply bg-primary;
+  }
+
+  /* Form styles */
+  .form-section {
+    @apply space-y-6 p-6 bg-card border border-border rounded-lg;
+  }
+  
+  .form-section-header {
+    @apply flex items-center justify-between pb-4 border-b border-border;
+  }
+  
+  .form-section-title {
+    @apply text-lg font-semibold text-foreground;
+  }
+
+  /* Data table styles */
+  .data-table {
+    @apply w-full border-collapse bg-card;
+  }
+  
+  .data-table th {
+    @apply h-12 px-4 text-left align-middle font-medium text-muted-foreground border-b border-border;
+  }
+  
+  .data-table td {
+    @apply p-4 align-middle border-b border-border;
+  }
+  
+  .data-table tr:hover {
+    @apply bg-muted/50;
+  }
+
+  /* Loading animations */
+  .loading-skeleton {
+    @apply animate-pulse bg-muted rounded;
+  }
+  
+  .loading-spinner {
+    @apply animate-spin;
+  }
+
+  /* Australian date format indicator */
+  .date-au::after {
+    content: ' (DD/MM/YYYY)';
+    @apply text-xs text-muted-foreground;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
