@@ -1,0 +1,17 @@
+---
+description: data structure 
+alwaysApply: false
+---
+## Design and implement core data models and API
+
+- Design database schema for:
+  - Users (roles, profile info)
+  - PDRs (review period, status, timestamps)
+  - Goals ("What")
+  - Values/Behaviours ("How")
+  - Ratings, Comments, Audit logs
+
+- Implement backend API endpoints for:
+  - CRUD for PDRs, Goals, Values, Ratings, Comments
+  - Status changes (lock/unlock, check-in, review)
+  - History retrieval

@@ -1,0 +1,19 @@
+---
+description: The employee journey
+alwaysApply: false
+---
+## Build the Employee flow with a stepper UI
+
+- Create Employee Dashboard:
+  - Show current PDR status, link to active PDR, history table
+
+- Implement Stepper UI:
+  - Step 1: Propose "What" (add/edit/remove goals)
+  - Step 2: Propose "How" (add behaviours for each value)
+  - Step 3: Review & Submit
+  - Step 4: Mid-Year Check-In (progress, blockers, comments)
+  - Step 5: End-of-Year Review (self-assessment, summary)
+
+- Integrate with backend for data persistence and validation.
+- Add a progress bar/stepper indicator.
+- Enforce permissions (edit only if not locked). 

@@ -1,0 +1,31 @@
+---
+description: core development rules
+alwaysApply: false
+---
+# PDR System - Core Development Rules
+
+## PROJECT ESSENCE
+You're building an Employee Performance & Development Review (PDR) System with employee stepper UI and CEO admin flows. Reference uploaded stage files for detailed requirements.
+
+## TECH STACK (NON-NEGOTIABLE)
+- Next.js 14+ with TypeScript (strict mode)
+- shadcn/ui components exclusively (MCP setup available)
+- PostgreSQL + Prisma ORM
+- JWT authentication with role-based access
+- RESTful API architecture
+- ESLint + Prettier (auto-format on save)
+- Australian date format (DD/MM/YYYY) everywhere
+
+## CORE PRINCIPLES
+1. Two user roles: EMPLOYEE (own data only) and CEO (all data)
+2. Status-driven permissions (CEO can always edit/unlock)
+3. Audit trail for all data changes
+4. Mobile-first responsive design
+5. Type-safe code with comprehensive error handling
+6. Reusable components where logical
+
+## DATA FLOW
+Employee: Dashboard → Stepper (Goals → Behaviours → Review → Submit) → Mid-Year → End-Year
+CEO: Dashboard → Employee List → Review/Edit → Lock/Unlock → Scoring
+
+Always reference stage files for detailed requirements. Ask which specific area you need help with.

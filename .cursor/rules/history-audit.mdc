@@ -1,0 +1,10 @@
+---
+description: The history and audit trail needs
+alwaysApply: false
+---
+## Implement history, audit trail, and security
+
+- Employee: view own PDR history
+- CEO: view all employees' PDR history
+- Add audit logging for all status changes, locks, edits
+- Enforce role-based access and data validation everywhere 

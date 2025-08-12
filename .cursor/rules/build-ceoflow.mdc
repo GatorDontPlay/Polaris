@@ -1,0 +1,17 @@
+---
+description: CEO user Feature/Functions
+alwaysApply: false
+---
+## Build the CEO/Admin flow
+
+- Create CEO Dashboard:
+  - List all employees, current PDR status, actions
+
+- For each employee:
+  - Review/refine "What" and "How"
+  - Add comments, ratings, lock/unlock plan
+  - Mid-year feedback, end-of-year scoring
+  - Lock in final scores and new plan
+
+- Integrate with backend for data persistence and validation.
+- Enforce CEO permissions (can always edit/unlock). 
