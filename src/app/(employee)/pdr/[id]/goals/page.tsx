@@ -126,7 +126,7 @@ export default function GoalsPage({ params }: GoalsPageProps) {
               key={goal.id}
               goal={goal}
               onSubmit={(data) => handleUpdateGoal(goal.id, data)}
-              onDelete={canEdit ? handleDeleteGoal : undefined}
+              {...(canEdit && { onDelete: handleDeleteGoal })}
               isSubmitting={updateGoalMutation.isPending || deleteGoalMutation.isPending}
               isReadOnly={!canEdit}
             />

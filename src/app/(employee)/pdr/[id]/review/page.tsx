@@ -19,8 +19,7 @@ import {
   Eye,
   Target,
   Heart,
-  FileText,
-  Star
+  FileText
 } from 'lucide-react';
 
 interface ReviewPageProps {
@@ -61,7 +60,6 @@ export default function ReviewPage({ params }: ReviewPageProps) {
   };
 
   const isComplete = stats.totalGoals > 0 && stats.totalBehaviors > 0;
-  const hasRatings = stats.goalsWithRating > 0 || stats.behaviorsWithRating > 0;
 
   const handlePrevious = () => {
     router.push(`/pdr/${params.id}/behaviors`);

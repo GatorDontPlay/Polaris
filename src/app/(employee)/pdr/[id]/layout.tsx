@@ -154,7 +154,7 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
             currentStep={pdr.currentStep}
             totalSteps={PDR_STEPS.length}
             steps={PDR_STEPS}
-            onStepClick={pdr.isLocked ? undefined : handleStepClick}
+            {...(!pdr.isLocked && { onStepClick: handleStepClick })}
           />
         </div>
       </div>

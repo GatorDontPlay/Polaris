@@ -51,18 +51,17 @@ export default function EndYearPage({ params }: EndYearPageProps) {
     setValue,
   } = useForm<EndYearFormData>({
     resolver: zodResolver(endYearReviewSchema),
-    defaultValues: endYearReview ? {
-      achievementsSummary: endYearReview.achievementsSummary,
-      learningsGrowth: endYearReview.learningsGrowth || '',
-      challengesFaced: endYearReview.challengesFaced || '',
-      nextYearGoals: endYearReview.nextYearGoals || '',
-      ...(endYearReview.employeeOverallRating !== null && { employeeOverallRating: endYearReview.employeeOverallRating }),
-    } : {
+    defaultValues: endYearReview ? Object.fromEntries([
+      ['achievementsSummary', endYearReview.achievementsSummary],
+      ['learningsGrowth', endYearReview.learningsGrowth || ''],
+      ['challengesFaced', endYearReview.challengesFaced || ''],
+      ['nextYearGoals', endYearReview.nextYearGoals || ''],
+      ...(endYearReview.employeeOverallRating !== null ? [['employeeOverallRating', endYearReview.employeeOverallRating]] : [])
+    ]) as any : {
       achievementsSummary: '',
       learningsGrowth: '',
       challengesFaced: '',
       nextYearGoals: '',
-      employeeOverallRating: undefined,
     },
   });
 
@@ -387,7 +386,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
               </p>
               <div className="flex items-center space-x-4">
                 <RatingInput
-                  value={employeeOverallRating}
+                  value={employeeOverallRating || 0}
                   onChange={handleRatingChange}
                   showLabel
                   size="lg"
