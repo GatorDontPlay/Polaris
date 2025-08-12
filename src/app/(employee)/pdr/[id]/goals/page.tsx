@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { usePDR } from '@/hooks/use-pdrs';
-import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal } from '@/hooks/use-goals';
+import { useDemoPDR, useDemoGoals } from '@/hooks/use-demo-pdr';
 import { GoalForm } from '@/components/forms/goal-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,27 +18,24 @@ export default function GoalsPage({ params }: GoalsPageProps) {
   const router = useRouter();
   const [showAddForm, setShowAddForm] = useState(false);
   
-  const { data: pdr, isLoading: pdrLoading } = usePDR(params.id);
-  const { data: goals, isLoading: goalsLoading } = useGoals(params.id);
-  const createGoalMutation = useCreateGoal(params.id);
-  const updateGoalMutation = useUpdateGoal(params.id);
-  const deleteGoalMutation = useDeleteGoal(params.id);
+  const { data: pdr, isLoading: pdrLoading } = useDemoPDR(params.id);
+  const { data: goals, isLoading: goalsLoading, addGoal, updateGoal, deleteGoal } = useDemoGoals(params.id);
 
   const isLoading = pdrLoading || goalsLoading;
   const isReadOnly = pdr?.isLocked || false;
   const canEdit = pdr && !isReadOnly && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED');
 
   const handleCreateGoal = async (data: GoalFormData) => {
-    await createGoalMutation.mutateAsync(data);
+    addGoal(data);
     setShowAddForm(false);
   };
 
   const handleUpdateGoal = async (goalId: string, data: GoalFormData) => {
-    await updateGoalMutation.mutateAsync({ goalId, data });
+    updateGoal(goalId, data);
   };
 
   const handleDeleteGoal = async (goalId: string) => {
-    await deleteGoalMutation.mutateAsync(goalId);
+    deleteGoal(goalId);
   };
 
   const handleNext = () => {
@@ -114,7 +110,7 @@ export default function GoalsPage({ params }: GoalsPageProps) {
         <GoalForm
           onSubmit={handleCreateGoal}
           onCancel={() => setShowAddForm(false)}
-          isSubmitting={createGoalMutation.isPending}
+          isSubmitting={false}
         />
       )}
 

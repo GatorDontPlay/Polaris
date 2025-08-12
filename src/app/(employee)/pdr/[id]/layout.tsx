@@ -1,7 +1,7 @@
 'use client';
 
-import { usePDR } from '@/hooks/use-pdrs';
-import { useAuth } from '@/hooks/use-auth';
+import { useDemoPDR } from '@/hooks/use-demo-pdr';
+import { useDemoAuth } from '@/hooks/use-demo-auth';
 import { StepperIndicator } from '@/components/pdr/stepper-indicator';
 import { PDRStatusBadge } from '@/components/pdr/pdr-status-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,8 +26,8 @@ interface PDRLayoutProps {
 
 export default function PDRLayout({ children, params }: PDRLayoutProps) {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { data: pdr, isLoading: pdrLoading, error } = usePDR(params.id);
+  const { user, isAuthenticated, isLoading: authLoading } = useDemoAuth();
+  const { data: pdr, isLoading: pdrLoading, error } = useDemoPDR(params.id);
 
   // Redirect if not authenticated
   useEffect(() => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCEODashboard } from '@/hooks/use-admin';
+import { useDemoAdminDashboard } from '@/hooks/use-demo-admin';
 import { AdminHeader, PageHeader } from '@/components/admin/admin-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -53,7 +53,7 @@ const StatCard = ({ title, value, change, changeType, icon: Icon }: {
 );
 
 export default function CEODashboard() {
-  const { data: dashboardData, isLoading, error } = useCEODashboard();
+  const { data: dashboardData, isLoading, error } = useDemoAdminDashboard();
 
   if (isLoading) {
     return (

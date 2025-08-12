@@ -2,9 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { usePDR } from '@/hooks/use-pdrs';
-import { useBehaviors, useCreateBehavior, useUpdateBehavior, useDeleteBehavior } from '@/hooks/use-behaviors';
-import { useCompanyValues } from '@/hooks/use-company-values';
+import { useDemoPDR, useDemoBehaviors, useDemoCompanyValues } from '@/hooks/use-demo-pdr';
 import { BehaviorForm } from '@/components/forms/behavior-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,12 +18,9 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
   const router = useRouter();
   const [showAddForm, setShowAddForm] = useState(false);
   
-  const { data: pdr, isLoading: pdrLoading } = usePDR(params.id);
-  const { data: behaviors, isLoading: behaviorsLoading } = useBehaviors(params.id);
-  const { data: companyValues, isLoading: valuesLoading } = useCompanyValues();
-  const createBehaviorMutation = useCreateBehavior(params.id);
-  const updateBehaviorMutation = useUpdateBehavior(params.id);
-  const deleteBehaviorMutation = useDeleteBehavior(params.id);
+  const { data: pdr, isLoading: pdrLoading } = useDemoPDR(params.id);
+  const { data: behaviors, isLoading: behaviorsLoading, addBehavior, updateBehavior, deleteBehavior } = useDemoBehaviors(params.id);
+  const { data: companyValues, isLoading: valuesLoading } = useDemoCompanyValues();
 
   const isLoading = pdrLoading || behaviorsLoading || valuesLoading;
   const isReadOnly = pdr?.isLocked || false;
@@ -33,20 +28,20 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
 
   // Get available company values (not already used)
   const availableValues = companyValues?.filter(value => 
-    value.isActive && !behaviors?.some(behavior => behavior.valueId === value.id)
+    !behaviors?.some(behavior => behavior.companyValueId === value.id)
   ) || [];
 
   const handleCreateBehavior = async (data: BehaviorFormData) => {
-    await createBehaviorMutation.mutateAsync(data);
+    addBehavior(data);
     setShowAddForm(false);
   };
 
   const handleUpdateBehavior = async (behaviorId: string, data: BehaviorFormData) => {
-    await updateBehaviorMutation.mutateAsync({ behaviorId, data });
+    updateBehavior(behaviorId, data);
   };
 
   const handleDeleteBehavior = async (behaviorId: string) => {
-    await deleteBehaviorMutation.mutateAsync(behaviorId);
+    deleteBehavior(behaviorId);
   };
 
   const handleNext = () => {
