@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
     ).length;
 
     const overduePDRs = allPDRs.filter(pdr => {
-      if (!activePeriod || pdr.status === 'COMPLETED') return false;
+      if (!activePeriod || pdr.status === 'COMPLETED') {return false;}
       
       // Calculate if PDR is overdue based on period end date
       const daysSinceEnd = Math.floor(

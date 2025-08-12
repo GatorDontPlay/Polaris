@@ -76,7 +76,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
   };
 
   const handleSubmit = async () => {
-    if (!pdr) return;
+    if (!pdr) {return;}
     
     setIsSubmitting(true);
     try {

@@ -194,17 +194,17 @@ export async function PUT(
     
     if (user.role === 'CEO') {
       // CEO can update any field
-      if (reviewData.progressSummary !== undefined) updateData.progressSummary = reviewData.progressSummary;
-      if (reviewData.blockersChallenges !== undefined) updateData.blockersChallenges = reviewData.blockersChallenges;
-      if (reviewData.supportNeeded !== undefined) updateData.supportNeeded = reviewData.supportNeeded;
-      if (reviewData.employeeComments !== undefined) updateData.employeeComments = reviewData.employeeComments;
-      if (reviewData.ceoFeedback !== undefined) updateData.ceoFeedback = reviewData.ceoFeedback;
+      if (reviewData.progressSummary !== undefined) {updateData.progressSummary = reviewData.progressSummary;}
+      if (reviewData.blockersChallenges !== undefined) {updateData.blockersChallenges = reviewData.blockersChallenges;}
+      if (reviewData.supportNeeded !== undefined) {updateData.supportNeeded = reviewData.supportNeeded;}
+      if (reviewData.employeeComments !== undefined) {updateData.employeeComments = reviewData.employeeComments;}
+      if (reviewData.ceoFeedback !== undefined) {updateData.ceoFeedback = reviewData.ceoFeedback;}
     } else {
       // Employee can only update their own fields
-      if (reviewData.progressSummary !== undefined) updateData.progressSummary = reviewData.progressSummary;
-      if (reviewData.blockersChallenges !== undefined) updateData.blockersChallenges = reviewData.blockersChallenges;
-      if (reviewData.supportNeeded !== undefined) updateData.supportNeeded = reviewData.supportNeeded;
-      if (reviewData.employeeComments !== undefined) updateData.employeeComments = reviewData.employeeComments;
+      if (reviewData.progressSummary !== undefined) {updateData.progressSummary = reviewData.progressSummary;}
+      if (reviewData.blockersChallenges !== undefined) {updateData.blockersChallenges = reviewData.blockersChallenges;}
+      if (reviewData.supportNeeded !== undefined) {updateData.supportNeeded = reviewData.supportNeeded;}
+      if (reviewData.employeeComments !== undefined) {updateData.employeeComments = reviewData.employeeComments;}
     }
 
     // Update the mid-year review

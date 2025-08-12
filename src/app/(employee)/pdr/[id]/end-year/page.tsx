@@ -56,7 +56,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
       learningsGrowth: endYearReview.learningsGrowth || '',
       challengesFaced: endYearReview.challengesFaced || '',
       nextYearGoals: endYearReview.nextYearGoals || '',
-      employeeOverallRating: endYearReview.employeeOverallRating || undefined,
+      ...(endYearReview.employeeOverallRating !== null && { employeeOverallRating: endYearReview.employeeOverallRating }),
     } : {
       achievementsSummary: '',
       learningsGrowth: '',

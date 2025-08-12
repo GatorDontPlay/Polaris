@@ -43,7 +43,7 @@ export function useAuth() {
   });
 
   return {
-    user: data || user,
+    user: (data || user) as AuthUser | null,
     isAuthenticated: !!data || isAuthenticated,
     isLoading,
     error,

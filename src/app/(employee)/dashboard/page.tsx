@@ -1,13 +1,13 @@
 'use client';
 
-import { Metadata } from 'next';
+
 import { useRouter } from 'next/navigation';
 import { usePDRs, useCreatePDR } from '@/hooks/use-pdrs';
 import { useAuth } from '@/hooks/use-auth';
 import { DashboardStats } from '@/components/dashboard/dashboard-stats';
 import { CurrentPDRCard } from '@/components/dashboard/current-pdr-card';
 import { PDRHistoryTable } from '@/components/dashboard/pdr-history-table';
-import { Button } from '@/components/ui/button';
+
 import { useEffect, useMemo } from 'react';
 
 export default function EmployeeDashboard() {
@@ -68,7 +68,7 @@ export default function EmployeeDashboard() {
 
   // Find current active PDR
   const currentPDR = useMemo(() => {
-    if (!pdrsResponse?.data) return null;
+    if (!pdrsResponse?.data) {return null;}
     return pdrsResponse.data.find(pdr => 
       pdr.status !== 'COMPLETED' && pdr.status !== 'LOCKED'
     ) || null;
@@ -76,7 +76,7 @@ export default function EmployeeDashboard() {
 
   // Get PDR history (all PDRs sorted by most recent)
   const pdrHistory = useMemo(() => {
-    if (!pdrsResponse?.data) return [];
+    if (!pdrsResponse?.data) {return [];}
     return pdrsResponse.data.sort((a, b) => 
       new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );

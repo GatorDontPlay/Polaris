@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { useCEODashboard } from '@/hooks/use-admin';
@@ -13,6 +13,7 @@ import { PDRStatusBadge } from '@/components/pdr/pdr-status-badge';
 import {
   Crown,
   Users,
+  CheckCircle,
   FileText,
   PieChart,
   Settings,

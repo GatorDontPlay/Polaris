@@ -153,7 +153,7 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
               behavior={behavior}
               companyValues={companyValues || []}
               onSubmit={(data) => handleUpdateBehavior(behavior.id, data)}
-              onDelete={canEdit ? handleDeleteBehavior : undefined}
+              {...(canEdit && { onDelete: handleDeleteBehavior })}
               isSubmitting={updateBehaviorMutation.isPending || deleteBehaviorMutation.isPending}
               isReadOnly={!canEdit}
             />

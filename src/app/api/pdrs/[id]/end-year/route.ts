@@ -194,21 +194,21 @@ export async function PUT(
     
     if (user.role === 'CEO') {
       // CEO can update any field
-      if (reviewData.achievementsSummary !== undefined) updateData.achievementsSummary = reviewData.achievementsSummary;
-      if (reviewData.learningsGrowth !== undefined) updateData.learningsGrowth = reviewData.learningsGrowth;
-      if (reviewData.challengesFaced !== undefined) updateData.challengesFaced = reviewData.challengesFaced;
-      if (reviewData.nextYearGoals !== undefined) updateData.nextYearGoals = reviewData.nextYearGoals;
-      if (reviewData.employeeOverallRating !== undefined) updateData.employeeOverallRating = reviewData.employeeOverallRating;
-      if (reviewData.ceoOverallRating !== undefined) updateData.ceoOverallRating = reviewData.ceoOverallRating;
-      if (reviewData.ceoFinalComments !== undefined) updateData.ceoFinalComments = reviewData.ceoFinalComments;
+      if (reviewData.achievementsSummary !== undefined) {updateData.achievementsSummary = reviewData.achievementsSummary;}
+      if (reviewData.learningsGrowth !== undefined) {updateData.learningsGrowth = reviewData.learningsGrowth;}
+      if (reviewData.challengesFaced !== undefined) {updateData.challengesFaced = reviewData.challengesFaced;}
+      if (reviewData.nextYearGoals !== undefined) {updateData.nextYearGoals = reviewData.nextYearGoals;}
+      if (reviewData.employeeOverallRating !== undefined) {updateData.employeeOverallRating = reviewData.employeeOverallRating;}
+      if (reviewData.ceoOverallRating !== undefined) {updateData.ceoOverallRating = reviewData.ceoOverallRating;}
+      if (reviewData.ceoFinalComments !== undefined) {updateData.ceoFinalComments = reviewData.ceoFinalComments;}
     } else {
       // Employee can only update their own fields (if not completed)
       if (pdr.status !== 'COMPLETED') {
-        if (reviewData.achievementsSummary !== undefined) updateData.achievementsSummary = reviewData.achievementsSummary;
-        if (reviewData.learningsGrowth !== undefined) updateData.learningsGrowth = reviewData.learningsGrowth;
-        if (reviewData.challengesFaced !== undefined) updateData.challengesFaced = reviewData.challengesFaced;
-        if (reviewData.nextYearGoals !== undefined) updateData.nextYearGoals = reviewData.nextYearGoals;
-        if (reviewData.employeeOverallRating !== undefined) updateData.employeeOverallRating = reviewData.employeeOverallRating;
+        if (reviewData.achievementsSummary !== undefined) {updateData.achievementsSummary = reviewData.achievementsSummary;}
+        if (reviewData.learningsGrowth !== undefined) {updateData.learningsGrowth = reviewData.learningsGrowth;}
+        if (reviewData.challengesFaced !== undefined) {updateData.challengesFaced = reviewData.challengesFaced;}
+        if (reviewData.nextYearGoals !== undefined) {updateData.nextYearGoals = reviewData.nextYearGoals;}
+        if (reviewData.employeeOverallRating !== undefined) {updateData.employeeOverallRating = reviewData.employeeOverallRating;}
       }
     }
 

@@ -91,20 +91,20 @@ export async function PUT(
     
     if (user.role === 'CEO') {
       // CEO can update any field
-      if (behaviorData.valueId !== undefined) updateData.valueId = behaviorData.valueId;
-      if (behaviorData.description !== undefined) updateData.description = behaviorData.description;
-      if (behaviorData.examples !== undefined) updateData.examples = behaviorData.examples;
-      if (behaviorData.employeeSelfAssessment !== undefined) updateData.employeeSelfAssessment = behaviorData.employeeSelfAssessment;
-      if (behaviorData.employeeRating !== undefined) updateData.employeeRating = behaviorData.employeeRating;
-      if (behaviorData.ceoComments !== undefined) updateData.ceoComments = behaviorData.ceoComments;
-      if (behaviorData.ceoRating !== undefined) updateData.ceoRating = behaviorData.ceoRating;
+      if (behaviorData.valueId !== undefined) {updateData.valueId = behaviorData.valueId;}
+      if (behaviorData.description !== undefined) {updateData.description = behaviorData.description;}
+      if (behaviorData.examples !== undefined) {updateData.examples = behaviorData.examples;}
+      if (behaviorData.employeeSelfAssessment !== undefined) {updateData.employeeSelfAssessment = behaviorData.employeeSelfAssessment;}
+      if (behaviorData.employeeRating !== undefined) {updateData.employeeRating = behaviorData.employeeRating;}
+      if (behaviorData.ceoComments !== undefined) {updateData.ceoComments = behaviorData.ceoComments;}
+      if (behaviorData.ceoRating !== undefined) {updateData.ceoRating = behaviorData.ceoRating;}
     } else {
       // Employee can only update basic fields and self-assessment
-      if (behaviorData.valueId !== undefined) updateData.valueId = behaviorData.valueId;
-      if (behaviorData.description !== undefined) updateData.description = behaviorData.description;
-      if (behaviorData.examples !== undefined) updateData.examples = behaviorData.examples;
-      if (behaviorData.employeeSelfAssessment !== undefined) updateData.employeeSelfAssessment = behaviorData.employeeSelfAssessment;
-      if (behaviorData.employeeRating !== undefined) updateData.employeeRating = behaviorData.employeeRating;
+      if (behaviorData.valueId !== undefined) {updateData.valueId = behaviorData.valueId;}
+      if (behaviorData.description !== undefined) {updateData.description = behaviorData.description;}
+      if (behaviorData.examples !== undefined) {updateData.examples = behaviorData.examples;}
+      if (behaviorData.employeeSelfAssessment !== undefined) {updateData.employeeSelfAssessment = behaviorData.employeeSelfAssessment;}
+      if (behaviorData.employeeRating !== undefined) {updateData.employeeRating = behaviorData.employeeRating;}
     }
 
     // Update the behavior

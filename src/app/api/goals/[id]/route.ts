@@ -66,24 +66,24 @@ export async function PUT(
     
     if (user.role === 'CEO') {
       // CEO can update any field
-      if (goalData.title !== undefined) updateData.title = goalData.title;
-      if (goalData.description !== undefined) updateData.description = goalData.description;
-      if (goalData.targetOutcome !== undefined) updateData.targetOutcome = goalData.targetOutcome;
-      if (goalData.successCriteria !== undefined) updateData.successCriteria = goalData.successCriteria;
-      if (goalData.priority !== undefined) updateData.priority = goalData.priority;
-      if (goalData.employeeProgress !== undefined) updateData.employeeProgress = goalData.employeeProgress;
-      if (goalData.employeeRating !== undefined) updateData.employeeRating = goalData.employeeRating;
-      if (goalData.ceoComments !== undefined) updateData.ceoComments = goalData.ceoComments;
-      if (goalData.ceoRating !== undefined) updateData.ceoRating = goalData.ceoRating;
+      if (goalData.title !== undefined) {updateData.title = goalData.title;}
+      if (goalData.description !== undefined) {updateData.description = goalData.description;}
+      if (goalData.targetOutcome !== undefined) {updateData.targetOutcome = goalData.targetOutcome;}
+      if (goalData.successCriteria !== undefined) {updateData.successCriteria = goalData.successCriteria;}
+      if (goalData.priority !== undefined) {updateData.priority = goalData.priority;}
+      if (goalData.employeeProgress !== undefined) {updateData.employeeProgress = goalData.employeeProgress;}
+      if (goalData.employeeRating !== undefined) {updateData.employeeRating = goalData.employeeRating;}
+      if (goalData.ceoComments !== undefined) {updateData.ceoComments = goalData.ceoComments;}
+      if (goalData.ceoRating !== undefined) {updateData.ceoRating = goalData.ceoRating;}
     } else {
       // Employee can only update basic fields and self-assessment
-      if (goalData.title !== undefined) updateData.title = goalData.title;
-      if (goalData.description !== undefined) updateData.description = goalData.description;
-      if (goalData.targetOutcome !== undefined) updateData.targetOutcome = goalData.targetOutcome;
-      if (goalData.successCriteria !== undefined) updateData.successCriteria = goalData.successCriteria;
-      if (goalData.priority !== undefined) updateData.priority = goalData.priority;
-      if (goalData.employeeProgress !== undefined) updateData.employeeProgress = goalData.employeeProgress;
-      if (goalData.employeeRating !== undefined) updateData.employeeRating = goalData.employeeRating;
+      if (goalData.title !== undefined) {updateData.title = goalData.title;}
+      if (goalData.description !== undefined) {updateData.description = goalData.description;}
+      if (goalData.targetOutcome !== undefined) {updateData.targetOutcome = goalData.targetOutcome;}
+      if (goalData.successCriteria !== undefined) {updateData.successCriteria = goalData.successCriteria;}
+      if (goalData.priority !== undefined) {updateData.priority = goalData.priority;}
+      if (goalData.employeeProgress !== undefined) {updateData.employeeProgress = goalData.employeeProgress;}
+      if (goalData.employeeRating !== undefined) {updateData.employeeRating = goalData.employeeRating;}
     }
 
     // Update the goal

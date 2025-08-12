@@ -12,10 +12,10 @@ async function fetchPDRs(params?: {
 }): Promise<PaginatedResponse<PDR>> {
   const searchParams = new URLSearchParams();
   
-  if (params?.page) searchParams.set('page', params.page.toString());
-  if (params?.limit) searchParams.set('limit', params.limit.toString());
-  if (params?.status) searchParams.set('status', params.status);
-  if (params?.period) searchParams.set('period', params.period);
+  if (params?.page) {searchParams.set('page', params.page.toString());}
+  if (params?.limit) {searchParams.set('limit', params.limit.toString());}
+  if (params?.status) {searchParams.set('status', params.status);}
+  if (params?.period) {searchParams.set('period', params.period);}
 
   const response = await fetch(`/api/pdrs?${searchParams}`, {
     credentials: 'include',

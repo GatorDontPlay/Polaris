@@ -79,11 +79,11 @@ async function fetchEmployees(params?: {
 }): Promise<PaginatedResponse<EmployeeOverview>> {
   const searchParams = new URLSearchParams();
   
-  if (params?.page) searchParams.set('page', params.page.toString());
-  if (params?.limit) searchParams.set('limit', params.limit.toString());
-  if (params?.search) searchParams.set('search', params.search);
-  if (params?.role) searchParams.set('role', params.role);
-  if (params?.status) searchParams.set('status', params.status);
+  if (params?.page) {searchParams.set('page', params.page.toString());}
+  if (params?.limit) {searchParams.set('limit', params.limit.toString());}
+  if (params?.search) {searchParams.set('search', params.search);}
+  if (params?.role) {searchParams.set('role', params.role);}
+  if (params?.status) {searchParams.set('status', params.status);}
 
   const response = await fetch(`/api/admin/employees?${searchParams}`, {
     credentials: 'include',
@@ -109,13 +109,13 @@ async function fetchAllPDRs(params?: {
 }): Promise<PaginatedResponse<PDR>> {
   const searchParams = new URLSearchParams();
   
-  if (params?.page) searchParams.set('page', params.page.toString());
-  if (params?.limit) searchParams.set('limit', params.limit.toString());
-  if (params?.status) searchParams.set('status', params.status);
-  if (params?.period) searchParams.set('period', params.period);
-  if (params?.search) searchParams.set('search', params.search);
-  if (params?.sortBy) searchParams.set('sortBy', params.sortBy);
-  if (params?.sortOrder) searchParams.set('sortOrder', params.sortOrder);
+  if (params?.page) {searchParams.set('page', params.page.toString());}
+  if (params?.limit) {searchParams.set('limit', params.limit.toString());}
+  if (params?.status) {searchParams.set('status', params.status);}
+  if (params?.period) {searchParams.set('period', params.period);}
+  if (params?.search) {searchParams.set('search', params.search);}
+  if (params?.sortBy) {searchParams.set('sortBy', params.sortBy);}
+  if (params?.sortOrder) {searchParams.set('sortOrder', params.sortOrder);}
 
   const response = await fetch(`/api/admin/pdrs?${searchParams}`, {
     credentials: 'include',

@@ -29,7 +29,7 @@ function getRating(pdr: PDR): string {
   
   const allRatings = [...goalRatings, ...behaviorRatings];
   
-  if (allRatings.length === 0) return '-';
+  if (allRatings.length === 0) {return '-';}
   
   const average = allRatings.reduce((sum, rating) => sum + rating, 0) / allRatings.length;
   return `${average.toFixed(1)}/5`;
