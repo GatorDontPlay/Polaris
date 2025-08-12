@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import { QueryProvider } from '@/providers/query-provider'
+import { Toaster } from '@/components/ui/toaster'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -39,9 +41,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body className={`${inter.className} h-full bg-background text-foreground antialiased`}>
-        <div id="root" className="min-h-screen bg-background">
-          {children}
-        </div>
+        <QueryProvider>
+          <div id="root" className="min-h-screen bg-background flex flex-col">
+            {children}
+          </div>
+          <Toaster />
+        </QueryProvider>
       </body>
     </html>
   )

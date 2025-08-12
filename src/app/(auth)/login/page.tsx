@@ -1,76 +1,185 @@
-import { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Login',
-  description: 'Sign in to your PDR System account',
-};
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { loginSchema } from '@/lib/validations';
+import type { LoginFormData } from '@/types';
 
 export default function LoginPage() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            PDR System
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Sign in to your account
-          </p>
-        </div>
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+  });
+
+  const onSubmit = async (data: LoginFormData) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: 'Login successful',
+          description: 'Redirecting to dashboard...',
+        });
         
-        <div className="bg-white py-8 px-6 shadow rounded-lg">
-          <div className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+        // Redirect based on user role
+        if (result.data.user.role === 'CEO') {
+          router.push('/admin');
+        } else {
+          router.push('/dashboard');
+        }
+      } else {
+        toast({
+          title: 'Login failed',
+          description: result.error || 'Invalid credentials',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Login error',
+        description: 'Unable to connect to server. For testing, try the demo login.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDemoLogin = (role: 'employee' | 'ceo') => {
+    toast({
+      title: 'Demo Mode',
+      description: `Simulating ${role} login for testing...`,
+    });
+    
+    // For testing without database, simulate login success
+    localStorage.setItem('demo_user', JSON.stringify({
+      id: `demo-${role}-1`,
+      email: `${role}@demo.com`,
+      firstName: role === 'ceo' ? 'CEO' : 'Employee',
+      lastName: 'Demo',
+      role: role.toUpperCase(),
+    }));
+
+    setTimeout(() => {
+      if (role === 'ceo') {
+        router.push('/admin');
+      } else {
+        router.push('/dashboard');
+      }
+    }, 1000);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center">PDR Advanced</CardTitle>
+          <CardDescription className="text-center">
+            Sign in to your Performance Development Review account
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="email" className="text-sm font-medium">
                 Email address
               </label>
-              <div className="mt-1">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Enter your email"
-                />
-              </div>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                {...register('email')}
+                className={errors.email ? 'border-red-500' : ''}
+              />
+              {errors.email && (
+                <p className="text-sm text-red-500">{errors.email.message}</p>
+              )}
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            <div className="space-y-2">
+              <label htmlFor="password" className="text-sm font-medium">
                 Password
               </label>
-              <div className="mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Enter your password"
-                />
-              </div>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter your password"
+                {...register('password')}
+                className={errors.password ? 'border-red-500' : ''}
+              />
+              {errors.password && (
+                <p className="text-sm text-red-500">{errors.password.message}</p>
+              )}
             </div>
 
-            <div>
-              <button
-                type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-              >
-                Sign in
-              </button>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Signing in...' : 'Sign In'}
+            </Button>
+          </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                Testing Without Database
+              </span>
             </div>
           </div>
-        </div>
 
-        <div className="text-center">
-          <p className="text-xs text-gray-500">
-            Performance & Development Review System
-          </p>
-        </div>
-      </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleDemoLogin('employee')}
+              className="w-full"
+            >
+              Demo Employee
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleDemoLogin('ceo')}
+              className="w-full"
+            >
+              Demo CEO
+            </Button>
+          </div>
+
+          <div className="text-xs text-center text-muted-foreground space-y-1">
+            <p>For testing the PDR workflow without database connection:</p>
+            <p>• Click "Demo Employee" to test employee PDR workflow</p>
+            <p>• Click "Demo CEO" to test admin dashboard</p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

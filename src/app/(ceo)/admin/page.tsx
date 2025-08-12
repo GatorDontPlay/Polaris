@@ -59,7 +59,7 @@ export default function CEODashboard() {
     return (
       <div className="flex h-full flex-col">
         <AdminHeader 
-          title="Dashboard" 
+ 
           breadcrumbs={[
             { label: 'Dashboard' }
           ]}
@@ -87,7 +87,7 @@ export default function CEODashboard() {
     return (
       <div className="flex h-full flex-col">
         <AdminHeader 
-          title="Dashboard" 
+ 
           breadcrumbs={[
             { label: 'Dashboard' }
           ]}
@@ -118,7 +118,6 @@ export default function CEODashboard() {
   return (
     <div className="flex h-full flex-col">
       <AdminHeader 
-        title="Dashboard" 
         breadcrumbs={[
           { label: 'Dashboard' }
         ]}

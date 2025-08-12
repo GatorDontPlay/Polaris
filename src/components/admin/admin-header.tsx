@@ -8,8 +8,6 @@ import { Bell, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 interface AdminHeaderProps {
-  title: string;
-  description?: string;
   breadcrumbs?: Array<{
     label: string;
     href?: string;
@@ -17,7 +15,7 @@ interface AdminHeaderProps {
   actions?: React.ReactNode;
 }
 
-export function AdminHeader({ title, description, breadcrumbs, actions }: AdminHeaderProps) {
+export function AdminHeader({ breadcrumbs, actions }: AdminHeaderProps) {
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 border-b px-6">
       <div className="flex items-center gap-2">

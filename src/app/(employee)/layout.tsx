@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/use-auth';
+import { useDemoAuth } from '@/hooks/use-demo-auth';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { EmployeeSidebar } from '@/components/dashboard/employee-sidebar';
 
@@ -12,7 +12,7 @@ interface EmployeeLayoutProps {
 
 export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useDemoAuth();
 
   // Redirect if not authenticated
   useEffect(() => {

@@ -2,6 +2,12 @@
 
 export type UserRole = 'EMPLOYEE' | 'CEO';
 
+// Form types
+export interface LoginFormData {
+  email: string;
+  password: string;
+}
+
 export type PDRStatus = 
   | 'DRAFT' 
   | 'SUBMITTED' 
