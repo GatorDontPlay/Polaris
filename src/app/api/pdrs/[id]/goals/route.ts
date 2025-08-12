@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import {
   createApiResponse,
   createApiError,
@@ -106,10 +106,10 @@ export async function POST(
       data: {
         pdrId,
         title: goalData.title,
-        description: goalData.description,
-        targetOutcome: goalData.targetOutcome,
-        successCriteria: goalData.successCriteria,
-        priority: goalData.priority,
+        description: goalData.description || null,
+        targetOutcome: goalData.targetOutcome || null,
+        successCriteria: goalData.successCriteria || null,
+        priority: goalData.priority || 'MEDIUM',
       },
     });
 
@@ -120,8 +120,8 @@ export async function POST(
       action: 'INSERT',
       newValues: goal,
       userId: user.id,
-      ipAddress: request.ip,
-      userAgent: request.headers.get('user-agent'),
+      ipAddress: request.ip || 'Unknown',
+      userAgent: request.headers.get('user-agent') || 'Unknown',
     });
 
     return createApiResponse(goal, 201);

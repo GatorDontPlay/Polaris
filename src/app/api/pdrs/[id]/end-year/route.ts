@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import {
   createApiResponse,
   createApiError,
@@ -108,10 +108,10 @@ export async function POST(
       data: {
         pdrId,
         achievementsSummary: reviewData.achievementsSummary,
-        learningsGrowth: reviewData.learningsGrowth,
-        challengesFaced: reviewData.challengesFaced,
-        nextYearGoals: reviewData.nextYearGoals,
-        employeeOverallRating: reviewData.employeeOverallRating,
+        learningsGrowth: reviewData.learningsGrowth || null,
+        challengesFaced: reviewData.challengesFaced || null,
+        nextYearGoals: reviewData.nextYearGoals || null,
+        employeeOverallRating: reviewData.employeeOverallRating || null,
       },
     });
 
@@ -130,8 +130,8 @@ export async function POST(
       action: 'INSERT',
       newValues: endYearReview,
       userId: user.id,
-      ipAddress: request.ip,
-      userAgent: request.headers.get('user-agent'),
+      ipAddress: request.ip || 'Unknown',
+      userAgent: request.headers.get('user-agent') || 'Unknown',
     });
 
     return createApiResponse(endYearReview, 201);
@@ -226,8 +226,8 @@ export async function PUT(
       oldValues: pdr.endYearReview,
       newValues: updatedReview,
       userId: user.id,
-      ipAddress: request.ip,
-      userAgent: request.headers.get('user-agent'),
+      ipAddress: request.ip || 'Unknown',
+      userAgent: request.headers.get('user-agent') || 'Unknown',
     });
 
     return createApiResponse(updatedReview);

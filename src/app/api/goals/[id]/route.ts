@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import {
   createApiResponse,
   createApiError,
@@ -100,8 +100,8 @@ export async function PUT(
       oldValues: goal,
       newValues: updatedGoal,
       userId: user.id,
-      ipAddress: request.ip,
-      userAgent: request.headers.get('user-agent'),
+      ipAddress: request.ip || 'Unknown',
+      userAgent: request.headers.get('user-agent') || 'Unknown',
     });
 
     return createApiResponse(updatedGoal);
@@ -165,8 +165,8 @@ export async function DELETE(
       action: 'DELETE',
       oldValues: goal,
       userId: user.id,
-      ipAddress: request.ip,
-      userAgent: request.headers.get('user-agent'),
+      ipAddress: request.ip || 'Unknown',
+      userAgent: request.headers.get('user-agent') || 'Unknown',
     });
 
     return createApiResponse({ success: true });

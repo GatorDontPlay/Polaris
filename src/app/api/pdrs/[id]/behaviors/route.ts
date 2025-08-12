@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import {
   createApiResponse,
   createApiError,
@@ -131,7 +131,7 @@ export async function POST(
         pdrId,
         valueId: behaviorData.valueId,
         description: behaviorData.description,
-        examples: behaviorData.examples,
+        examples: behaviorData.examples || null,
       },
       include: {
         value: true,
@@ -145,8 +145,8 @@ export async function POST(
       action: 'INSERT',
       newValues: behavior,
       userId: user.id,
-      ipAddress: request.ip,
-      userAgent: request.headers.get('user-agent'),
+      ipAddress: request.ip || 'Unknown',
+      userAgent: request.headers.get('user-agent') || 'Unknown',
     });
 
     return createApiResponse(behavior, 201);
