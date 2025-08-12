@@ -1,62 +1,48 @@
-import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
-import './globals.css';
-import { QueryProvider } from '@/providers/query-provider';
+import type { Metadata, Viewport } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: {
-    default: 'PDR System',
-    template: '%s | PDR System',
-  },
-  description: 'Performance & Development Review System for managing employee goals, behaviors, and performance assessments.',
-  keywords: ['PDR', 'Performance Review', 'Development', 'Goals', 'Employee Management'],
-  authors: [{ name: 'PDR System Team' }],
-  creator: 'PDR System',
-  publisher: 'PDR System',
+  title: 'PDR Advanced - Performance Development Review System',
+  description: 'A comprehensive Performance Development Review system for Australian businesses, featuring goal management, behavioral assessments, and structured review processes.',
+  publisher: 'PDR Advanced',
   robots: {
-    index: false,
-    follow: false,
+    index: true,
+    follow: true,
   },
-
   openGraph: {
-    type: 'website',
-    locale: 'en_AU',
+    title: 'PDR Advanced - Performance Development Review System',
+    description: 'A comprehensive Performance Development Review system for Australian businesses.',
     url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-    title: 'PDR System',
-    description: 'Performance & Development Review System',
-    siteName: 'PDR System',
+    siteName: 'PDR Advanced',
+    type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'PDR System',
-    description: 'Performance & Development Review System',
+    title: 'PDR Advanced - Performance Development Review System',
+    description: 'A comprehensive Performance Development Review system for Australian businesses.',
   },
-};
+}
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-};
+}
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="min-h-screen bg-background font-sans antialiased">
-        <QueryProvider>
-          <div className="relative flex min-h-screen flex-col">
-            <div className="flex-1">
-              {children}
-            </div>
-          </div>
-        </QueryProvider>
+    <html lang="en" className="h-full">
+      <body className={`${inter.className} h-full bg-background text-foreground antialiased`}>
+        <div id="root" className="min-h-screen bg-background">
+          {children}
+        </div>
       </body>
     </html>
-  );
+  )
 }

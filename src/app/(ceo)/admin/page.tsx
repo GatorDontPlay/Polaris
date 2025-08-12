@@ -1,297 +1,388 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/use-auth';
 import { useCEODashboard } from '@/hooks/use-admin';
-import { DashboardStats } from '@/components/admin/dashboard-stats';
-import { RecentActivity } from '@/components/admin/recent-activity';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AdminHeader, PageHeader } from '@/components/admin/admin-header';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PDRStatusBadge } from '@/components/pdr/pdr-status-badge';
+import { Progress } from '@/components/ui/progress';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
-  Crown,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   Users,
-  CheckCircle,
   FileText,
-  PieChart,
-  Settings,
-  Eye,
+  Clock,
+  CheckCircle,
   TrendingUp,
-  Calendar,
-  ArrowUpRight,
+  Plus,
+  Eye,
 } from 'lucide-react';
+import Link from 'next/link';
+
+const StatCard = ({ title, value, change, changeType, icon: Icon }: {
+  title: string;
+  value: string;
+  change: string;
+  changeType: 'positive' | 'negative' | 'neutral';
+  icon: React.ElementType;
+}) => (
+  <Card>
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      <Icon className="h-4 w-4 text-muted-foreground" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold">{value}</div>
+      <p className={`text-xs ${
+        changeType === 'positive' ? 'text-green-600' : 
+        changeType === 'negative' ? 'text-red-600' : 
+        'text-muted-foreground'
+      }`}>
+        {change}
+      </p>
+    </CardContent>
+  </Card>
+);
 
 export default function CEODashboard() {
-  const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { data: dashboardData, isLoading: dashboardLoading, error } = useCEODashboard();
+  const { data: dashboardData, isLoading, error } = useCEODashboard();
 
-  // Redirect if not authenticated or not CEO
-  useEffect(() => {
-    if (!authLoading && (!isAuthenticated || user?.role !== 'CEO')) {
-      router.push('/login');
-    }
-  }, [authLoading, isAuthenticated, user, router]);
-
-  // Show loading state
-  if (authLoading || dashboardLoading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+      <div className="flex h-full flex-col">
+        <AdminHeader 
+          title="Dashboard" 
+          breadcrumbs={[
+            { label: 'Dashboard' }
+          ]}
+        />
+        <div className="flex-1 space-y-4 p-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[...Array(4)].map((_, i) => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader className="space-y-0 pb-2">
+                  <div className="h-4 bg-muted rounded" />
+                </CardHeader>
+                <CardContent>
+                  <div className="h-7 bg-muted rounded mb-1" />
+                  <div className="h-3 bg-muted rounded w-1/2" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
-  // Handle error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center text-red-600">Dashboard Error</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center">
-            <p className="text-gray-600 mb-4">
-              Unable to load dashboard data. Please try refreshing the page.
-            </p>
-            <Button onClick={() => window.location.reload()}>
-              Refresh Page
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Don't render if not authenticated or not CEO
-  if (!isAuthenticated || user?.role !== 'CEO' || !dashboardData) {
-    return null;
-  }
-
-  const { stats, recentActivity, pendingReviews, statusDistribution } = dashboardData;
-
-  const quickActions = [
-    {
-      title: 'Employee Overview',
-      description: 'View all employees and their PDR status',
-      icon: Users,
-      href: '/admin/employees',
-      color: 'bg-blue-600 hover:bg-blue-700',
-    },
-    {
-      title: 'Review PDRs',
-      description: 'Review pending employee assessments',
-      icon: FileText,
-      href: '/admin/pdrs',
-      color: 'bg-green-600 hover:bg-green-700',
-      badge: stats.pendingReviews > 0 ? stats.pendingReviews : undefined,
-    },
-    {
-      title: 'Reports & Analytics',
-      description: 'View performance reports and trends',
-      icon: PieChart,
-      href: '/admin/reports',
-      color: 'bg-purple-600 hover:bg-purple-700',
-    },
-    {
-      title: 'Company Values',
-      description: 'Manage organizational values',
-      icon: Settings,
-      href: '/admin/company-values',
-      color: 'bg-orange-600 hover:bg-orange-700',
-    },
-  ];
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-6">
-            <div className="flex items-center">
-              <Crown className="h-8 w-8 text-yellow-600 mr-3" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  CEO Dashboard
-                </h1>
-                <p className="text-gray-600">
-                  Welcome back, {user.firstName}! Here's your organizational overview.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                <Calendar className="h-4 w-4 mr-1" />
-                {new Date().toLocaleDateString('en-AU', { 
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </Badge>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Dashboard Stats */}
-        <div className="mb-8">
-          <DashboardStats stats={stats} isLoading={false} />
-        </div>
-
-        {/* Quick Actions */}
-        <div className="mb-8">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {quickActions.map((action, index) => {
-              const Icon = action.icon;
-              return (
-                <Card 
-                  key={index}
-                  className="cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => router.push(action.href)}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className={`p-3 rounded-lg ${action.color}`}>
-                        <Icon className="h-6 w-6 text-white" />
-                      </div>
-                      {action.badge && (
-                        <Badge className="bg-red-100 text-red-800">
-                          {action.badge}
-                        </Badge>
-                      )}
-                    </div>
-                    <h3 className="font-medium text-gray-900 mb-2">
-                      {action.title}
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-3">
-                      {action.description}
-                    </p>
-                    <div className="flex items-center text-sm text-blue-600">
-                      <span>Go to {action.title.toLowerCase()}</span>
-                      <ArrowUpRight className="h-4 w-4 ml-1" />
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Recent Activity */}
-          <div>
-            <RecentActivity 
-              activities={recentActivity}
-              isLoading={false}
-              onViewAll={() => router.push('/admin/audit')}
-            />
-          </div>
-
-          {/* Pending Reviews */}
-          <Card>
+      <div className="flex h-full flex-col">
+        <AdminHeader 
+          title="Dashboard" 
+          breadcrumbs={[
+            { label: 'Dashboard' }
+          ]}
+        />
+        <div className="flex-1 flex items-center justify-center">
+          <Card className="w-full max-w-md">
             <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <FileText className="h-5 w-5 mr-2" />
-                  Pending Reviews ({stats.pendingReviews})
-                </div>
-                {stats.pendingReviews > 0 && (
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => router.push('/admin/pdrs?status=SUBMITTED,UNDER_REVIEW')}
-                  >
-                    <Eye className="h-4 w-4 mr-1" />
-                    Review All
-                  </Button>
-                )}
-              </CardTitle>
+              <CardTitle className="text-center text-red-600">Dashboard Error</CardTitle>
             </CardHeader>
-            <CardContent>
-              {pendingReviews.length === 0 ? (
-                <div className="text-center py-8">
-                  <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-4" />
-                  <p className="text-gray-600">All caught up! No pending reviews.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {pendingReviews.slice(0, 5).map((pdr) => (
-                    <div 
-                      key={pdr.id}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => router.push(`/admin/pdr/${pdr.id}`)}
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-gray-900">
-                            {pdr.user?.firstName} {pdr.user?.lastName}
-                          </h4>
-                          <PDRStatusBadge status={pdr.status} />
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {pdr.period?.name || 'Current Period'}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Updated {new Date(pdr.updatedAt).toLocaleDateString('en-AU')}
-                        </p>
-                      </div>
-                      <ArrowUpRight className="h-4 w-4 text-gray-400 ml-4" />
-                    </div>
-                  ))}
-                  
-                  {pendingReviews.length > 5 && (
-                    <div className="text-center pt-4">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => router.push('/admin/pdrs?status=SUBMITTED,UNDER_REVIEW')}
-                      >
-                        View {pendingReviews.length - 5} more
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
+            <CardContent className="text-center">
+              <p className="text-muted-foreground mb-4">
+                Unable to load dashboard data. Please try refreshing the page.
+              </p>
+              <Button onClick={() => window.location.reload()}>
+                Refresh Page
+              </Button>
             </CardContent>
           </Card>
         </div>
+      </div>
+    );
+  }
 
-        {/* Status Distribution */}
-        {statusDistribution.length > 0 && (
-          <div className="mt-8">
+  const stats = dashboardData?.stats;
+  const recentActivity = dashboardData?.recentActivity || [];
+  const pendingReviews = dashboardData?.pendingReviews || [];
+
+  return (
+    <div className="flex h-full flex-col">
+      <AdminHeader 
+        title="Dashboard" 
+        breadcrumbs={[
+          { label: 'Dashboard' }
+        ]}
+        actions={
+          <Button asChild>
+            <Link href="/admin/reviews/new">
+              <Plus className="mr-2 h-4 w-4" />
+              New Review
+            </Link>
+          </Button>
+        }
+      />
+
+      <div className="flex-1 space-y-6 p-6">
+        <PageHeader 
+          title="Welcome back!"
+          description="Here&apos;s what&apos;s happening with your team&apos;s performance reviews."
+        />
+
+        {/* Stats Overview */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            title="Total Employees"
+            value={stats?.totalEmployees?.toString() || '0'}
+            change="+2 from last month"
+            changeType="positive"
+            icon={Users}
+          />
+          <StatCard
+            title="Completed PDRs"
+            value={stats?.completedPDRs?.toString() || '0'}
+            change="+12% from last period"
+            changeType="positive"
+            icon={FileText}
+          />
+          <StatCard
+            title="Pending Reviews"
+            value={stats?.pendingReviews?.toString() || '0'}
+            change="3 due this week"
+            changeType="neutral"
+            icon={Clock}
+          />
+          <StatCard
+            title="Avg Rating"
+            value={`${stats?.averageRating?.toFixed(1) || '0.0'}`}
+            change="+0.2 from last period"
+            changeType="positive"
+            icon={TrendingUp}
+          />
+        </div>
+
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="reviews">Reviews</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+              <Card className="col-span-4">
+                <CardHeader>
+                  <CardTitle>Recent PDR Activity</CardTitle>
+                  <CardDescription>
+                    Latest performance review submissions and updates
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {recentActivity.length === 0 ? (
+                      <p className="text-center py-8 text-muted-foreground">
+                        No recent activity
+                      </p>
+                    ) : (
+                      recentActivity.slice(0, 5).map((activity: any) => (
+                        <div key={activity.id} className="flex items-center space-x-4">
+                          <Avatar className="h-9 w-9">
+                            <AvatarFallback>
+                              {activity.user?.firstName?.[0]}{activity.user?.lastName?.[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium leading-none">
+                              {activity.user?.firstName} {activity.user?.lastName}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {activity.message}
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Badge 
+                              variant={
+                                activity.priority === 'high' ? 'destructive' :
+                                activity.priority === 'medium' ? 'default' :
+                                'secondary'
+                              }
+                            >
+                              {activity.type}
+                            </Badge>
+                            {activity.pdr && (
+                              <Button variant="ghost" size="sm" asChild>
+                                <Link href={`/admin/reviews/${activity.pdr.id}`}>
+                                  <Eye className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="col-span-3">
+                <CardHeader>
+                  <CardTitle>Pending Actions</CardTitle>
+                  <CardDescription>
+                    Reviews requiring your attention
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {pendingReviews.length === 0 ? (
+                      <div className="text-center py-8">
+                        <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-4" />
+                        <p className="text-muted-foreground">All caught up! No pending reviews.</p>
+                      </div>
+                    ) : (
+                      pendingReviews.slice(0, 3).map((review: any) => (
+                        <div key={review.id} className="flex items-center justify-between space-x-4">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium leading-none">
+                              {review.user?.firstName} {review.user?.lastName}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {review.period?.name} - {review.status}
+                            </p>
+                          </div>
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/admin/reviews/${review.id}`}>
+                              Review
+                            </Link>
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="reviews" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <TrendingUp className="h-5 w-5 mr-2" />
-                  PDR Status Distribution
-                </CardTitle>
+                <CardTitle>All Performance Reviews</CardTitle>
+                <CardDescription>
+                  Manage and review all employee performance reviews
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-                  {statusDistribution.map((item) => (
-                    <div key={item.status} className="text-center">
-                      <div className="text-2xl font-bold text-gray-900">
-                        {item.count}
-                      </div>
-                      <div className="text-xs text-gray-600 mb-2">
-                        {item.percentage}%
-                      </div>
-                      <PDRStatusBadge status={item.status as any} />
-                    </div>
-                  ))}
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Period</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Progress</TableHead>
+                      <TableHead>Last Updated</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pendingReviews.slice(0, 10).map((pdr: any) => (
+                      <TableRow key={pdr.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center space-x-2">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback>
+                                {pdr.user?.firstName?.[0]}{pdr.user?.lastName?.[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">
+                                {pdr.user?.firstName} {pdr.user?.lastName}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {pdr.user?.email}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{pdr.period?.name}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={
+                              pdr.status === 'COMPLETED' ? 'default' :
+                              pdr.status === 'SUBMITTED' ? 'secondary' :
+                              'outline'
+                            }
+                          >
+                            {pdr.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <Progress value={pdr.currentStep * 20} className="w-20" />
+                            <span className="text-sm text-muted-foreground">
+                              {pdr.currentStep}/5
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(pdr.updatedAt).toLocaleDateString('en-AU')}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link href={`/admin/reviews/${pdr.id}`}>
+                              <Eye className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
-          </div>
-        )}
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Completion Trends</CardTitle>
+                  <CardDescription>
+                    PDR completion rates over time
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8 text-muted-foreground">
+                    Chart visualization coming soon
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Performance Distribution</CardTitle>
+                  <CardDescription>
+                    Overall performance ratings across the organization
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8 text-muted-foreground">
+                    Chart visualization coming soon
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
