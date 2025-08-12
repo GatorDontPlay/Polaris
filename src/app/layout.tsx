@@ -1,6 +1,7 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { QueryProvider } from '@/providers/query-provider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -18,11 +19,7 @@ export const metadata: Metadata = {
     index: false,
     follow: false,
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
+
   openGraph: {
     type: 'website',
     locale: 'en_AU',
@@ -38,6 +35,12 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -46,11 +49,13 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen bg-background font-sans antialiased">
-        <div className="relative flex min-h-screen flex-col">
-          <div className="flex-1">
-            {children}
+        <QueryProvider>
+          <div className="relative flex min-h-screen flex-col">
+            <div className="flex-1">
+              {children}
+            </div>
           </div>
-        </div>
+        </QueryProvider>
       </body>
     </html>
   );

@@ -129,8 +129,8 @@ export interface AuditLog {
   tableName: string;
   recordId: string;
   action: AuditAction;
-  oldValues?: Record<string, any>;
-  newValues?: Record<string, any>;
+  oldValues?: Record<string, unknown>;
+  newValues?: Record<string, unknown>;
   changedBy?: string;
   changedAt: Date;
   ipAddress?: string;

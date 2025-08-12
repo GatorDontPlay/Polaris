@@ -1,198 +1,160 @@
-import { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Employee Dashboard',
-  description: 'Your PDR dashboard and current review status',
-};
+import { Metadata } from 'next';
+import { useRouter } from 'next/navigation';
+import { usePDRs, useCreatePDR } from '@/hooks/use-pdrs';
+import { useAuth } from '@/hooks/use-auth';
+import { DashboardStats } from '@/components/dashboard/dashboard-stats';
+import { CurrentPDRCard } from '@/components/dashboard/current-pdr-card';
+import { PDRHistoryTable } from '@/components/dashboard/pdr-history-table';
+import { Button } from '@/components/ui/button';
+import { useEffect, useMemo } from 'react';
 
 export default function EmployeeDashboard() {
+  const router = useRouter();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { data: pdrsResponse, isLoading: pdrsLoading } = usePDRs();
+  const createPDRMutation = useCreatePDR();
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [authLoading, isAuthenticated, router]);
+
+  // Calculate dashboard stats
+  const dashboardStats = useMemo(() => {
+    if (!pdrsResponse?.data) {
+      return {
+        completedPDRs: 0,
+        currentGoals: 0,
+        averageRating: 0,
+        pendingActions: 0,
+      };
+    }
+
+    const pdrs = pdrsResponse.data;
+    const completedPDRs = pdrs.filter(pdr => pdr.status === 'COMPLETED').length;
+    
+    // Calculate current goals from active PDR
+    const activePDR = pdrs.find(pdr => 
+      pdr.status !== 'COMPLETED' && pdr.status !== 'LOCKED'
+    );
+    const currentGoals = activePDR?.goals?.length || 0;
+
+    // Calculate average rating from completed PDRs
+    const completedPDRsWithRatings = pdrs.filter(pdr => 
+      pdr.status === 'COMPLETED' && pdr.endYearReview?.ceoOverallRating
+    );
+    const averageRating = completedPDRsWithRatings.length > 0
+      ? completedPDRsWithRatings.reduce((sum, pdr) => 
+          sum + (pdr.endYearReview?.ceoOverallRating || 0), 0
+        ) / completedPDRsWithRatings.length
+      : 0;
+
+    // Calculate pending actions
+    const pendingActions = pdrs.filter(pdr => 
+      pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED'
+    ).length;
+
+    return {
+      completedPDRs,
+      currentGoals,
+      averageRating: Math.round(averageRating * 10) / 10,
+      pendingActions,
+    };
+  }, [pdrsResponse]);
+
+  // Find current active PDR
+  const currentPDR = useMemo(() => {
+    if (!pdrsResponse?.data) return null;
+    return pdrsResponse.data.find(pdr => 
+      pdr.status !== 'COMPLETED' && pdr.status !== 'LOCKED'
+    ) || null;
+  }, [pdrsResponse]);
+
+  // Get PDR history (all PDRs sorted by most recent)
+  const pdrHistory = useMemo(() => {
+    if (!pdrsResponse?.data) return [];
+    return pdrsResponse.data.sort((a, b) => 
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+  }, [pdrsResponse]);
+
+  const handleCreatePDR = async () => {
+    try {
+      const newPDR = await createPDRMutation.mutateAsync();
+      router.push(`/pdr/${newPDR.id}`);
+    } catch (error) {
+      console.error('Failed to create PDR:', error);
+      // TODO: Show error toast
+    }
+  };
+
+  const handleContinuePDR = (pdrId: string) => {
+    router.push(`/pdr/${pdrId}`);
+  };
+
+  const handleViewPDR = (pdrId: string) => {
+    router.push(`/pdr/${pdrId}/view`);
+  };
+
+  // Show loading state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!isAuthenticated || !user) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
-            Employee Dashboard
+            Welcome back, {user.firstName}!
           </h1>
           <p className="mt-2 text-gray-600">
             Manage your performance and development reviews
           </p>
         </div>
 
-        {/* Current PDR Status */}
-        <div className="bg-white overflow-hidden shadow rounded-lg mb-8">
-          <div className="px-4 py-5 sm:p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">
-              Current PDR Status
-            </h2>
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-medium">1</span>
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-blue-800">
-                    Draft - Goals Setting
-                  </h3>
-                  <p className="text-sm text-blue-700 mt-1">
-                    Continue setting your goals for the current review period
-                  </p>
-                  <div className="mt-2">
-                    <button className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors">
-                      Continue PDR
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Dashboard Stats */}
+        <div className="mb-8">
+          <DashboardStats 
+            stats={dashboardStats} 
+            isLoading={pdrsLoading}
+          />
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm">✓</span>
-                  </div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Completed PDRs
-                    </dt>
-                    <dd className="text-lg font-medium text-gray-900">
-                      3
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm">⏳</span>
-                  </div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Current Goals
-                    </dt>
-                    <dd className="text-lg font-medium text-gray-900">
-                      5
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm">★</span>
-                  </div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Average Rating
-                    </dt>
-                    <dd className="text-lg font-medium text-gray-900">
-                      4.2
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Current PDR */}
+        <div className="mb-8">
+          <CurrentPDRCard
+            pdr={currentPDR}
+            onContinue={handleContinuePDR}
+            onCreate={handleCreatePDR}
+            isLoading={pdrsLoading || createPDRMutation.isPending}
+          />
         </div>
 
         {/* PDR History */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">
-              PDR History
-            </h2>
-            <div className="overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Period
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Rating
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Completed
-                    </th>
-                    <th className="relative px-6 py-3">
-                      <span className="sr-only">Actions</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  <tr>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      2024 Annual Review
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                        Draft
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      -
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      -
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-blue-600 hover:text-blue-900">
-                        Continue
-                      </button>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      2023 Annual Review
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                        Completed
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      4.2/5
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      15/12/2023
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-blue-600 hover:text-blue-900">
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        <PDRHistoryTable
+          pdrs={pdrHistory}
+          onView={handleViewPDR}
+          onContinue={handleContinuePDR}
+          isLoading={pdrsLoading}
+        />
       </div>
     </div>
   );
