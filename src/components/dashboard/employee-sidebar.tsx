@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/hooks/use-auth';
+import { useDemoAuth } from '@/hooks/use-demo-auth';
 import {
   Sidebar,
   SidebarContent,
@@ -68,7 +68,7 @@ const navigation = [
 
 export function EmployeeSidebar() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, logout } = useDemoAuth();
 
   const handleLogout = async () => {
     await logout();
