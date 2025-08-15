@@ -13,37 +13,73 @@ interface AdminLayoutProps {
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const { user, isAuthenticated, isLoading } = useDemoAuth();
+  
+  console.log('AdminLayout Debug:', { 
+    user, 
+    isAuthenticated, 
+    isLoading,
+    userRole: user?.role,
+    pathname: typeof window !== 'undefined' ? window.location.pathname : 'server'
+  });
 
   // Redirect if not authenticated or not CEO
   useEffect(() => {
-    if (!isLoading && (!isAuthenticated || user?.role !== 'CEO')) {
-      router.push('/login');
+    if (!isLoading) {
+      if (!isAuthenticated) {
+        router.push('/');
+      } else if (user?.role === 'EMPLOYEE') {
+        router.push('/dashboard');
+      }
     }
   }, [isLoading, isAuthenticated, user, router]);
 
   // Show loading state
   if (isLoading) {
+    console.log('AdminLayout: Rendering loading state');
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="flex flex-col items-center space-y-4">
+      <div className="flex h-screen items-center justify-center bg-blue-100">
+        <div className="flex flex-col items-center space-y-4 p-8 bg-white rounded shadow">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           <p className="text-sm text-muted-foreground">Loading dashboard...</p>
+          <p className="text-xs text-gray-400">Auth check in progress</p>
         </div>
       </div>
     );
   }
 
   // Don't render if not authenticated
-  if (!isAuthenticated || user?.role !== 'CEO') {
-    return null;
+  if (!isAuthenticated) {
+    console.log('AdminLayout: Not authenticated, redirecting...');
+    return (
+      <div className="flex h-screen items-center justify-center bg-red-100">
+        <div className="text-center p-8 bg-white rounded shadow">
+          <p className="text-red-600 mb-2">Not authenticated</p>
+          <p className="text-sm">Redirecting to login...</p>
+        </div>
+      </div>
+    );
   }
 
+  if (user?.role !== 'CEO') {
+    console.log('AdminLayout: Not CEO role, user role:', user?.role);
+    return (
+      <div className="flex h-screen items-center justify-center bg-yellow-100">
+        <div className="text-center p-8 bg-white rounded shadow">
+          <p className="text-yellow-600 mb-2">Access denied</p>
+          <p className="text-sm">CEO role required. Your role: {user?.role}</p>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('AdminLayout: Rendering main layout for CEO');
+  
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full">
         <AdminSidebar />
         <SidebarInset className="flex-1 overflow-hidden">
-          <div className="flex h-full flex-col">
+          <div className="flex h-full flex-col min-h-0">
             {children}
           </div>
         </SidebarInset>

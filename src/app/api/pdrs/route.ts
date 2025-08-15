@@ -8,6 +8,8 @@ import {
   createPaginatedResponse 
 } from '@/lib/api-helpers';
 import { prisma } from '@/lib/db';
+import { computeAustralianFY } from '@/lib/financial-year';
+import { getPDRPermissions } from '@/lib/pdr-state-machine';
 
 export async function GET(request: NextRequest) {
   try {
@@ -120,37 +122,39 @@ export async function POST(request: NextRequest) {
 
     const { user } = authResult;
 
-    // Get active PDR period
-    const activePeriod = await prisma.pDRPeriod.findFirst({
-      where: { isActive: true },
-    });
-
-    if (!activePeriod) {
-      return createApiError('No active PDR period found', 400, 'NO_ACTIVE_PERIOD');
+    // Only employees can create PDRs
+    if (user.role !== 'EMPLOYEE') {
+      return createApiError('Only employees can create PDRs', 403, 'INSUFFICIENT_PERMISSIONS');
     }
 
-    // Check if user already has a PDR for this period
+    // Compute Australian Financial Year for current date
+    const currentFY = computeAustralianFY();
+
+    // Check if user already has a PDR for this FY
     const existingPDR = await prisma.pDR.findUnique({
       where: {
-        userId_periodId: {
+        userId_fyLabel: {
           userId: user.id,
-          periodId: activePeriod.id,
+          fyLabel: currentFY.label,
         },
       },
     });
 
     if (existingPDR) {
-      return createApiError('PDR already exists for this period', 400, 'PDR_EXISTS');
+      return createApiError(`PDR already exists for Financial Year ${currentFY.label}`, 400, 'PDR_EXISTS');
     }
 
-    // Create new PDR
+    // Create new PDR with FY fields
     const pdr = await prisma.pDR.create({
       data: {
         userId: user.id,
-        periodId: activePeriod.id,
-        status: 'DRAFT',
+        fyLabel: currentFY.label,
+        fyStartDate: currentFY.startDate,
+        fyEndDate: currentFY.endDate,
+        status: 'Created',
         currentStep: 1,
         isLocked: false,
+        meetingBooked: false,
       },
       include: {
         user: {

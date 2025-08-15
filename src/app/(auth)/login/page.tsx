@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,7 @@ import type { LoginFormData } from '@/types';
 
 export default function LoginPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -43,12 +45,18 @@ export default function LoginPage() {
           description: 'Redirecting to dashboard...',
         });
         
-        // Redirect based on user role
-        if (result.data.user.role === 'CEO') {
-          router.push('/admin');
-        } else {
-          router.push('/dashboard');
-        }
+        // Invalidate auth queries to refetch user data
+        await queryClient.invalidateQueries({ queryKey: ['auth'] });
+        
+        // Small delay to allow auth state to update
+        setTimeout(() => {
+          // Redirect based on user role
+          if (result.data.user.role === 'CEO') {
+            router.push('/admin');
+          } else {
+            router.push('/dashboard');
+          }
+        }, 100);
       } else {
         toast({
           title: 'Login failed',

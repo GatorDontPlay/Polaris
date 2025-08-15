@@ -143,14 +143,23 @@ async function main() {
 
   // Create sample PDRs for employees
   console.log('📊 Creating sample PDRs...');
+  
+  // Import the FY helper
+  const { computeAustralianFY } = await import('../src/lib/financial-year');
+  const currentFY = computeAustralianFY();
+  
   for (const employee of employees) {
     const pdr = await prisma.pDR.create({
       data: {
         userId: employee.id,
         periodId: period.id,
+        fyLabel: currentFY.label,
+        fyStartDate: currentFY.startDate,
+        fyEndDate: currentFY.endDate,
         status: 'DRAFT',
         currentStep: 1,
         isLocked: false,
+        meetingBooked: false,
       },
     });
 

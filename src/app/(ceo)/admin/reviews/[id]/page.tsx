@@ -1,0 +1,1127 @@
+'use client';
+
+import { useParams, useRouter } from 'next/navigation';
+import { AdminHeader, PageHeader } from '@/components/admin/admin-header';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  User,
+  Calendar,
+  Target,
+  TrendingUp,
+  FileText,
+  CheckCircle,
+  Clock,
+  MessageSquare,
+  Lock,
+  Unlock,
+  ArrowLeft,
+} from 'lucide-react';
+import { formatDateAU, getPDRStatusLabel } from '@/lib/utils';
+import { useState, useEffect } from 'react';
+
+interface PDRData {
+  id: string;
+  userId: string;
+  status: string;
+  currentStep: number;
+  isLocked: boolean;
+  meetingBooked: boolean;
+  fyLabel: string;
+  fyStartDate: string;
+  fyEndDate: string;
+  createdAt: string;
+  updatedAt: string;
+  submittedAt?: string;
+  user: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+}
+
+interface Goal {
+  id: string;
+  title: string;
+  description: string;
+  targetDate: string;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+  progress: number;
+}
+
+interface Behavior {
+  id: string;
+  title: string;
+  description: string;
+  examples: string;
+  selfRating: number;
+  managerRating?: number;
+  comments: string;
+}
+
+export default function CEOPDRReviewPage() {
+  const params = useParams();
+  const router = useRouter();
+  const pdrId = params.id as string;
+
+  const [pdr, setPdr] = useState<PDRData | null>(null);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [behaviors, setBehaviors] = useState<Behavior[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // CEO feedback state
+  const [ceoGoalFeedback, setCeoGoalFeedback] = useState<Record<string, {
+    ceoTitle?: string;
+    ceoDescription?: string;
+    ceoProgress?: number;
+    ceoComments?: string;
+    ceoRating?: number;
+  }>>({});
+  
+  const [ceoBehaviorFeedback, setCeoBehaviorFeedback] = useState<Record<string, {
+    ceoRating?: number;
+    ceoComments?: string;
+    ceoExamples?: string;
+  }>>({});
+
+  // Comments dialog state
+  const [isCommentsDialogOpen, setIsCommentsDialogOpen] = useState(false);
+  const [ceoComments, setCeoComments] = useState('');
+  
+  // Save & Lock confirmation dialog state
+  const [isLockConfirmDialogOpen, setIsLockConfirmDialogOpen] = useState(false);
+
+  // Functions to handle CEO feedback
+  const updateCeoGoalFeedback = (goalId: string, field: string, value: string | number) => {
+    setCeoGoalFeedback(prev => ({
+      ...prev,
+      [goalId]: {
+        ...prev[goalId],
+        [field]: value
+      }
+    }));
+    
+    // Save to localStorage
+    const feedbackKey = `ceo_goal_feedback_${pdrId}`;
+    const updatedFeedback = {
+      ...ceoGoalFeedback,
+      [goalId]: {
+        ...ceoGoalFeedback[goalId],
+        [field]: value
+      }
+    };
+    localStorage.setItem(feedbackKey, JSON.stringify(updatedFeedback));
+  };
+
+  const updateCeoBehaviorFeedback = (behaviorId: string, field: string, value: string | number) => {
+    setCeoBehaviorFeedback(prev => ({
+      ...prev,
+      [behaviorId]: {
+        ...prev[behaviorId],
+        [field]: value
+      }
+    }));
+    
+    // Save to localStorage
+    const feedbackKey = `ceo_behavior_feedback_${pdrId}`;
+    const updatedFeedback = {
+      ...ceoBehaviorFeedback,
+      [behaviorId]: {
+        ...ceoBehaviorFeedback[behaviorId],
+        [field]: value
+      }
+    };
+    localStorage.setItem(feedbackKey, JSON.stringify(updatedFeedback));
+  };
+
+  // Handle CEO comments
+  const handleSaveComments = () => {
+    const commentsKey = `ceo_comments_${pdrId}`;
+    localStorage.setItem(commentsKey, ceoComments);
+    setIsCommentsDialogOpen(false);
+    console.log('✅ CEO comments saved');
+  };
+
+  const handleOpenCommentsDialog = () => {
+    setIsCommentsDialogOpen(true);
+  };
+
+  // Validate that CEO has provided comprehensive feedback
+  const validateCEOFeedback = () => {
+    const validationErrors: string[] = [];
+    
+    // Check goals feedback
+    goals.forEach((goal) => {
+      const feedback = ceoGoalFeedback[goal.id];
+      if (!feedback?.ceoRating) {
+        validationErrors.push(`Goal "${goal.title}" is missing CEO rating`);
+      }
+      if (!feedback?.ceoComments?.trim()) {
+        validationErrors.push(`Goal "${goal.title}" is missing CEO comments`);
+      }
+    });
+    
+    // Check behaviors feedback
+    behaviors.forEach((behavior) => {
+      const feedback = ceoBehaviorFeedback[behavior.id];
+      if (!feedback?.ceoRating) {
+        validationErrors.push(`Behavior "${behavior.title}" is missing CEO rating`);
+      }
+      if (!feedback?.ceoComments?.trim()) {
+        validationErrors.push(`Behavior "${behavior.title}" is missing CEO comments`);
+      }
+    });
+    
+    // Check overall comments
+    if (!ceoComments.trim()) {
+      validationErrors.push('Overall CEO comments are required');
+    }
+    
+    return validationErrors;
+  };
+
+  // Save all CEO feedback and lock the review
+  const handleSaveAndLockReview = () => {
+    if (!pdr) return;
+    
+    // Validate feedback completeness
+    const validationErrors = validateCEOFeedback();
+    if (validationErrors.length > 0) {
+      alert(`Please complete all required feedback:\n\n${validationErrors.join('\n')}`);
+      return;
+    }
+    
+    // Save all CEO feedback to localStorage
+    const ceoReviewData = {
+      goalFeedback: ceoGoalFeedback,
+      behaviorFeedback: ceoBehaviorFeedback,
+      comments: ceoComments,
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: 'CEO' // In a real app, this would be the current user
+    };
+    
+    // Save CEO review data
+    localStorage.setItem(`ceo_review_${pdrId}`, JSON.stringify(ceoReviewData));
+    
+    // Update PDR status to locked
+    const updatedPDR = {
+      ...pdr,
+      status: 'PLAN_LOCKED',
+      isLocked: true,
+      reviewedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    setPdr(updatedPDR);
+    localStorage.setItem(`demo_pdr_${pdrId}`, JSON.stringify(updatedPDR));
+    localStorage.setItem('demo_current_pdr', JSON.stringify(updatedPDR));
+    
+    setIsLockConfirmDialogOpen(false);
+    console.log('✅ CEO Review: Review completed and PDR locked');
+    console.log('📊 CEO Review Data:', ceoReviewData);
+  };
+
+  const handleOpenLockConfirmDialog = () => {
+    setIsLockConfirmDialogOpen(true);
+  };
+
+  useEffect(() => {
+    const loadPDRData = () => {
+      console.log('🔍 CEO Review: Loading PDR data for ID:', pdrId);
+      
+      // Load PDR data from localStorage
+      let pdrData = null;
+      
+      // Check current PDR first
+      const currentPDR = localStorage.getItem('demo_current_pdr');
+      if (currentPDR) {
+        try {
+          const parsed = JSON.parse(currentPDR);
+          if (parsed.id === pdrId) {
+            pdrData = parsed;
+          }
+        } catch (error) {
+          console.error('Error parsing current PDR:', error);
+        }
+      }
+      
+      // Check specific PDR storage
+      if (!pdrData) {
+        const specificPDR = localStorage.getItem(`demo_pdr_${pdrId}`);
+        if (specificPDR) {
+          try {
+            pdrData = JSON.parse(specificPDR);
+          } catch (error) {
+            console.error('Error parsing specific PDR:', error);
+          }
+        }
+      }
+
+      if (pdrData) {
+        console.log('✅ CEO Review: Found PDR data:', { id: pdrData.id, status: pdrData.status });
+        setPdr({
+          ...pdrData,
+          user: {
+            firstName: 'Employee',
+            lastName: 'Demo',
+            email: 'employee@demo.com'
+          }
+        });
+
+        // Load goals
+        const goalsData = localStorage.getItem(`demo_goals_${pdrId}`);
+        if (goalsData) {
+          try {
+            const parsedGoals = JSON.parse(goalsData);
+            setGoals(parsedGoals);
+            console.log('✅ CEO Review: Found goals:', parsedGoals.length);
+          } catch (error) {
+            console.error('Error parsing goals:', error);
+          }
+        }
+
+        // Load behaviors
+        const behaviorsData = localStorage.getItem(`demo_behaviors_${pdrId}`);
+        if (behaviorsData) {
+          try {
+            const parsedBehaviors = JSON.parse(behaviorsData);
+            setBehaviors(parsedBehaviors);
+            console.log('✅ CEO Review: Found behaviors:', parsedBehaviors.length);
+          } catch (error) {
+            console.error('Error parsing behaviors:', error);
+          }
+        }
+              } else {
+          console.error('❌ CEO Review: PDR not found for ID:', pdrId);
+        }
+
+        // Load CEO feedback data
+        const goalFeedbackKey = `ceo_goal_feedback_${pdrId}`;
+        const savedGoalFeedback = localStorage.getItem(goalFeedbackKey);
+        if (savedGoalFeedback) {
+          try {
+            setCeoGoalFeedback(JSON.parse(savedGoalFeedback));
+            console.log('✅ CEO Review: Loaded goal feedback');
+          } catch (error) {
+            console.error('Error parsing CEO goal feedback:', error);
+          }
+        }
+
+        const behaviorFeedbackKey = `ceo_behavior_feedback_${pdrId}`;
+        const savedBehaviorFeedback = localStorage.getItem(behaviorFeedbackKey);
+        if (savedBehaviorFeedback) {
+          try {
+            setCeoBehaviorFeedback(JSON.parse(savedBehaviorFeedback));
+            console.log('✅ CEO Review: Loaded behavior feedback');
+          } catch (error) {
+            console.error('Error parsing CEO behavior feedback:', error);
+          }
+        }
+
+        // Load CEO comments
+        const commentsKey = `ceo_comments_${pdrId}`;
+        const savedComments = localStorage.getItem(commentsKey);
+        if (savedComments) {
+          setCeoComments(savedComments);
+          console.log('✅ CEO Review: Loaded comments');
+        }
+
+        setIsLoading(false);
+      };
+
+      loadPDRData();
+    }, [pdrId]);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'Created':
+        return <Badge variant="secondary">Draft</Badge>;
+      case 'SUBMITTED':
+        return <Badge variant="default">Submitted</Badge>;
+      case 'UNDER_REVIEW':
+        return <Badge variant="destructive">Under Review</Badge>;
+      case 'COMPLETED':
+        return <Badge variant="outline" className="border-green-500 text-green-600">Completed</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const getPriorityBadge = (priority: string) => {
+    switch (priority) {
+      case 'HIGH':
+        return <Badge variant="destructive">High</Badge>;
+      case 'MEDIUM':
+        return <Badge variant="default">Medium</Badge>;
+      case 'LOW':
+        return <Badge variant="secondary">Low</Badge>;
+      default:
+        return <Badge variant="outline">{priority}</Badge>;
+    }
+  };
+
+  const getProgressColor = (progress: number) => {
+    if (progress >= 80) return 'bg-green-500';
+    if (progress >= 60) return 'bg-blue-500';
+    if (progress >= 40) return 'bg-yellow-500';
+    return 'bg-gray-400';
+  };
+
+  const handleLockPDR = () => {
+    if (!pdr) return;
+    
+    const updatedPDR = {
+      ...pdr,
+      status: 'PLAN_LOCKED',
+      isLocked: true,
+      updatedAt: new Date().toISOString()
+    };
+    
+    setPdr(updatedPDR);
+    localStorage.setItem(`demo_pdr_${pdrId}`, JSON.stringify(updatedPDR));
+    localStorage.setItem('demo_current_pdr', JSON.stringify(updatedPDR));
+    
+    console.log('🔒 CEO Review: PDR locked');
+  };
+
+  const handleUnlockPDR = () => {
+    if (!pdr) return;
+    
+    const updatedPDR = {
+      ...pdr,
+      status: 'SUBMITTED',
+      isLocked: false,
+      updatedAt: new Date().toISOString()
+    };
+    
+    setPdr(updatedPDR);
+    localStorage.setItem(`demo_pdr_${pdrId}`, JSON.stringify(updatedPDR));
+    localStorage.setItem('demo_current_pdr', JSON.stringify(updatedPDR));
+    
+    console.log('🔓 CEO Review: PDR unlocked');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full flex-col">
+        <AdminHeader 
+          breadcrumbs={[
+            { label: 'Dashboard', href: '/admin' },
+            { label: 'Reviews', href: '/admin/reviews' },
+            { label: 'PDR Review' }
+          ]}
+        />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading PDR...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!pdr) {
+    return (
+      <div className="flex h-full flex-col">
+        <AdminHeader 
+          breadcrumbs={[
+            { label: 'Dashboard', href: '/admin' },
+            { label: 'Reviews', href: '/admin/reviews' },
+            { label: 'PDR Review' }
+          ]}
+        />
+        <div className="flex-1 flex items-center justify-center">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="text-center text-red-600">PDR Not Found</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center">
+              <p className="text-muted-foreground mb-4">
+                The PDR with ID "{pdrId}" could not be found.
+              </p>
+              <Button onClick={() => router.push('/admin/reviews')}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Reviews
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col min-h-0">
+      <AdminHeader 
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/admin' },
+          { label: 'Reviews', href: '/admin/reviews' },
+          { label: `${pdr.user.firstName} ${pdr.user.lastName}` }
+        ]}
+        actions={
+          <div className="flex items-center gap-2">
+            {pdr.status === 'SUBMITTED' && (
+              <Button onClick={handleLockPDR} variant="default">
+                <Lock className="mr-2 h-4 w-4" />
+                Lock PDR
+              </Button>
+            )}
+            {pdr.isLocked && (
+              <Button onClick={handleUnlockPDR} variant="outline">
+                <Unlock className="mr-2 h-4 w-4" />
+                Unlock PDR
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => router.push('/admin/reviews')}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Reviews
+            </Button>
+          </div>
+        }
+      />
+
+      <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+        {/* Employee Info Header */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarFallback className="text-lg">
+                    {pdr.user.firstName[0]}{pdr.user.lastName[0]}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <CardTitle className="text-2xl">{pdr.user.firstName} {pdr.user.lastName}</CardTitle>
+                  <CardDescription className="text-base">{pdr.user.email}</CardDescription>
+                  <div className="flex items-center gap-2 mt-2">
+                    {getStatusBadge(pdr.status)}
+                    {pdr.isLocked && <Badge variant="destructive">Locked</Badge>}
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-muted-foreground">Financial Year</div>
+                <div className="font-semibold">{pdr.fyLabel}</div>
+                <div className="text-xs text-muted-foreground">
+                  {formatDateAU(new Date(pdr.fyStartDate))} - {formatDateAU(new Date(pdr.fyEndDate))}
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+
+        {/* PDR Timeline */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              PDR Timeline
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <div>
+                  <div className="font-medium">PDR Created</div>
+                  <div className="text-sm text-muted-foreground">
+                    {formatDateAU(new Date(pdr.createdAt))}
+                  </div>
+                </div>
+              </div>
+              {pdr.submittedAt && (
+                <div className="flex items-center gap-4">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <div>
+                    <div className="font-medium">PDR Submitted</div>
+                    <div className="text-sm text-muted-foreground">
+                      {formatDateAU(new Date(pdr.submittedAt))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-4">
+                <Clock className="h-5 w-5 text-blue-600" />
+                <div>
+                  <div className="font-medium">Last Updated</div>
+                  <div className="text-sm text-muted-foreground">
+                    {formatDateAU(new Date(pdr.updatedAt))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="goals" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="goals" className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Goals ({goals.length})
+            </TabsTrigger>
+            <TabsTrigger value="behaviors" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Behaviors ({behaviors.length})
+            </TabsTrigger>
+            <TabsTrigger value="summary" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Summary
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="goals" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Performance Goals</CardTitle>
+                <CardDescription>
+                  Employee's performance goals and progress for {pdr.fyLabel}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {goals.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No goals have been set for this PDR.
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {goals.map((goal) => (
+                      <Card key={goal.id} className="p-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {/* Employee Side */}
+                          <div className="space-y-4">
+                            <div className="flex items-start justify-between">
+                              <h4 className="font-semibold text-blue-600">Employee Goal</h4>
+                              <div className="flex items-center gap-2">
+                                {getPriorityBadge(goal.priority || 'MEDIUM')}
+                                <Badge variant="outline">{(goal.status || 'NOT_STARTED').replace('_', ' ')}</Badge>
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <Label className="text-sm font-medium">Title</Label>
+                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm">
+                                {goal.title || 'Untitled Goal'}
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <Label className="text-sm font-medium">Description</Label>
+                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm min-h-[60px]">
+                                {goal.description || 'No description provided'}
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <Label className="text-sm font-medium">Progress</Label>
+                              <div className="mt-1 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm">{goal.progress || 0}%</span>
+                                  <span className="text-sm text-muted-foreground">
+                                    Due: {goal.targetDate ? formatDateAU(new Date(goal.targetDate)) : 'No date set'}
+                                  </span>
+                                </div>
+                                <Progress value={goal.progress || 0} className="h-2" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* CEO Side */}
+                          <div className="space-y-4 border-l pl-6">
+                            <h4 className="font-semibold text-green-600">CEO Assessment</h4>
+                            
+                            <div>
+                              <Label htmlFor={`ceo-title-${goal.id}`} className="text-sm font-medium">
+                                Your Title/Assessment
+                              </Label>
+                              <Input
+                                id={`ceo-title-${goal.id}`}
+                                placeholder="CEO's assessment of this goal..."
+                                value={ceoGoalFeedback[goal.id]?.ceoTitle || ''}
+                                onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoTitle', e.target.value)}
+                                className="mt-1"
+                              />
+                            </div>
+                            
+                            <div>
+                              <Label htmlFor={`ceo-desc-${goal.id}`} className="text-sm font-medium">
+                                Your Comments
+                              </Label>
+                              <Textarea
+                                id={`ceo-desc-${goal.id}`}
+                                placeholder="Your thoughts on this goal, its relevance, achievability, etc..."
+                                value={ceoGoalFeedback[goal.id]?.ceoDescription || ''}
+                                onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoDescription', e.target.value)}
+                                className="mt-1 min-h-[60px]"
+                                rows={3}
+                              />
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <Label htmlFor={`ceo-progress-${goal.id}`} className="text-sm font-medium">
+                                  Your Progress Assessment (%)
+                                </Label>
+                                <Input
+                                  id={`ceo-progress-${goal.id}`}
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  placeholder="0-100"
+                                  value={ceoGoalFeedback[goal.id]?.ceoProgress || ''}
+                                  onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoProgress', parseInt(e.target.value) || 0)}
+                                  className="mt-1"
+                                />
+                              </div>
+                              
+                              <div>
+                                <Label htmlFor={`ceo-rating-${goal.id}`} className="text-sm font-medium">
+                                  Rating (1-5)
+                                </Label>
+                                <Input
+                                  id={`ceo-rating-${goal.id}`}
+                                  type="number"
+                                  min="1"
+                                  max="5"
+                                  placeholder="1-5"
+                                  value={ceoGoalFeedback[goal.id]?.ceoRating || ''}
+                                  onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoRating', parseInt(e.target.value) || 0)}
+                                  className="mt-1"
+                                />
+                              </div>
+                            </div>
+                            
+                            {ceoGoalFeedback[goal.id]?.ceoProgress && (
+                              <div>
+                                <Label className="text-sm font-medium">CEO Progress Assessment</Label>
+                                <div className="mt-1">
+                                  <Progress value={ceoGoalFeedback[goal.id]?.ceoProgress || 0} className="h-2" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="behaviors" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Behavioral Competencies</CardTitle>
+                <CardDescription>
+                  Employee's self-assessment of behavioral competencies
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {behaviors.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No behaviors have been assessed for this PDR.
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {behaviors.map((behavior) => (
+                      <Card key={behavior.id} className="p-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {/* Employee Side */}
+                          <div className="space-y-4">
+                            <h4 className="font-semibold text-blue-600">Employee Assessment</h4>
+                            
+                            <div>
+                              <Label className="text-sm font-medium">Behavior Title</Label>
+                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm font-medium">
+                                {behavior.title || 'Untitled Behavior'}
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <Label className="text-sm font-medium">Description</Label>
+                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm min-h-[60px]">
+                                {behavior.description || 'No description provided'}
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <Label className="text-sm font-medium">Self Rating</Label>
+                              <div className="mt-1 space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Progress value={(behavior.selfRating || 0) * 20} className="flex-1 h-3" />
+                                  <span className="text-sm font-medium">{behavior.selfRating || 0}/5</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {behavior.examples && (
+                              <div>
+                                <Label className="text-sm font-medium">Examples</Label>
+                                <div className="mt-1 p-2 bg-muted/50 rounded text-sm min-h-[40px]">
+                                  {behavior.examples}
+                                </div>
+                              </div>
+                            )}
+
+                            {behavior.comments && (
+                              <div>
+                                <Label className="text-sm font-medium">Employee Comments</Label>
+                                <div className="mt-1 p-2 bg-muted/50 rounded text-sm min-h-[40px]">
+                                  {behavior.comments}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* CEO Side */}
+                          <div className="space-y-4 border-l pl-6">
+                            <h4 className="font-semibold text-green-600">CEO Assessment</h4>
+                            
+                            <div>
+                              <Label htmlFor={`ceo-behavior-rating-${behavior.id}`} className="text-sm font-medium">
+                                Your Rating (1-5)
+                              </Label>
+                              <Input
+                                id={`ceo-behavior-rating-${behavior.id}`}
+                                type="number"
+                                min="1"
+                                max="5"
+                                placeholder="1-5"
+                                value={ceoBehaviorFeedback[behavior.id]?.ceoRating || ''}
+                                onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'ceoRating', parseInt(e.target.value) || 0)}
+                                className="mt-1"
+                              />
+                              {ceoBehaviorFeedback[behavior.id]?.ceoRating && (
+                                <div className="mt-2 space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <Progress value={(ceoBehaviorFeedback[behavior.id]?.ceoRating || 0) * 20} className="flex-1 h-3" />
+                                    <span className="text-sm font-medium">{ceoBehaviorFeedback[behavior.id]?.ceoRating}/5</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div>
+                              <Label htmlFor={`ceo-behavior-examples-${behavior.id}`} className="text-sm font-medium">
+                                Your Examples/Observations
+                              </Label>
+                              <Textarea
+                                id={`ceo-behavior-examples-${behavior.id}`}
+                                placeholder="Specific examples or observations of this behavior..."
+                                value={ceoBehaviorFeedback[behavior.id]?.ceoExamples || ''}
+                                onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'ceoExamples', e.target.value)}
+                                className="mt-1 min-h-[60px]"
+                                rows={3}
+                              />
+                            </div>
+                            
+                            <div>
+                              <Label htmlFor={`ceo-behavior-comments-${behavior.id}`} className="text-sm font-medium">
+                                Your Comments & Feedback
+                              </Label>
+                              <Textarea
+                                id={`ceo-behavior-comments-${behavior.id}`}
+                                placeholder="Your assessment, areas for improvement, strengths, etc..."
+                                value={ceoBehaviorFeedback[behavior.id]?.ceoComments || ''}
+                                onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'ceoComments', e.target.value)}
+                                className="mt-1 min-h-[80px]"
+                                rows={4}
+                              />
+                            </div>
+                            
+                            {/* Rating Comparison */}
+                            {behavior.selfRating && ceoBehaviorFeedback[behavior.id]?.ceoRating && (
+                              <div>
+                                <Label className="text-sm font-medium">Rating Comparison</Label>
+                                <div className="mt-2 space-y-2">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span>Employee: {behavior.selfRating}/5</span>
+                                    <span>CEO: {ceoBehaviorFeedback[behavior.id]?.ceoRating}/5</span>
+                                    <span className={`font-medium ${Math.abs((behavior.selfRating || 0) - (ceoBehaviorFeedback[behavior.id]?.ceoRating || 0)) > 1 ? 'text-yellow-600' : 'text-green-600'}`}>
+                                      Δ {Math.abs((behavior.selfRating || 0) - (ceoBehaviorFeedback[behavior.id]?.ceoRating || 0))}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="summary" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Goals Summary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span>Total Goals</span>
+                      <span className="font-semibold">{goals.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Completed</span>
+                      <span className="font-semibold text-green-600">
+                        {goals.filter(g => (g.status || 'NOT_STARTED') === 'COMPLETED').length}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>In Progress</span>
+                      <span className="font-semibold text-blue-600">
+                        {goals.filter(g => (g.status || 'NOT_STARTED') === 'IN_PROGRESS').length}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Average Progress</span>
+                      <span className="font-semibold">
+                        {goals.length > 0 ? Math.round(goals.reduce((acc, g) => acc + (g.progress || 0), 0) / goals.length) : 0}%
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Behaviors Summary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span>Total Behaviors</span>
+                      <span className="font-semibold">{behaviors.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Average Self Rating</span>
+                      <span className="font-semibold">
+                        {behaviors.length > 0 
+                          ? (behaviors.reduce((acc, b) => acc + (b.selfRating || 0), 0) / behaviors.length).toFixed(1)
+                          : '0.0'}/5
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Manager Ratings</span>
+                      <span className="font-semibold text-muted-foreground">
+                        {behaviors.filter(b => b.managerRating).length}/{behaviors.length} completed
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Review Progress</CardTitle>
+                <CardDescription>
+                  Track your feedback completion before finalizing the review
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {(() => {
+                    const totalItems = goals.length + behaviors.length + 1; // +1 for overall comments
+                    const completedGoals = goals.filter(g => 
+                      ceoGoalFeedback[g.id]?.ceoRating && ceoGoalFeedback[g.id]?.ceoComments?.trim()
+                    ).length;
+                    const completedBehaviors = behaviors.filter(b => 
+                      ceoBehaviorFeedback[b.id]?.ceoRating && ceoBehaviorFeedback[b.id]?.ceoComments?.trim()
+                    ).length;
+                    const hasOverallComments = ceoComments.trim().length > 0;
+                    const completedItems = completedGoals + completedBehaviors + (hasOverallComments ? 1 : 0);
+                    const completionPercentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+                    
+                    return (
+                      <>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>Feedback Completion</span>
+                            <span className="font-medium">{completionPercentage}%</span>
+                          </div>
+                          <Progress value={completionPercentage} className="h-2" />
+                        </div>
+                        <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div className="text-center">
+                            <div className="font-medium">{completedGoals}/{goals.length}</div>
+                            <div className="text-muted-foreground">Goals</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium">{completedBehaviors}/{behaviors.length}</div>
+                            <div className="text-muted-foreground">Behaviors</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium">{hasOverallComments ? '✓' : '✗'}</div>
+                            <div className="text-muted-foreground">Comments</div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>CEO Actions</CardTitle>
+                <CardDescription>
+                  Actions available for this PDR review
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {pdr.status === 'SUBMITTED' && !pdr.isLocked && (
+                      <AlertDialog open={isLockConfirmDialogOpen} onOpenChange={setIsLockConfirmDialogOpen}>
+                        <AlertDialogTrigger asChild>
+                          <Button onClick={handleOpenLockConfirmDialog} className="w-full">
+                            <Lock className="mr-2 h-4 w-4" />
+                            Save & Lock Review
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Finalize CEO Review</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will save all your feedback and lock the PDR for formal review. Once locked:
+                              <br />• The employee's goals will be formally set for measurement
+                              <br />• The PDR will be ready for mid-year check-ins
+                              <br />• You won't be able to edit your feedback without unlocking
+                              <br /><br />
+                              Are you sure you want to finalize this review?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleSaveAndLockReview}>
+                              Save & Lock Review
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                    {pdr.isLocked && (
+                      <Button onClick={handleUnlockPDR} variant="outline" className="w-full">
+                        <Unlock className="mr-2 h-4 w-4" />
+                        Unlock PDR
+                      </Button>
+                    )}
+                    <Dialog open={isCommentsDialogOpen} onOpenChange={setIsCommentsDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" className="w-full" onClick={handleOpenCommentsDialog}>
+                          <MessageSquare className="mr-2 h-4 w-4" />
+                          {ceoComments ? 'Edit Comments' : 'Add Comments'}
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[525px]">
+                        <DialogHeader>
+                          <DialogTitle>CEO Comments</DialogTitle>
+                          <DialogDescription>
+                            Add your comments about this PDR review. These comments will be visible to the employee.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="ceo-comments">Your Comments</Label>
+                            <Textarea
+                              id="ceo-comments"
+                              placeholder="Enter your overall comments about this PDR review..."
+                              value={ceoComments}
+                              onChange={(e) => setCeoComments(e.target.value)}
+                              className="min-h-[120px]"
+                              rows={6}
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setIsCommentsDialogOpen(false)}>
+                            Cancel
+                          </Button>
+                          <Button onClick={handleSaveComments}>
+                            Save Comments
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="text-sm text-muted-foreground">
+                    <p><strong>Status:</strong> {getPDRStatusLabel(pdr.status as any) || pdr.status}</p>
+                    <p><strong>Submitted:</strong> {pdr.submittedAt ? formatDateAU(new Date(pdr.submittedAt)) : 'Not submitted'}</p>
+                    <p><strong>Last Updated:</strong> {formatDateAU(new Date(pdr.updatedAt))}</p>
+                    <p><strong>Meeting Booked:</strong> {pdr.meetingBooked ? 'Yes' : 'No'}</p>
+                  </div>
+                  
+                  {ceoComments && (
+                    <>
+                      <Separator />
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">CEO Comments</h4>
+                        <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
+                          {ceoComments.split('\n').map((line, index) => (
+                            <p key={index} className={index > 0 ? 'mt-2' : ''}>
+                              {line || '\u00A0'}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}

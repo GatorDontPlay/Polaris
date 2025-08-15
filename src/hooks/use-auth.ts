@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth-store';
 import { AuthUser } from '@/types';
@@ -18,7 +19,7 @@ async function fetchCurrentUser(): Promise<AuthUser | null> {
     }
 
     const data = await response.json();
-    return data.success ? data.data : null;
+    return data.success ? data.data.user : null;
   } catch (error) {
     console.error('Auth check failed:', error);
     return null;
@@ -34,13 +35,16 @@ export function useAuth() {
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
     refetchOnWindowFocus: false,
-    onSuccess: (data) => {
-      setUser(data);
-    },
-    onError: () => {
-      setUser(null);
-    },
   });
+
+  // Update user state when data changes
+  useEffect(() => {
+    if (data) {
+      setUser(data);
+    } else if (error) {
+      setUser(null);
+    }
+  }, [data, error, setUser]);
 
   return {
     user: (data || user) as AuthUser | null,

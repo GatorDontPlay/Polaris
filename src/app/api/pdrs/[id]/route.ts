@@ -1,15 +1,17 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { 
   createApiResponse, 
   createApiError,
   handleApiError,
-  authenticateRequest,
-  authorizeResourceAccess,
-  validateRequestBody 
+  authenticateRequest
 } from '@/lib/api-helpers';
 import { prisma } from '@/lib/db';
-import { pdrUpdateSchema } from '@/lib/validations';
-import { createAuditLog } from '@/lib/auth';
+import { 
+  getPDRPermissions, 
+  validateStateTransition,
+  validateTransitionRequirements,
+  createPDRNotification 
+} from '@/lib/pdr-state-machine';
 
 export async function GET(
   request: NextRequest,
@@ -25,7 +27,7 @@ export async function GET(
     const { user } = authResult;
     const pdrId = params.id;
 
-    // Get PDR with full details
+    // Get PDR with all relations
     const pdr = await prisma.pDR.findUnique({
       where: { id: pdrId },
       include: {
@@ -39,14 +41,23 @@ export async function GET(
           },
         },
         period: true,
+        lockedByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
         goals: {
-          orderBy: { createdAt: 'asc' },
+          include: {
+            pdr: false, // Avoid circular reference
+          },
         },
         behaviors: {
           include: {
             value: true,
+            pdr: false, // Avoid circular reference
           },
-          orderBy: { value: { sortOrder: 'asc' } },
         },
         midYearReview: true,
         endYearReview: true,
@@ -57,19 +68,30 @@ export async function GET(
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
-    // Check authorization
-    const authCheck = authorizeResourceAccess(user, pdr.userId);
-    if (!authCheck.success) {
-      return authCheck.response;
+    // Check permissions
+    const isOwner = pdr.userId === user.id;
+    const permissions = getPDRPermissions(pdr.status, user.role, isOwner);
+
+    if (!permissions.canView) {
+      return createApiError('Insufficient permissions to view this PDR', 403, 'INSUFFICIENT_PERMISSIONS');
     }
 
-    return createApiResponse(pdr);
+    // Filter fields based on permissions
+    const filteredPdr = {
+      ...pdr,
+      employeeFields: permissions.canViewEmployeeFields ? pdr.employeeFields : undefined,
+      ceoFields: permissions.canViewCeoFields ? pdr.ceoFields : undefined,
+      goals: permissions.canViewEmployeeFields ? pdr.goals : [],
+      behaviors: permissions.canViewEmployeeFields ? pdr.behaviors : [],
+    };
+
+    return createApiResponse(filteredPdr);
   } catch (error) {
     return handleApiError(error);
   }
 }
 
-export async function PUT(
+export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -82,41 +104,55 @@ export async function PUT(
 
     const { user } = authResult;
     const pdrId = params.id;
+    const body = await request.json();
 
-    // Get existing PDR
-    const existingPDR = await prisma.pDR.findUnique({
+    // Get current PDR
+    const pdr = await prisma.pDR.findUnique({
       where: { id: pdrId },
+      include: {
+        user: true,
+        goals: true,
+        behaviors: true,
+      },
     });
 
-    if (!existingPDR) {
+    if (!pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
-    // Check authorization - employees can only edit their own unlocked PDRs
-    if (user.role === 'EMPLOYEE') {
-      if (existingPDR.userId !== user.id) {
-        return createApiError('Access denied', 403, 'FORBIDDEN');
-      }
-      if (existingPDR.isLocked) {
-        return createApiError('PDR is locked and cannot be edited', 400, 'PDR_LOCKED');
-      }
+    // Check permissions
+    const isOwner = pdr.userId === user.id;
+    const permissions = getPDRPermissions(pdr.status, user.role, isOwner);
+
+    if (!permissions.canEdit) {
+      const reason = permissions.readOnlyReason || 'PDR is not editable in current state';
+      return createApiError(reason, 403, 'PDR_READ_ONLY');
     }
 
-    // Validate request body
-    const validation = await validateRequestBody(request, pdrUpdateSchema);
-    if (!validation.success) {
-      return validation.response;
+    // Prepare update data based on user role and permissions
+    const updateData: any = {
+      updatedAt: new Date(),
+    };
+
+    // Handle employee field updates
+    if (permissions.canEditEmployeeFields && body.employeeFields) {
+      updateData.employeeFields = body.employeeFields;
     }
 
-    const updateData = validation.data;
+    // Handle CEO field updates
+    if (permissions.canEditCeoFields && body.ceoFields) {
+      updateData.ceoFields = body.ceoFields;
+    }
+
+    // Handle step progression
+    if (body.currentStep && typeof body.currentStep === 'number') {
+      updateData.currentStep = body.currentStep;
+    }
 
     // Update PDR
-    const updatedPDR = await prisma.pDR.update({
+    const updatedPdr = await prisma.pDR.update({
       where: { id: pdrId },
-      data: {
-        ...updateData,
-        updatedAt: new Date(),
-      },
+      data: updateData,
       include: {
         user: {
           select: {
@@ -128,20 +164,18 @@ export async function PUT(
           },
         },
         period: true,
+        goals: true,
+        behaviors: {
+          include: {
+            value: true,
+          },
+        },
+        midYearReview: true,
+        endYearReview: true,
       },
     });
 
-    // Create audit log
-    await createAuditLog({
-      tableName: 'pdrs',
-      recordId: pdrId,
-      action: 'UPDATE',
-      oldValues: existingPDR as Record<string, unknown>,
-      newValues: updatedPDR as Record<string, unknown>,
-      userId: user.id,
-    });
-
-    return createApiResponse(updatedPDR);
+    return createApiResponse(updatedPdr);
   } catch (error) {
     return handleApiError(error);
   }

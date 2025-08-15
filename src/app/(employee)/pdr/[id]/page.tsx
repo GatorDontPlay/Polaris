@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { usePDR } from '@/hooks/use-pdrs';
+import { useDemoPDR } from '@/hooks/use-demo-pdr';
 
 interface PDRPageProps {
   params: { id: string };
@@ -10,7 +10,7 @@ interface PDRPageProps {
 
 export default function PDRPage({ params }: PDRPageProps) {
   const router = useRouter();
-  const { data: pdr, isLoading } = usePDR(params.id);
+  const { data: pdr, isLoading } = useDemoPDR(params.id);
 
   useEffect(() => {
     if (!isLoading && pdr) {

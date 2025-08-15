@@ -17,25 +17,59 @@ interface GoalsPageProps {
 export default function GoalsPage({ params }: GoalsPageProps) {
   const router = useRouter();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { data: pdr, isLoading: pdrLoading } = useDemoPDR(params.id);
   const { data: goals, isLoading: goalsLoading, addGoal, updateGoal, deleteGoal } = useDemoGoals(params.id);
 
   const isLoading = pdrLoading || goalsLoading;
   const isReadOnly = pdr?.isLocked || false;
-  const canEdit = pdr && !isReadOnly && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED');
+  const canEdit = pdr && !isReadOnly && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'Created');
+
+  console.log('Goals page debug:', {
+    pdr: pdr,
+    isLoading,
+    isReadOnly,
+    canEdit,
+    pdrStatus: pdr?.status,
+    pdrLocked: pdr?.isLocked,
+    goalsCount: goals?.length
+  });
 
   const handleCreateGoal = async (data: GoalFormData) => {
-    addGoal(data);
-    setShowAddForm(false);
+    try {
+      setIsSubmitting(true);
+      console.log('Creating goal with data:', data);
+      addGoal(data);
+      setShowAddForm(false);
+      console.log('Goal created successfully');
+    } catch (error) {
+      console.error('Failed to create goal:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleUpdateGoal = async (goalId: string, data: GoalFormData) => {
-    updateGoal(goalId, data);
+    try {
+      setIsSubmitting(true);
+      updateGoal(goalId, data);
+    } catch (error) {
+      console.error('Failed to update goal:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDeleteGoal = async (goalId: string) => {
-    deleteGoal(goalId);
+    try {
+      setIsSubmitting(true);
+      deleteGoal(goalId);
+    } catch (error) {
+      console.error('Failed to delete goal:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleNext = () => {
@@ -110,7 +144,7 @@ export default function GoalsPage({ params }: GoalsPageProps) {
         <GoalForm
           onSubmit={handleCreateGoal}
           onCancel={() => setShowAddForm(false)}
-          isSubmitting={false}
+          isSubmitting={isSubmitting}
         />
       )}
 
@@ -122,11 +156,23 @@ export default function GoalsPage({ params }: GoalsPageProps) {
               key={goal.id}
               goal={goal}
               onSubmit={(data) => handleUpdateGoal(goal.id, data)}
-              {...(canEdit && { onDelete: handleDeleteGoal })}
-              isSubmitting={updateGoalMutation.isPending || deleteGoalMutation.isPending}
+              {...(canEdit && { onDelete: () => handleDeleteGoal(goal.id) })}
+              isSubmitting={isSubmitting}
               isReadOnly={!canEdit}
             />
           ))}
+          
+          {/* Add Another Goal Button */}
+          {canEdit && !showAddForm && (
+            <Card className="border-dashed border-2 border-gray-300">
+              <CardContent className="text-center py-8">
+                <Button onClick={handleAddGoal} variant="outline" size="lg">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Another Goal
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 

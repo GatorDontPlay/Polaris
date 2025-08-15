@@ -9,6 +9,10 @@ export interface LoginFormData {
 }
 
 export type PDRStatus = 
+  | 'Created'
+  | 'OPEN_FOR_REVIEW'
+  | 'PLAN_LOCKED'
+  | 'PDR_BOOKED'
   | 'DRAFT' 
   | 'SUBMITTED' 
   | 'UNDER_REVIEW' 
@@ -20,6 +24,8 @@ export type PDRStatus =
 export type Priority = 'HIGH' | 'MEDIUM' | 'LOW';
 
 export type AuditAction = 'INSERT' | 'UPDATE' | 'DELETE';
+
+export type NotificationType = 'PDR_LOCKED' | 'PDR_SUBMITTED' | 'PDR_REMINDER';
 
 export interface User {
   id: string;
@@ -45,8 +51,17 @@ export interface PDRPeriod {
 export interface PDR {
   id: string;
   userId: string;
-  periodId: string;
+  periodId?: string;
+  fyLabel: string;
+  fyStartDate: Date;
+  fyEndDate: Date;
   status: PDRStatus;
+  employeeFields?: Record<string, unknown>;
+  ceoFields?: Record<string, unknown>;
+  meetingBooked: boolean;
+  meetingBookedAt?: Date;
+  lockedAt?: Date;
+  lockedBy?: string;
   isLocked: boolean;
   currentStep: number;
   submittedAt?: Date;
@@ -56,10 +71,12 @@ export interface PDR {
   // Relations
   user?: User;
   period?: PDRPeriod;
+  lockedByUser?: User;
   goals?: Goal[];
   behaviors?: Behavior[];
   midYearReview?: MidYearReview;
   endYearReview?: EndYearReview;
+  notifications?: Notification[];
 }
 
 export interface Goal {
@@ -144,6 +161,21 @@ export interface AuditLog {
   
   // Relations
   user?: User;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  pdrId?: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  readAt?: Date;
+  createdAt: Date;
+  
+  // Relations
+  user?: User;
+  pdr?: PDR;
 }
 
 // API response types
@@ -332,3 +364,6 @@ export interface DateFormatOptions {
   includeTime?: boolean;
   locale?: 'en-AU';
 }
+
+// Theme types
+export * from './theme';

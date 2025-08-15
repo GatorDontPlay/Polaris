@@ -1,7 +1,8 @@
 'use client';
 
-import { useDemoAdminDashboard } from '@/hooks/use-demo-admin';
+import { useDemoAdminDashboard as useCEODashboard } from '@/hooks/use-demo-admin';
 import { AdminHeader, PageHeader } from '@/components/admin/admin-header';
+import { PDRManagementDashboard } from '@/components/admin/pdr-management-dashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -53,30 +54,30 @@ const StatCard = ({ title, value, change, changeType, icon: Icon }: {
 );
 
 export default function CEODashboard() {
-  const { data: dashboardData, isLoading, error } = useDemoAdminDashboard();
+  console.log('CEODashboard component mounted');
+  
+  const { data: dashboardData, isLoading, error } = useCEODashboard();
+
+  console.log('CEO Dashboard Debug:', { 
+    dashboardData, 
+    isLoading, 
+    error: error?.message || error,
+    hasData: !!dashboardData,
+    statsExists: !!dashboardData?.stats 
+  });
 
   if (isLoading) {
     return (
       <div className="flex h-full flex-col">
         <AdminHeader 
- 
           breadcrumbs={[
             { label: 'Dashboard' }
           ]}
         />
         <div className="flex-1 space-y-4 p-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {[...Array(4)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
-                <CardHeader className="space-y-0 pb-2">
-                  <div className="h-4 bg-muted rounded" />
-                </CardHeader>
-                <CardContent>
-                  <div className="h-7 bg-muted rounded mb-1" />
-                  <div className="h-3 bg-muted rounded w-1/2" />
-                </CardContent>
-              </Card>
-            ))}
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading CEO dashboard...</p>
           </div>
         </div>
       </div>
@@ -87,7 +88,6 @@ export default function CEODashboard() {
     return (
       <div className="flex h-full flex-col">
         <AdminHeader 
- 
           breadcrumbs={[
             { label: 'Dashboard' }
           ]}
@@ -99,11 +99,19 @@ export default function CEODashboard() {
             </CardHeader>
             <CardContent className="text-center">
               <p className="text-muted-foreground mb-4">
-                Unable to load dashboard data. Please try refreshing the page.
+                Error: {error?.message || 'Unable to load dashboard data'}
               </p>
-              <Button onClick={() => window.location.reload()}>
-                Refresh Page
-              </Button>
+              <p className="text-sm text-gray-500 mb-4">
+                Please ensure you are logged in with CEO credentials.
+              </p>
+              <div className="space-y-2">
+                <Button onClick={() => window.location.reload()}>
+                  Refresh Page
+                </Button>
+                <Button variant="outline" onClick={() => window.location.href = '/login'}>
+                  Go to Login
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -116,7 +124,7 @@ export default function CEODashboard() {
   const pendingReviews = dashboardData?.pendingReviews || [];
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col min-h-0">
       <AdminHeader 
         breadcrumbs={[
           { label: 'Dashboard' }
@@ -131,7 +139,7 @@ export default function CEODashboard() {
         }
       />
 
-      <div className="flex-1 space-y-6 p-6">
+      <div className="flex-1 space-y-6 p-6 overflow-y-auto">
         <PageHeader 
           title="Welcome back!"
           description="Here&apos;s what&apos;s happening with your team&apos;s performance reviews."
@@ -273,81 +281,7 @@ export default function CEODashboard() {
           </TabsContent>
 
           <TabsContent value="reviews" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>All Performance Reviews</CardTitle>
-                <CardDescription>
-                  Manage and review all employee performance reviews
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Employee</TableHead>
-                      <TableHead>Period</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Progress</TableHead>
-                      <TableHead>Last Updated</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pendingReviews.slice(0, 10).map((pdr: any) => (
-                      <TableRow key={pdr.id}>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center space-x-2">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback>
-                                {pdr.user?.firstName?.[0]}{pdr.user?.lastName?.[0]}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">
-                                {pdr.user?.firstName} {pdr.user?.lastName}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {pdr.user?.email}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>{pdr.period?.name}</TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={
-                              pdr.status === 'COMPLETED' ? 'default' :
-                              pdr.status === 'SUBMITTED' ? 'secondary' :
-                              'outline'
-                            }
-                          >
-                            {pdr.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Progress value={pdr.currentStep * 20} className="w-20" />
-                            <span className="text-sm text-muted-foreground">
-                              {pdr.currentStep}/5
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {new Date(pdr.updatedAt).toLocaleDateString('en-AU')}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link href={`/admin/reviews/${pdr.id}`}>
-                              <Eye className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+            <PDRManagementDashboard />
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-4">

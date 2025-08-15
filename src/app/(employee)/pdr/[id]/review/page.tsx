@@ -2,9 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { usePDR } from '@/hooks/use-pdrs';
-import { useGoals } from '@/hooks/use-goals';
-import { useBehaviors } from '@/hooks/use-behaviors';
+import { useDemoPDR, useDemoGoals, useDemoBehaviors, useDemoCompanyValues } from '@/hooks/use-demo-pdr';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,9 +25,9 @@ interface ReviewPageProps {
 }
 
 const PRIORITY_COLORS = {
-  HIGH: 'bg-red-100 text-red-800 border-red-200',
-  MEDIUM: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  LOW: 'bg-green-100 text-green-800 border-green-200',
+  HIGH: 'bg-priority-high-background text-priority-high border-priority-high/20',
+  MEDIUM: 'bg-priority-medium-background text-priority-medium border-priority-medium/20',
+  LOW: 'bg-priority-low-background text-priority-low border-priority-low/20',
 };
 
 export default function ReviewPage({ params }: ReviewPageProps) {
@@ -37,13 +35,29 @@ export default function ReviewPage({ params }: ReviewPageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   
-  const { data: pdr, isLoading: pdrLoading } = usePDR(params.id);
-  const { data: goals, isLoading: goalsLoading } = useGoals(params.id);
-  const { data: behaviors, isLoading: behaviorsLoading } = useBehaviors(params.id);
+  const { data: pdr, isLoading: pdrLoading, updatePdr } = useDemoPDR(params.id);
+  const { data: goals, isLoading: goalsLoading } = useDemoGoals(params.id);
+  const { data: behaviors, isLoading: behaviorsLoading } = useDemoBehaviors(params.id);
+  const { data: companyValues, isLoading: valuesLoading } = useDemoCompanyValues();
 
-  const isLoading = pdrLoading || goalsLoading || behaviorsLoading;
-  const canSubmit = pdr && !pdr.isLocked && pdr.status === 'DRAFT';
-  const canEdit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED');
+  const isLoading = pdrLoading || goalsLoading || behaviorsLoading || valuesLoading;
+  const canSubmit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'Created');
+  const canEdit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'Created');
+
+  console.log('Review page debug:', {
+    pdrId: params.id,
+    pdr: pdr,
+    pdrStatus: pdr?.status,
+    canSubmit,
+    canEdit,
+    isLoading,
+    submittedAt: pdr?.submittedAt
+  });
+
+  // Helper function to get company value name
+  const getValueName = (valueId: string) => {
+    return companyValues?.find(value => value.id === valueId)?.name || 'Unknown Value';
+  };
 
   // Calculate completion statistics
   const stats = {
@@ -78,24 +92,18 @@ export default function ReviewPage({ params }: ReviewPageProps) {
     
     setIsSubmitting(true);
     try {
-      const response = await fetch(`/api/pdrs/${pdr.id}`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: 'SUBMITTED',
-          currentStep: 4, // Move to mid-year step
-        }),
+      // For demo mode, simulate submission by updating PDR state
+      updatePdr({
+        status: 'SUBMITTED',
+        currentStep: 4,
+        submittedAt: new Date(),
       });
+      
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      if (!response.ok) {
-        throw new Error('Failed to submit PDR');
-      }
-
-      // Redirect to success or next step
-      router.push(`/pdr/${pdr.id}/mid-year`);
+      // Redirect back to dashboard after successful submission
+      router.push('/dashboard');
     } catch (error) {
       console.error('Failed to submit PDR:', error);
       // TODO: Show error toast
@@ -109,9 +117,9 @@ export default function ReviewPage({ params }: ReviewPageProps) {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="h-8 bg-gray-200 rounded animate-pulse" />
-        <div className="h-32 bg-gray-200 rounded animate-pulse" />
-        <div className="h-32 bg-gray-200 rounded animate-pulse" />
+        <div className="h-8 bg-muted rounded animate-pulse" />
+        <div className="h-32 bg-muted rounded animate-pulse" />
+        <div className="h-32 bg-muted rounded animate-pulse" />
       </div>
     );
   }
@@ -121,11 +129,11 @@ export default function ReviewPage({ params }: ReviewPageProps) {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-            <Eye className="h-6 w-6 mr-2 text-blue-600" />
+          <h1 className="text-2xl font-bold text-foreground flex items-center">
+            <Eye className="h-6 w-6 mr-2 text-status-info" />
             Review & Submit
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-muted-foreground mt-1">
             Review your goals and behaviors before submitting for manager review
           </p>
         </div>
@@ -135,7 +143,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
             <Button 
               onClick={() => setShowSubmitConfirm(true)}
               disabled={isSubmitting}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-status-success hover:bg-status-success/90 text-status-success-foreground"
             >
               <Send className="h-4 w-4 mr-2" />
               Submit for Review
@@ -145,21 +153,21 @@ export default function ReviewPage({ params }: ReviewPageProps) {
       </div>
 
       {/* Completion Status */}
-      <Card className={isComplete ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}>
+      <Card className={isComplete ? 'border-status-success/30 bg-status-success/5' : 'border-status-warning/30 bg-status-warning/5'}>
         <CardContent className="py-4">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               {isComplete ? (
-                <CheckCircle className="h-5 w-5 text-green-500" />
+                <CheckCircle className="h-5 w-5 text-status-success" />
               ) : (
-                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                <AlertTriangle className="h-5 w-5 text-status-warning" />
               )}
             </div>
             <div className="ml-3">
-              <h3 className={`text-sm font-medium ${isComplete ? 'text-green-800' : 'text-yellow-800'}`}>
+              <h3 className={`text-sm font-medium ${isComplete ? 'text-status-success' : 'text-status-warning'}`}>
                 {isComplete ? 'Ready for Submission' : 'Completion Required'}
               </h3>
-              <p className={`text-sm ${isComplete ? 'text-green-700' : 'text-yellow-700'}`}>
+              <p className={`text-sm ${isComplete ? 'text-status-success/80' : 'text-status-warning/80'}`}>
                 {isComplete 
                   ? 'Your PDR is complete and ready for manager review.'
                   : 'Please complete all sections before submitting.'
@@ -181,24 +189,24 @@ export default function ReviewPage({ params }: ReviewPageProps) {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{stats.totalGoals}</div>
-              <div className="text-sm text-gray-600">Goals Set</div>
+              <div className="text-2xl font-bold text-status-info">{stats.totalGoals}</div>
+              <div className="text-sm text-muted-foreground">Goals Set</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-500">{stats.totalBehaviors}</div>
-              <div className="text-sm text-gray-600">Values Assessed</div>
+              <div className="text-2xl font-bold text-status-error">{stats.totalBehaviors}</div>
+              <div className="text-sm text-muted-foreground">Values Assessed</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-status-success">
                 {stats.averageGoalRating > 0 ? stats.averageGoalRating.toFixed(1) : '-'}
               </div>
-              <div className="text-sm text-gray-600">Avg Goal Rating</div>
+              <div className="text-sm text-muted-foreground">Avg Goal Rating</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
+              <div className="text-2xl font-bold text-activity-behavior">
                 {stats.averageBehaviorRating > 0 ? stats.averageBehaviorRating.toFixed(1) : '-'}
               </div>
-              <div className="text-sm text-gray-600">Avg Value Rating</div>
+              <div className="text-sm text-muted-foreground">Avg Value Rating</div>
             </div>
           </div>
         </CardContent>
@@ -209,7 +217,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center">
-              <Target className="h-5 w-5 mr-2 text-blue-600" />
+              <Target className="h-5 w-5 mr-2 text-status-info" />
               Goals & Objectives ({stats.totalGoals})
             </CardTitle>
             {canEdit && (
@@ -223,9 +231,9 @@ export default function ReviewPage({ params }: ReviewPageProps) {
           {goals && goals.length > 0 ? (
             <div className="space-y-4">
               {goals.map((goal) => (
-                <div key={goal.id} className="border rounded-lg p-4">
+                <div key={goal.id} className="border border-border rounded-lg p-4">
                   <div className="flex items-start justify-between mb-2">
-                    <h4 className="font-medium text-gray-900">{goal.title}</h4>
+                    <h4 className="font-medium text-foreground">{goal.title}</h4>
                     <div className="flex items-center space-x-2">
                       <Badge className={PRIORITY_COLORS[goal.priority]}>
                         {goal.priority}
@@ -238,7 +246,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                             disabled
                             size="sm"
                           />
-                          <span className="ml-1 text-sm text-gray-600">
+                          <span className="ml-1 text-sm text-muted-foreground">
                             {goal.employeeRating}/5
                           </span>
                         </div>
@@ -246,21 +254,33 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                     </div>
                   </div>
                   {goal.description && (
-                    <p className="text-gray-600 text-sm mb-2">{goal.description}</p>
+                    <p className="text-muted-foreground text-sm mb-2">{goal.description}</p>
                   )}
                   {goal.targetOutcome && (
                     <div className="text-sm">
-                      <span className="font-medium text-gray-700">Target: </span>
-                      <span className="text-gray-600">{goal.targetOutcome}</span>
+                      <span className="font-medium text-foreground/80">Target: </span>
+                      <span className="text-muted-foreground">{goal.targetOutcome}</span>
                     </div>
                   )}
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-4">
-              No goals have been set yet.
-            </p>
+            <div className="text-center py-8">
+              <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                No Goals Set Yet
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                Start by setting your goals and objectives for this review period.
+              </p>
+              {canEdit && (
+                <Button onClick={handleEditGoals}>
+                  <Target className="h-4 w-4 mr-2" />
+                  Set Your Goals
+                </Button>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -270,7 +290,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center">
-              <Heart className="h-5 w-5 mr-2 text-red-500" />
+              <Heart className="h-5 w-5 mr-2 text-activity-behavior" />
               Company Values & Behaviors ({stats.totalBehaviors})
             </CardTitle>
             {canEdit && (
@@ -284,12 +304,12 @@ export default function ReviewPage({ params }: ReviewPageProps) {
           {behaviors && behaviors.length > 0 ? (
             <div className="space-y-4">
               {behaviors.map((behavior) => (
-                <div key={behavior.id} className="border rounded-lg p-4">
+                <div key={behavior.id} className="border border-border rounded-lg p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-red-500 mr-3"></div>
-                      <h4 className="font-medium text-gray-900">
-                        {behavior.value?.name || 'Unknown Value'}
+                      <div className="w-3 h-3 rounded-full bg-activity-behavior mr-3"></div>
+                      <h4 className="font-medium text-foreground">
+                        {getValueName(behavior.valueId)}
                       </h4>
                     </div>
                     {behavior.employeeRating && (
@@ -300,26 +320,38 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                           disabled
                           size="sm"
                         />
-                        <span className="ml-1 text-sm text-gray-600">
+                        <span className="ml-1 text-sm text-muted-foreground">
                           {behavior.employeeRating}/5
                         </span>
                       </div>
                     )}
                   </div>
-                  <p className="text-gray-600 text-sm mb-2">{behavior.description}</p>
+                  <p className="text-muted-foreground text-sm mb-2">{behavior.description}</p>
                   {behavior.examples && (
                     <div className="text-sm">
-                      <span className="font-medium text-gray-700">Examples: </span>
-                      <span className="text-gray-600">{behavior.examples}</span>
+                      <span className="font-medium text-foreground/80">Examples: </span>
+                      <span className="text-muted-foreground">{behavior.examples}</span>
                     </div>
                   )}
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-4">
-              No behaviors have been assessed yet.
-            </p>
+            <div className="text-center py-8">
+              <Heart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                No Behaviors Assessed Yet
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                Assess how you demonstrate our company values in your daily work.
+              </p>
+              {canEdit && (
+                <Button onClick={handleEditBehaviors}>
+                  <Heart className="h-4 w-4 mr-2" />
+                  Assess Your Behaviors
+                </Button>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -331,29 +363,24 @@ export default function ReviewPage({ params }: ReviewPageProps) {
           Back to Behaviors
         </Button>
 
-        {pdr?.status === 'SUBMITTED' && (
-          <Button onClick={() => router.push(`/pdr/${params.id}/mid-year`)}>
-            Continue to Mid-Year
-            <ArrowRight className="h-4 w-4 ml-2" />
-          </Button>
-        )}
+
       </div>
 
       {/* Submit Confirmation Modal */}
       {showSubmitConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md">
             <CardHeader>
-              <CardTitle className="text-green-600">Submit PDR for Review</CardTitle>
+              <CardTitle className="text-status-success">Submit PDR for Review</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 mb-4">
+              <p className="text-muted-foreground mb-4">
                 Are you sure you want to submit your PDR for manager review? 
                 You will still be able to make changes during the review process.
               </p>
-              <div className="bg-blue-50 p-3 rounded-lg mb-4">
-                <h4 className="font-medium text-blue-900 mb-1">What happens next:</h4>
-                <ul className="text-sm text-blue-700 space-y-1">
+              <div className="bg-status-info/10 border border-status-info/20 p-3 rounded-lg mb-4">
+                <h4 className="font-medium text-status-info mb-1">What happens next:</h4>
+                <ul className="text-sm text-status-info/80 space-y-1">
                   <li>• Your manager will review your goals and behaviors</li>
                   <li>• You'll receive feedback and ratings</li>
                   <li>• You can continue to mid-year check-in</li>
@@ -370,7 +397,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                 <Button
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-status-success hover:bg-status-success/90 text-status-success-foreground"
                 >
                   <Send className="h-4 w-4 mr-2" />
                   {isSubmitting ? 'Submitting...' : 'Submit PDR'}

@@ -87,32 +87,32 @@ export function PDRHistoryTable({
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-medium text-gray-600">Period</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-600">Status</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-600">Rating</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-600">Updated</th>
-                <th className="text-right py-3 px-4 font-medium text-gray-600">Actions</th>
+              <tr className="border-b border-border bg-muted/50">
+                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Period</th>
+                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
+                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Rating</th>
+                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Updated</th>
+                <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-border">
               {pdrs.map((pdr) => (
-                <tr key={pdr.id} className="hover:bg-gray-50">
+                <tr key={pdr.id} className="hover:bg-muted/50 transition-colors">
                   <td className="py-3 px-4">
-                    <div className="font-medium text-gray-900">
+                    <div className="font-medium text-foreground">
                       {pdr.period?.name || 'Unknown Period'}
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-muted-foreground">
                       {pdr.period && formatDate(pdr.period.startDate)} - {pdr.period && formatDate(pdr.period.endDate)}
                     </div>
                   </td>
                   <td className="py-3 px-4">
                     <PDRStatusBadge status={pdr.status} />
                   </td>
-                  <td className="py-3 px-4 text-gray-900">
+                  <td className="py-3 px-4 text-foreground">
                     {getRating(pdr)}
                   </td>
-                  <td className="py-3 px-4 text-gray-600">
+                  <td className="py-3 px-4 text-muted-foreground">
                     {formatDate(pdr.updatedAt)}
                   </td>
                   <td className="py-3 px-4 text-right">

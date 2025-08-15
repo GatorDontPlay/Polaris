@@ -25,45 +25,10 @@ import {
   Calendar
 } from 'lucide-react';
 import { formatDateAU } from '@/lib/utils';
-
-// Demo data for PDR reviews
-const demoReviews = [
-  {
-    id: 'pdr-1',
-    employeeName: 'Alice Wilson',
-    employeeEmail: 'alice.wilson@company.com',
-    department: 'Engineering',
-    submittedAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-    status: 'pending_review',
-    priority: 'HIGH',
-    completionRate: 95,
-    lastActivity: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-  },
-  {
-    id: 'pdr-2',
-    employeeName: 'Bob Chen',
-    employeeEmail: 'bob.chen@company.com',
-    department: 'Marketing',
-    submittedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-    status: 'under_review',
-    priority: 'MEDIUM',
-    completionRate: 88,
-    lastActivity: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
-  },
-  {
-    id: 'pdr-3',
-    employeeName: 'Carol Davis',
-    employeeEmail: 'carol.davis@company.com',
-    department: 'Sales',
-    submittedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-    status: 'completed',
-    priority: 'LOW',
-    completionRate: 100,
-    lastActivity: new Date(Date.now() - 12 * 60 * 60 * 1000), // 12 hours ago
-  },
-];
+import { useDemoReviews } from '@/hooks/use-demo-admin';
 
 export default function ReviewsPage() {
+  const { data: reviews, isLoading } = useDemoReviews();
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending_review':
@@ -116,12 +81,33 @@ export default function ReviewsPage() {
       .slice(0, 2);
   };
 
-  const pendingReviews = demoReviews.filter(review => review.status === 'pending_review');
-  const underReview = demoReviews.filter(review => review.status === 'under_review');
-  const completedReviews = demoReviews.filter(review => review.status === 'completed');
+  const pendingReviews = reviews.filter(review => review.status === 'pending_review');
+  const underReview = reviews.filter(review => review.status === 'under_review');
+  const completedReviews = reviews.filter(review => review.status === 'completed');
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full flex-col">
+        <AdminHeader 
+          breadcrumbs={[
+            { label: 'Dashboard', href: '/admin' },
+            { label: 'Reviews' }
+          ]}
+        />
+        <div className="flex-1 p-6">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-2 text-muted-foreground">Loading reviews...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col min-h-0">
       <AdminHeader 
         breadcrumbs={[
           { label: 'Dashboard', href: '/admin' },
@@ -135,7 +121,7 @@ export default function ReviewsPage() {
         }
       />
 
-      <div className="flex-1 p-6 space-y-6">
+      <div className="flex-1 p-6 space-y-6 overflow-y-auto">
         <PageHeader 
           title="PDR Review Management"
           description="Monitor and manage employee performance development reviews"
@@ -193,15 +179,15 @@ export default function ReviewsPage() {
         </div>
 
         {/* Review Tabs */}
-        <Card>
+        <Card className="flex-1 flex flex-col min-h-0">
           <CardHeader>
             <CardTitle>Review Queue</CardTitle>
             <CardDescription>
               Manage PDR reviews across different stages
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="pending" className="space-y-4">
+          <CardContent className="flex-1 flex flex-col min-h-0">
+            <Tabs defaultValue="pending" className="space-y-4 flex-1 flex flex-col">
               <TabsList>
                 <TabsTrigger value="pending">
                   Pending ({pendingReviews.length})
@@ -213,24 +199,24 @@ export default function ReviewsPage() {
                   Completed ({completedReviews.length})
                 </TabsTrigger>
                 <TabsTrigger value="all">
-                  All Reviews ({demoReviews.length})
+                  All Reviews ({reviews.length})
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="pending" className="space-y-4">
+              <TabsContent value="pending" className="space-y-4 flex-1 min-h-0">
                 <ReviewTable reviews={pendingReviews} />
               </TabsContent>
 
-              <TabsContent value="reviewing" className="space-y-4">
+              <TabsContent value="reviewing" className="space-y-4 flex-1 min-h-0">
                 <ReviewTable reviews={underReview} />
               </TabsContent>
 
-              <TabsContent value="completed" className="space-y-4">
+              <TabsContent value="completed" className="space-y-4 flex-1 min-h-0">
                 <ReviewTable reviews={completedReviews} />
               </TabsContent>
 
-              <TabsContent value="all" className="space-y-4">
-                <ReviewTable reviews={demoReviews} />
+              <TabsContent value="all" className="space-y-4 flex-1 min-h-0">
+                <ReviewTable reviews={reviews} />
               </TabsContent>
             </Tabs>
           </CardContent>
@@ -239,22 +225,23 @@ export default function ReviewsPage() {
     </div>
   );
 
-  function ReviewTable({ reviews }: { reviews: typeof demoReviews }) {
+  function ReviewTable({ reviews }: { reviews: any[] }) {
     return (
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Employee</TableHead>
-              <TableHead>Department</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Completion</TableHead>
-              <TableHead>Submitted</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+      <div className="rounded-md border flex-1 flex flex-col min-h-0">
+        <div className="overflow-auto flex-1">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Employee</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Completion</TableHead>
+                <TableHead>Submitted</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
             {reviews.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8">
@@ -319,8 +306,9 @@ export default function ReviewsPage() {
                 </TableRow>
               ))
             )}
-          </TableBody>
-        </Table>
+            </TableBody>
+          </Table>
+        </div>
       </div>
     );
   }

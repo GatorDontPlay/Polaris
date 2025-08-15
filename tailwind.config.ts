@@ -52,14 +52,56 @@ const config: Config = {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
   			},
+  			status: {
+  				success: 'hsl(var(--status-success))',
+  				'success-foreground': 'hsl(var(--status-success-foreground))',
+  				warning: 'hsl(var(--status-warning))',
+  				'warning-foreground': 'hsl(var(--status-warning-foreground))',
+  				error: 'hsl(var(--status-error))',
+  				'error-foreground': 'hsl(var(--status-error-foreground))',
+  				info: 'hsl(var(--status-info))',
+  				'info-foreground': 'hsl(var(--status-info-foreground))'
+  			},
+  			priority: {
+  				high: 'hsl(var(--priority-high))',
+  				'high-foreground': 'hsl(var(--priority-high-foreground))',
+  				'high-background': 'hsl(var(--priority-high-background))',
+  				medium: 'hsl(var(--priority-medium))',
+  				'medium-foreground': 'hsl(var(--priority-medium-foreground))',
+  				'medium-background': 'hsl(var(--priority-medium-background))',
+  				low: 'hsl(var(--priority-low))',
+  				'low-foreground': 'hsl(var(--priority-low-foreground))',
+  				'low-background': 'hsl(var(--priority-low-background))'
+  			},
+  			activity: {
+  				submission: 'hsl(var(--activity-submission))',
+  				'submission-background': 'hsl(var(--activity-submission-background))',
+  				review: 'hsl(var(--activity-review))',
+  				'review-background': 'hsl(var(--activity-review-background))',
+  				deadline: 'hsl(var(--activity-deadline))',
+  				'deadline-background': 'hsl(var(--activity-deadline-background))',
+  				goal: 'hsl(var(--activity-goal))',
+  				'goal-background': 'hsl(var(--activity-goal-background))',
+  				behavior: 'hsl(var(--activity-behavior))',
+  				'behavior-background': 'hsl(var(--activity-behavior-background))',
+  				general: 'hsl(var(--activity-general))',
+  				'general-background': 'hsl(var(--activity-general-background))'
+  			},
   			pdr: {
   				draft: 'hsl(var(--pdr-draft))',
+  				'draft-foreground': 'hsl(var(--pdr-draft-foreground))',
   				submitted: 'hsl(var(--pdr-submitted))',
+  				'submitted-foreground': 'hsl(var(--pdr-submitted-foreground))',
   				review: 'hsl(var(--pdr-review))',
+  				'review-foreground': 'hsl(var(--pdr-review-foreground))',
   				midyear: 'hsl(var(--pdr-midyear))',
+  				'midyear-foreground': 'hsl(var(--pdr-midyear-foreground))',
   				endyear: 'hsl(var(--pdr-endyear))',
+  				'endyear-foreground': 'hsl(var(--pdr-endyear-foreground))',
   				completed: 'hsl(var(--pdr-completed))',
-  				locked: 'hsl(var(--pdr-locked))'
+  				'completed-foreground': 'hsl(var(--pdr-completed-foreground))',
+  				locked: 'hsl(var(--pdr-locked))',
+  				'locked-foreground': 'hsl(var(--pdr-locked-foreground))'
   			},
   			rating: {
   				'1': 'hsl(var(--rating-1))',

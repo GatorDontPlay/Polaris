@@ -6,6 +6,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { Button } from '@/components/ui/button';
 import { Bell, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 interface AdminHeaderProps {
   breadcrumbs?: Array<{
@@ -53,6 +54,8 @@ export function AdminHeader({ breadcrumbs, actions }: AdminHeaderProps) {
             className="pl-8 w-[200px] lg:w-[300px]"
           />
         </div>
+        
+        <ThemeToggle variant="dropdown" />
         
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-4 w-4" />

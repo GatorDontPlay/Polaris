@@ -20,9 +20,9 @@ interface GoalFormProps {
 }
 
 const PRIORITY_COLORS = {
-  HIGH: 'bg-red-100 text-red-800',
-  MEDIUM: 'bg-yellow-100 text-yellow-800', 
-  LOW: 'bg-green-100 text-green-800',
+  HIGH: 'bg-priority-high-background text-priority-high',
+  MEDIUM: 'bg-priority-medium-background text-priority-medium', 
+  LOW: 'bg-priority-low-background text-priority-low',
 };
 
 export function GoalForm({ 

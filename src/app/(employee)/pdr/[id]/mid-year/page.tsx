@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { usePDR } from '@/hooks/use-pdrs';
-import { useMidYearReview, useMidYearReviewMutation } from '@/hooks/use-reviews';
+import { useDemoPDR } from '@/hooks/use-demo-pdr';
 import { midYearReviewSchema } from '@/lib/validations';
 import { MidYearFormData } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,13 +30,11 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const { data: pdr, isLoading: pdrLoading } = usePDR(params.id);
-  const { data: midYearReview, isLoading: reviewLoading } = useMidYearReview(params.id);
-  const { create: createReview, update: updateReview } = useMidYearReviewMutation(params.id);
+  const { data: pdr, isLoading: pdrLoading, updatePdr } = useDemoPDR(params.id);
 
-  const isLoading = pdrLoading || reviewLoading;
-  const canEdit = pdr && !pdr.isLocked && !midYearReview;
-  const canUpdate = pdr && !pdr.isLocked && midYearReview && pdr.status !== 'COMPLETED';
+  const isLoading = pdrLoading;
+  const canEdit = pdr && !pdr.isLocked && pdr.status === 'SUBMITTED';
+  const canUpdate = pdr && !pdr.isLocked;
 
   const {
     register,
@@ -46,12 +43,7 @@ export default function MidYearPage({ params }: MidYearPageProps) {
     watch,
   } = useForm<MidYearFormData>({
     resolver: zodResolver(midYearReviewSchema),
-    defaultValues: midYearReview ? {
-      progressSummary: midYearReview.progressSummary,
-      blockersChallenges: midYearReview.blockersChallenges || '',
-      supportNeeded: midYearReview.supportNeeded || '',
-      employeeComments: midYearReview.employeeComments || '',
-    } : {
+    defaultValues: {
       progressSummary: '',
       blockersChallenges: '',
       supportNeeded: '',
@@ -70,11 +62,15 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   const onSubmit = async (data: MidYearFormData) => {
     setIsSubmitting(true);
     try {
-      if (midYearReview) {
-        await updateReview.mutateAsync(data);
-      } else {
-        await createReview.mutateAsync(data);
-      }
+      // For demo mode, simulate submission by updating PDR state
+      updatePdr({
+        currentStep: 5,
+        status: 'UNDER_REVIEW',
+      });
+      
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       // Redirect to next step after successful submission
       router.push(`/pdr/${params.id}/end-year`);
     } catch (error) {
@@ -86,18 +82,9 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   };
 
   const handleSaveDraft = async () => {
-    const formData = watch();
-    try {
-      if (midYearReview) {
-        await updateReview.mutateAsync(formData);
-      } else {
-        await createReview.mutateAsync(formData);
-      }
-      // TODO: Show success toast
-    } catch (error) {
-      console.error('Failed to save draft:', error);
-      // TODO: Show error toast
-    }
+    // For demo mode, just show a simple feedback
+    console.log('Draft saved (demo mode)');
+    // TODO: Show success toast
   };
 
   // Loading state
@@ -111,8 +98,8 @@ export default function MidYearPage({ params }: MidYearPageProps) {
     );
   }
 
-  // Read-only view for completed reviews
-  if (midYearReview && !canUpdate) {
+  // Skip read-only view in demo mode
+  if (false) {
     return (
       <div className="space-y-6">
         {/* Page Header */}
@@ -209,12 +196,12 @@ export default function MidYearPage({ params }: MidYearPageProps) {
         </div>
         <Badge variant="outline" className="flex items-center">
           <FileText className="h-4 w-4 mr-1" />
-          {midYearReview ? 'Update Review' : 'New Review'}
+          New Review
         </Badge>
       </div>
 
       {/* Instructions */}
-      {!midYearReview && (
+      {true && (
         <Card className="border-blue-200 bg-blue-50">
           <CardContent className="py-4">
             <div className="flex items-center">

@@ -47,6 +47,10 @@ export function getRelativeTime(date: Date | string): string {
  */
 export function getPDRStatusLabel(status: PDRStatus): string {
   const labels: Record<PDRStatus, string> = {
+    Created: 'Created',
+    OPEN_FOR_REVIEW: 'Open for Review',
+    PLAN_LOCKED: 'Plan Locked',
+    PDR_BOOKED: 'PDR Booked',
     DRAFT: 'Draft',
     SUBMITTED: 'Submitted',
     UNDER_REVIEW: 'Under Review',
@@ -63,6 +67,10 @@ export function getPDRStatusLabel(status: PDRStatus): string {
  */
 export function getPDRStatusColor(status: PDRStatus): string {
   const colors: Record<PDRStatus, string> = {
+    Created: 'pdr-status-draft',
+    OPEN_FOR_REVIEW: 'pdr-status-review',
+    PLAN_LOCKED: 'pdr-status-locked',
+    PDR_BOOKED: 'pdr-status-completed',
     DRAFT: 'pdr-status-draft',
     SUBMITTED: 'pdr-status-submitted',
     UNDER_REVIEW: 'pdr-status-review',

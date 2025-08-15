@@ -2,10 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useDemoAuth } from '@/hooks/use-demo-auth';
+import { useDemoPDRDashboard } from '@/hooks/use-demo-pdr';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { 
   Target, 
   Calendar, 
@@ -20,21 +21,86 @@ import {
 export default function EmployeeDashboard() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useDemoAuth();
+  
+  console.log('EmployeeDashboard - Auth Debug:', { 
+    user, 
+    isAuthenticated, 
+    authLoading,
+    userRole: user?.role 
+  });
+  
+  // Get current user's PDRs using demo system
+  const { data: currentPDR, createPDR, isLoading: pdrLoading } = useDemoPDRDashboard();
+  const [isCreatingPDR, setIsCreatingPDR] = useState(false);
+  
+  console.log('EmployeeDashboard - PDR Debug:', { 
+    currentPDR, 
+    pdrLoading,
+    hasPDR: !!currentPDR 
+  });
 
   // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push('/login');
+      router.push('/');
     }
   }, [authLoading, isAuthenticated, router]);
 
+  // Handle PDR creation
+  const handleCreatePDR = async () => {
+    setIsCreatingPDR(true);
+    try {
+      // Create a new PDR using demo system
+      const newPDR = createPDR();
+      if (newPDR) {
+        router.push(`/pdr/${newPDR.id}/goals`);
+      } else {
+        console.error('Failed to create PDR');
+      }
+    } catch (error) {
+      console.error('Failed to create PDR:', error);
+    } finally {
+      setIsCreatingPDR(false);
+    }
+  };
+
+  // Handle continue PDR
+  const handleContinuePDR = () => {
+    if (currentPDR) {
+      // Navigate based on current step
+      const stepPaths = {
+        1: `/pdr/${currentPDR.id}/goals`,
+        2: `/pdr/${currentPDR.id}/behaviors`, 
+        3: `/pdr/${currentPDR.id}/review`,
+        4: `/pdr/${currentPDR.id}/mid-year`,
+        5: `/pdr/${currentPDR.id}/end-year`,
+      };
+      
+      const currentPath = stepPaths[currentPDR.currentStep as keyof typeof stepPaths] || `/pdr/${currentPDR.id}/goals`;
+      router.push(currentPath);
+    }
+  };
+
   // Show loading state
   if (authLoading) {
+    console.log('EmployeeDashboard: Auth still loading');
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center p-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading...</p>
+          <p className="mt-4 text-muted-foreground">Loading authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (pdrLoading) {
+    console.log('EmployeeDashboard: PDRs still loading');
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center p-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading PDRs...</p>
         </div>
       </div>
     );
@@ -46,7 +112,7 @@ export default function EmployeeDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex-1 bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -109,66 +175,148 @@ export default function EmployeeDashboard() {
           </Card>
         </div>
 
-        {/* Current PDR */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Calendar className="mr-2 h-5 w-5" />
-              Current PDR - 2024 Annual Review
-            </CardTitle>
-            <CardDescription>
-              Complete your performance development review for this cycle
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Progress</p>
-                <div className="flex items-center mt-1">
-                  <div className="flex-1 bg-gray-200 rounded-full h-2 mr-4">
-                    <div className="bg-blue-600 h-2 rounded-full" style={{ width: '60%' }}></div>
+        {        /* Current PDR */}
+        {currentPDR ? (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Calendar className="mr-2 h-5 w-5" />
+                Current PDR - 2024 Annual Review
+              </CardTitle>
+              <CardDescription>
+                Complete your performance development review for this cycle
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Progress</p>
+                  <div className="flex items-center mt-1">
+                    <div className="flex-1 bg-gray-200 rounded-full h-2 mr-4">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full" 
+                        style={{ width: `${(currentPDR.currentStep / 5) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium">{currentPDR.currentStep} of 5 steps</span>
                   </div>
-                  <span className="text-sm font-medium">3 of 5 steps</span>
+                </div>
+                <Badge variant={currentPDR.status === 'SUBMITTED' ? 'secondary' : 'default'}>
+                  {currentPDR.status === 'Created' && 'In Progress'}
+                  {currentPDR.status === 'OPEN_FOR_REVIEW' && 'Submitted'}
+                  {currentPDR.status === 'PLAN_LOCKED' && 'Under Review'}
+                  {currentPDR.status === 'COMPLETED' && 'Completed'}
+                </Badge>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                <div className={`text-center p-4 rounded-lg ${currentPDR.currentStep >= 1 ? 'bg-green-50' : 'bg-gray-50'}`}>
+                  {currentPDR.currentStep >= 1 ? (
+                    <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
+                  ) : (
+                    <Target className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+                  )}
+                  <p className="text-sm font-medium">Goals</p>
+                  <p className="text-xs text-muted-foreground">
+                    {currentPDR.currentStep >= 2 ? 'Completed' : currentPDR.currentStep === 1 ? 'In Progress' : 'Pending'}
+                  </p>
+                </div>
+                <div className={`text-center p-4 rounded-lg ${currentPDR.currentStep >= 2 ? 'bg-green-50' : 'bg-gray-50'}`}>
+                  {currentPDR.currentStep >= 2 ? (
+                    <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
+                  ) : (
+                    <TrendingUp className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+                  )}
+                  <p className="text-sm font-medium">Behaviors</p>
+                  <p className="text-xs text-muted-foreground">
+                    {currentPDR.currentStep >= 3 ? 'Completed' : currentPDR.currentStep === 2 ? 'In Progress' : 'Pending'}
+                  </p>
+                </div>
+                <div className={`text-center p-4 rounded-lg ${currentPDR.currentStep >= 3 ? 'bg-green-50' : 'bg-gray-50'}`}>
+                  {currentPDR.currentStep >= 3 ? (
+                    <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
+                  ) : (
+                    <FileText className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+                  )}
+                  <p className="text-sm font-medium">Review</p>
+                  <p className="text-xs text-muted-foreground">
+                    {currentPDR.currentStep >= 4 ? 'Completed' : currentPDR.currentStep === 3 ? 'In Progress' : 'Pending'}
+                  </p>
+                </div>
+                <div className={`text-center p-4 rounded-lg ${currentPDR.status === 'SUBMITTED' ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                  {currentPDR.currentStep >= 4 ? (
+                    <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
+                  ) : currentPDR.status === 'SUBMITTED' ? (
+                    <Clock className="h-6 w-6 text-blue-600 mx-auto mb-2" />
+                  ) : (
+                    <Calendar className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+                  )}
+                  <p className="text-sm font-medium">Mid-Year</p>
+                  <p className="text-xs text-muted-foreground">
+                    {currentPDR.currentStep >= 5 ? 'Completed' : currentPDR.currentStep === 4 ? 'In Progress' : currentPDR.status === 'SUBMITTED' ? 'Available' : 'Pending'}
+                  </p>
+                </div>
+                <div className={`text-center p-4 rounded-lg ${currentPDR.currentStep >= 5 ? 'bg-green-50' : 'bg-gray-50'}`}>
+                  {currentPDR.currentStep >= 5 ? (
+                    <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
+                  ) : (
+                    <FileText className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+                  )}
+                  <p className="text-sm font-medium">End-Year</p>
+                  <p className="text-xs text-muted-foreground">
+                    {currentPDR.currentStep >= 5 ? 'Completed' : 'Pending'}
+                  </p>
                 </div>
               </div>
-              <Badge>In Progress</Badge>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
-                <p className="text-sm font-medium">Goals</p>
-                <p className="text-xs text-muted-foreground">Completed</p>
-              </div>
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
-                <p className="text-sm font-medium">Behaviors</p>
-                <p className="text-xs text-muted-foreground">Completed</p>
-              </div>
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <Clock className="h-6 w-6 text-blue-600 mx-auto mb-2" />
-                <p className="text-sm font-medium">Review</p>
-                <p className="text-xs text-muted-foreground">Next Step</p>
-              </div>
-            </div>
 
-            <div className="flex space-x-3">
-              <Button 
-                onClick={() => router.push('/pdr/test-123/review')}
-                className="flex-1"
-              >
-                Continue PDR
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              <Button 
-                variant="outline"
-                onClick={() => router.push('/pdr/test-123/goals')}
-              >
-                View Details
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="flex space-x-3">
+                <Button 
+                  onClick={handleContinuePDR}
+                  className="flex-1"
+                >
+                  Continue PDR
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => router.push(`/pdr/${currentPDR.id}/goals`)}
+                >
+                  View Details
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Create New PDR</CardTitle>
+              <CardDescription>
+                Start your performance development review for the current period
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8">
+                <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                  <Plus className="h-6 w-6 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No Active PDR
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Start your performance review by creating a new PDR for the current period.
+                </p>
+                <Button 
+                  onClick={handleCreatePDR} 
+                  disabled={isCreatingPDR}
+                  className="inline-flex items-center"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {isCreatingPDR ? 'Creating...' : 'Create New PDR'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -183,7 +331,8 @@ export default function EmployeeDashboard() {
               <Button 
                 variant="outline" 
                 className="w-full justify-start"
-                onClick={() => router.push('/pdr/test-123/goals')}
+                onClick={() => router.push(`/pdr/${currentPDR?.id}/goals`)}
+                disabled={!currentPDR}
               >
                 <Target className="mr-2 h-4 w-4" />
                 Update Goals
@@ -191,7 +340,8 @@ export default function EmployeeDashboard() {
               <Button 
                 variant="outline" 
                 className="w-full justify-start"
-                onClick={() => router.push('/pdr/test-123/behaviors')}
+                onClick={() => router.push(`/pdr/${currentPDR?.id}/behaviors`)}
+                disabled={!currentPDR}
               >
                 <TrendingUp className="mr-2 h-4 w-4" />
                 Rate Behaviors
@@ -199,7 +349,9 @@ export default function EmployeeDashboard() {
               <Button 
                 variant="outline" 
                 className="w-full justify-start"
-                onClick={() => router.push('/pdr/test-123/mid-year')}
+                onClick={() => router.push(`/pdr/${currentPDR?.id}/mid-year`)}
+                disabled={!currentPDR || currentPDR.status !== 'SUBMITTED'}
+                title={currentPDR?.status !== 'SUBMITTED' ? 'Complete and submit your PDR first' : 'Available during mid-year period'}
               >
                 <Calendar className="mr-2 h-4 w-4" />
                 Mid-Year Check-in
@@ -258,18 +410,27 @@ export default function EmployeeDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h4 className="font-medium">2024 Annual Review</h4>
-                  <p className="text-sm text-muted-foreground">In Progress • Started Dec 1, 2024</p>
+              {currentPDR && (
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <h4 className="font-medium">2024 Annual Review</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {currentPDR.status === 'COMPLETED' ? 'Completed' : 'In Progress'} • Started {new Date(currentPDR.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Badge variant={currentPDR.status === 'COMPLETED' ? 'secondary' : 'default'}>
+                      {currentPDR.status === 'Created' && 'In Progress'}
+                      {currentPDR.status === 'OPEN_FOR_REVIEW' && 'Submitted'}
+                      {currentPDR.status === 'PLAN_LOCKED' && 'Under Review'}
+                      {currentPDR.status === 'COMPLETED' && 'Completed'}
+                    </Badge>
+                    <Button size="sm" onClick={() => router.push(`/pdr/${currentPDR.id}`)}>
+                      {currentPDR.status === 'COMPLETED' ? 'View' : 'Continue'}
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Badge>In Progress</Badge>
-                  <Button size="sm" onClick={() => router.push('/pdr/test-123')}>
-                    Continue
-                  </Button>
-                </div>
-              </div>
+              )}
               
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>

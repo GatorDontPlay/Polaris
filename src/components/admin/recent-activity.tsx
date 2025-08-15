@@ -31,18 +31,18 @@ const ACTIVITY_ICONS = {
 };
 
 const ACTIVITY_COLORS = {
-  pdr_submitted: 'text-blue-600 bg-blue-100',
-  review_completed: 'text-green-600 bg-green-100',
-  deadline_approaching: 'text-orange-600 bg-orange-100',
-  goal_added: 'text-purple-600 bg-purple-100',
-  behavior_assessed: 'text-pink-600 bg-pink-100',
-  general: 'text-gray-600 bg-gray-100',
+  pdr_submitted: 'text-activity-submission bg-activity-submission-background',
+  review_completed: 'text-activity-review bg-activity-review-background',
+  deadline_approaching: 'text-activity-deadline bg-activity-deadline-background',
+  goal_added: 'text-activity-goal bg-activity-goal-background',
+  behavior_assessed: 'text-activity-behavior bg-activity-behavior-background',
+  general: 'text-activity-general bg-activity-general-background',
 };
 
 const PRIORITY_BADGES = {
-  high: { color: 'bg-red-100 text-red-800 border-red-200', label: 'High' },
-  medium: { color: 'bg-yellow-100 text-yellow-800 border-yellow-200', label: 'Medium' },
-  low: { color: 'bg-green-100 text-green-800 border-green-200', label: 'Low' },
+  high: { color: 'bg-priority-high-background text-priority-high border-priority-high/20', label: 'High' },
+  medium: { color: 'bg-priority-medium-background text-priority-medium border-priority-medium/20', label: 'Medium' },
+  low: { color: 'bg-priority-low-background text-priority-low border-priority-low/20', label: 'Low' },
 };
 
 function formatTimeAgo(date: Date): string {
@@ -136,7 +136,7 @@ export function RecentActivity({ activities, isLoading, onViewAll }: RecentActiv
             const priorityBadge = PRIORITY_BADGES[activity.priority];
 
             return (
-              <div key={activity.id} className="flex items-start space-x-4 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+              <div key={activity.id} className="flex items-start space-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
                 <div className={`p-2 rounded-full ${colorClass}`}>
                   <Icon className="h-4 w-4" />
                 </div>
@@ -145,8 +145,8 @@ export function RecentActivity({ activities, isLoading, onViewAll }: RecentActiv
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <div className="flex items-center space-x-1">
-                        <User className="h-3 w-3 text-gray-400" />
-                        <span className="text-sm font-medium text-gray-900">
+                        <User className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-sm font-medium text-foreground">
                           {activity.user.firstName} {activity.user.lastName}
                         </span>
                       </div>
@@ -156,16 +156,16 @@ export function RecentActivity({ activities, isLoading, onViewAll }: RecentActiv
                         </Badge>
                       )}
                     </div>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-muted-foreground">
                       {formatTimeAgo(new Date(activity.timestamp))}
                     </span>
                   </div>
                   
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     {activity.message}
                   </p>
                   
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-muted-foreground/70 mt-1">
                     {activity.user.email}
                   </p>
                 </div>

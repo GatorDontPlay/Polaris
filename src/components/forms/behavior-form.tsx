@@ -110,10 +110,10 @@ export function BehaviorForm({
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <CardTitle className="text-lg flex items-center">
-                <div className="w-3 h-3 rounded-full bg-blue-500 mr-3"></div>
+                <div className="w-3 h-3 rounded-full bg-activity-behavior mr-3"></div>
                 {behavior.value?.name || 'Unknown Value'}
               </CardTitle>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 {behavior.value?.description}
               </p>
               {behavior.employeeRating && (
@@ -124,7 +124,7 @@ export function BehaviorForm({
                     disabled
                     size="sm"
                   />
-                  <span className="ml-2 text-sm text-gray-600">
+                  <span className="ml-2 text-sm text-muted-foreground">
                     Self-rated: {behavior.employeeRating}/5
                   </span>
                 </div>
@@ -143,7 +143,7 @@ export function BehaviorForm({
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="text-red-600 hover:text-red-700"
+                  className="text-status-error hover:text-status-error/80"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -153,28 +153,28 @@ export function BehaviorForm({
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h4 className="font-medium text-gray-900 mb-2">How I Demonstrate This Value</h4>
-            <p className="text-gray-700">{behavior.description}</p>
+            <h4 className="font-medium text-foreground mb-2">How I Demonstrate This Value</h4>
+            <p className="text-muted-foreground">{behavior.description}</p>
           </div>
           
           {behavior.examples && (
             <div>
-              <h4 className="font-medium text-gray-900 mb-2">Specific Examples</h4>
-              <p className="text-gray-700">{behavior.examples}</p>
+              <h4 className="font-medium text-foreground mb-2">Specific Examples</h4>
+              <p className="text-muted-foreground">{behavior.examples}</p>
             </div>
           )}
           
           {behavior.employeeSelfAssessment && (
             <div>
-              <h4 className="font-medium text-gray-900 mb-2">Self-Assessment</h4>
-              <p className="text-gray-700">{behavior.employeeSelfAssessment}</p>
+              <h4 className="font-medium text-foreground mb-2">Self-Assessment</h4>
+              <p className="text-muted-foreground">{behavior.employeeSelfAssessment}</p>
             </div>
           )}
 
           {behavior.ceoComments && (
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-medium text-blue-900 mb-2">Manager Feedback</h4>
-              <p className="text-blue-700">{behavior.ceoComments}</p>
+            <div className="bg-status-info/10 border border-status-info/20 p-4 rounded-lg">
+              <h4 className="font-medium text-status-info mb-2">Manager Feedback</h4>
+              <p className="text-status-info/80">{behavior.ceoComments}</p>
               {behavior.ceoRating && (
                 <div className="mt-2 flex items-center">
                   <RatingInput
@@ -183,7 +183,7 @@ export function BehaviorForm({
                     disabled
                     size="sm"
                   />
-                  <span className="ml-2 text-sm text-blue-700">
+                  <span className="ml-2 text-sm text-status-info/80">
                     Manager rating: {behavior.ceoRating}/5
                   </span>
                 </div>
@@ -194,13 +194,13 @@ export function BehaviorForm({
         
         {/* Delete Confirmation Modal */}
         {showDeleteConfirm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <Card className="w-full max-w-md">
               <CardHeader>
-                <CardTitle className="text-red-600">Delete Behavior</CardTitle>
+                <CardTitle className="text-status-error">Delete Behavior</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600 mb-4">
+                <p className="text-muted-foreground mb-4">
                   Are you sure you want to delete the behavior for "{behavior.value?.name}"? This action cannot be undone.
                 </p>
                 <div className="flex justify-end space-x-2">
@@ -247,13 +247,13 @@ export function BehaviorForm({
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
           {/* Company Value Selection */}
           <div>
-            <label htmlFor="valueId" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="valueId" className="block text-sm font-medium text-foreground mb-1">
               Company Value *
             </label>
             <select
               id="valueId"
               {...register('valueId')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
             >
               <option value="">Select a company value...</option>
               {companyValues.map((value) => (
@@ -263,12 +263,12 @@ export function BehaviorForm({
               ))}
             </select>
             {errors.valueId && (
-              <p className="mt-1 text-sm text-red-600">{errors.valueId.message}</p>
+              <p className="mt-1 text-sm text-status-error">{errors.valueId.message}</p>
             )}
             
             {selectedValue && (
-              <div className="mt-2 p-3 bg-blue-50 rounded-md">
-                <p className="text-sm text-blue-700">
+              <div className="mt-2 p-3 bg-status-info/10 border border-status-info/20 rounded-md">
+                <p className="text-sm text-status-info">
                   <strong>{selectedValue.name}:</strong> {selectedValue.description}
                 </p>
               </div>
@@ -277,58 +277,58 @@ export function BehaviorForm({
 
           {/* Description */}
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="description" className="block text-sm font-medium text-foreground mb-1">
               How I Demonstrate This Value *
             </label>
             <textarea
               id="description"
               {...register('description')}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
               placeholder="Describe how you consistently demonstrate this company value in your work and interactions..."
             />
             {errors.description && (
-              <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
+              <p className="mt-1 text-sm text-status-error">{errors.description.message}</p>
             )}
           </div>
 
           {/* Examples */}
           <div>
-            <label htmlFor="examples" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="examples" className="block text-sm font-medium text-foreground mb-1">
               Specific Examples
             </label>
             <textarea
               id="examples"
               {...register('examples')}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
               placeholder="Provide specific examples, situations, or projects where you demonstrated this value..."
             />
             {errors.examples && (
-              <p className="mt-1 text-sm text-red-600">{errors.examples.message}</p>
+              <p className="mt-1 text-sm text-status-error">{errors.examples.message}</p>
             )}
           </div>
 
           {/* Self-Assessment */}
           <div>
-            <label htmlFor="employeeSelfAssessment" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="employeeSelfAssessment" className="block text-sm font-medium text-foreground mb-1">
               Self-Assessment
             </label>
             <textarea
               id="employeeSelfAssessment"
               {...register('employeeSelfAssessment')}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
               placeholder="Reflect on your strengths and areas for improvement related to this value..."
             />
             {errors.employeeSelfAssessment && (
-              <p className="mt-1 text-sm text-red-600">{errors.employeeSelfAssessment.message}</p>
+              <p className="mt-1 text-sm text-status-error">{errors.employeeSelfAssessment.message}</p>
             )}
           </div>
 
           {/* Self-Rating */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Self-Rating
             </label>
             <div className="flex items-center space-x-4">
@@ -343,7 +343,7 @@ export function BehaviorForm({
                 </Badge>
               )}
             </div>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Rate how well you feel you demonstrate this value (1 = Needs Improvement, 5 = Exceeds Expectations)
             </p>
           </div>

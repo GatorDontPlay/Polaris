@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import {
   LayoutDashboard,
   FileText,
@@ -160,6 +161,10 @@ export function EmployeeSidebar() {
                     Settings
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1">
+                  <ThemeToggle variant="dropdown" showLabels={false} />
+                </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}

@@ -7,9 +7,15 @@ import { PDRStatusBadge } from '@/components/pdr/pdr-status-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PDRErrorBoundary } from '@/components/ui/error-boundary';
-import { ArrowLeft, Lock } from 'lucide-react';
+import { ArrowLeft, Lock, Trash2, MoreVertical } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 
 const PDR_STEPS = [
   { number: 1, title: 'Goals', description: 'Set your objectives' },
@@ -27,7 +33,8 @@ interface PDRLayoutProps {
 export default function PDRLayout({ children, params }: PDRLayoutProps) {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useDemoAuth();
-  const { data: pdr, isLoading: pdrLoading, error } = useDemoPDR(params.id);
+  const { data: pdr, isLoading: pdrLoading, error, deletePdr } = useDemoPDR(params.id);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -39,10 +46,10 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
   // Show loading state
   if (authLoading || pdrLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading PDR...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading PDR...</p>
         </div>
       </div>
     );
@@ -51,13 +58,13 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
   // Handle error or not found
   if (error || !pdr) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-center text-red-600">PDR Not Found</CardTitle>
+            <CardTitle className="text-center text-status-error">PDR Not Found</CardTitle>
           </CardHeader>
           <CardContent className="text-center">
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               The PDR you're looking for doesn't exist or you don't have access to it.
             </p>
             <Button onClick={() => router.push('/dashboard')}>
@@ -73,13 +80,13 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
   // Check if user can access this PDR
   if (user?.role !== 'CEO' && pdr.userId !== user?.id) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-center text-red-600">Access Denied</CardTitle>
+            <CardTitle className="text-center text-status-error">Access Denied</CardTitle>
           </CardHeader>
           <CardContent className="text-center">
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               You don't have permission to access this PDR.
             </p>
             <Button onClick={() => router.push('/dashboard')}>
@@ -110,10 +117,15 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
     }
   };
 
+  const handleDeletePdr = () => {
+    deletePdr();
+    router.push('/dashboard');
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-6">
             <div className="flex items-center space-x-4">
@@ -126,29 +138,47 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
                 Dashboard
               </Button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-2xl font-bold text-foreground">
                   {pdr.period?.name || 'PDR Review'}
                 </h1>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   {pdr.user?.firstName} {pdr.user?.lastName} - Performance & Development Review
                 </p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               {pdr.isLocked && (
-                <div className="flex items-center text-amber-600 bg-amber-50 px-3 py-1 rounded-full">
+                <div className="flex items-center text-status-warning bg-status-warning/10 px-3 py-1 rounded-full">
                   <Lock className="h-4 w-4 mr-2" />
                   <span className="text-sm font-medium">Locked</span>
                 </div>
               )}
               <PDRStatusBadge status={pdr.status} />
+              
+              {/* PDR Actions Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="text-status-error focus:text-status-error"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete PDR
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
       </div>
 
       {/* Stepper */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <StepperIndicator
             currentStep={pdr.currentStep}
@@ -165,6 +195,37 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
           {children}
         </PDRErrorBoundary>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="text-status-error">Delete PDR</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                Are you sure you want to delete this PDR? This action cannot be undone and will remove all your goals, behaviors, and progress.
+              </p>
+              <div className="flex justify-end space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteConfirm(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeletePdr}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete PDR
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

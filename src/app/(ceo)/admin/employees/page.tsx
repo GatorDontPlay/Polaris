@@ -25,7 +25,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { 
   Search, 
-  Plus, 
   MoreHorizontal, 
   UserPlus, 
   Eye, 
