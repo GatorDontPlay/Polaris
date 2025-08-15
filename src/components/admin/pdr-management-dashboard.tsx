@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
+import { MeetingBookingModal } from './meeting-booking-modal';
 import {
   Table,
   TableBody,
@@ -56,6 +57,13 @@ interface PDRFilters {
 export function PDRManagementDashboard() {
   const [filters, setFilters] = useState<PDRFilters>({});
   const [activeTab, setActiveTab] = useState('pending');
+  const [meetingModalOpen, setMeetingModalOpen] = useState(false);
+  const [selectedPDRForMeeting, setSelectedPDRForMeeting] = useState<PDR | null>(null);
+
+  // Debug modal state changes
+  React.useEffect(() => {
+    console.log('🔍 Modal state changed:', { meetingModalOpen, selectedPDRForMeeting: !!selectedPDRForMeeting });
+  }, [meetingModalOpen, selectedPDRForMeeting]);
 
   // Get PDRs based on active tab and filters
   const getStatusFilter = () => {
@@ -157,19 +165,63 @@ export function PDRManagementDashboard() {
   };
 
   const handleMarkAsBooked = async (pdrId: string) => {
-    try {
-      await markAsBooked.mutateAsync(pdrId);
+    console.log('🎯 handleMarkAsBooked called with pdrId:', pdrId);
+    
+    // Find the PDR to book
+    const pdrToBook = pdrs.find(p => p.id === pdrId);
+    console.log('🔍 Found PDR to book:', pdrToBook);
+    
+    if (!pdrToBook) {
+      console.log('❌ PDR not found for ID:', pdrId);
       toast({
-        title: 'Meeting Booked',
-        description: 'PDR meeting has been marked as booked.',
+        title: 'Error',
+        description: 'Could not find PDR to book meeting.',
+        variant: 'destructive',
       });
+      return;
+    }
+
+    console.log('✅ Opening modal for PDR:', pdrToBook.id);
+    // Open the modal for date selection
+    setSelectedPDRForMeeting(pdrToBook);
+    setMeetingModalOpen(true);
+    console.log('✅ Modal state set to open');
+  };
+
+  const handleConfirmMeeting = async (meetingDate: string) => {
+    if (!selectedPDRForMeeting) return;
+
+    try {
+      // Call the API to book the meeting with the date
+      await markAsBooked.mutateAsync({
+        pdrId: selectedPDRForMeeting.id,
+        meetingDate: meetingDate
+      });
+      
+      toast({
+        title: 'Meeting Scheduled',
+        description: `PDR meeting scheduled for ${meetingDate}`,
+      });
+
+      // Close modal and reset
+      setMeetingModalOpen(false);
+      setSelectedPDRForMeeting(null);
+      
+      // Force refresh the dashboard to show updated status
+      window.location.reload();
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to mark meeting as booked. Please try again.',
+        description: 'Failed to schedule meeting. Please try again.',
         variant: 'destructive',
       });
     }
+  };
+
+  const handleCloseMeetingModal = () => {
+    console.log('🚪 handleCloseMeetingModal called');
+    setMeetingModalOpen(false);
+    setSelectedPDRForMeeting(null);
   };
 
   const getTabCounts = () => {
@@ -180,7 +232,7 @@ export function PDRManagementDashboard() {
       pending: pdrs.filter(p => p.status === 'Created' || p.status === 'DRAFT').length,
       review: pdrs.filter(p => p.status === 'OPEN_FOR_REVIEW' || p.status === 'SUBMITTED').length,
       locked: pdrs.filter(p => p.status === 'PLAN_LOCKED').length,
-      booked: pdrs.filter(p => p.status === 'PDR_BOOKED' || p.status === 'COMPLETED').length,
+      booked: pdrs.filter(p => p.status === 'PDR_BOOKED' || p.status === 'PDR_Booked' || p.status === 'COMPLETED').length,
     };
     
     console.log('getTabCounts - Calculated counts:', counts);
@@ -349,7 +401,7 @@ export function PDRManagementDashboard() {
           <PDRListCard
             title="Meetings Booked"
             description="PDRs with meetings scheduled"
-            pdrs={pdrs.filter(p => p.status === 'PDR_BOOKED')}
+            pdrs={pdrs.filter(p => p.status === 'PDR_BOOKED' || p.status === 'PDR_Booked')}
             isLoading={isLoading}
             showActions={false}
             emptyMessage="No meetings booked yet. Book meetings from the 'Locked' tab."
@@ -357,6 +409,16 @@ export function PDRManagementDashboard() {
           />
         </TabsContent>
       </Tabs>
+
+      {/* Meeting Booking Modal */}
+      {console.log('🔍 Rendering modal with state:', { meetingModalOpen, selectedPDRForMeeting: !!selectedPDRForMeeting })}
+      <MeetingBookingModal
+        isOpen={meetingModalOpen}
+        onClose={handleCloseMeetingModal}
+        onConfirm={handleConfirmMeeting}
+        pdr={selectedPDRForMeeting}
+        isSubmitting={markAsBooked.isPending}
+      />
     </div>
   );
 }
@@ -445,17 +507,6 @@ function PDRListCard({
                       onMarkAsBooked={onMarkAsBooked}
                     />
                   ))}
-                  {/* Add some dummy rows for testing scrolling */}
-                  {pdrs.length > 0 && [...Array(10)].map((_, i) => (
-                    <TableRow key={`dummy-${i}`} style={{ opacity: 0.3 }}>
-                      <TableCell>Demo Employee {i + 1}</TableCell>
-                      <TableCell>2024</TableCell>
-                      <TableCell>Test Status</TableCell>
-                      <TableCell>Just now</TableCell>
-                      {actionType === 'booking' && <TableCell>-</TableCell>}
-                      {showActions && <TableCell>-</TableCell>}
-                    </TableRow>
-                  ))}
                 </TableBody>
               </Table>
             </div>
@@ -474,9 +525,12 @@ interface PDRRowProps {
 }
 
 function PDRRow({ pdr, showActions, actionType, onMarkAsBooked }: PDRRowProps) {
-  const { canSubmitCEOReview, canMarkAsBooked } = usePDRActions(pdr);
+  const { canSubmitCEOReview } = usePDRActions(pdr);
   const isBookingRow = actionType === 'booking';
-  const isBooked = pdr.status === 'PDR_BOOKED' || pdr.meetingBooked;
+  const isBooked = pdr.status === 'PDR_BOOKED' || pdr.status === 'PDR_Booked' || pdr.meetingBooked;
+  
+  // Allow booking for PLAN_LOCKED PDRs (regardless of what usePDRActions says)
+  const canBookMeeting = pdr.status === 'PLAN_LOCKED' && !isBooked;
 
   return (
     <TableRow className={isBooked ? 'opacity-60' : ''}>
@@ -518,11 +572,11 @@ function PDRRow({ pdr, showActions, actionType, onMarkAsBooked }: PDRRowProps) {
             <Checkbox
               checked={isBooked}
               onCheckedChange={(checked) => {
-                if (checked && onMarkAsBooked && canMarkAsBooked) {
+                if (checked && onMarkAsBooked && canBookMeeting) {
                   onMarkAsBooked(pdr.id);
                 }
               }}
-              disabled={isBooked || !canMarkAsBooked}
+              disabled={!canBookMeeting}
             />
             <Label className="text-sm">
               {isBooked ? 'Booked' : 'Mark as booked'}

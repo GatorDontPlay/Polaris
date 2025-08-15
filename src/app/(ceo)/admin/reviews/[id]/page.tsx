@@ -127,6 +127,10 @@ export default function CEOPDRReviewPage() {
   
   // Save & Lock confirmation dialog state
   const [isLockConfirmDialogOpen, setIsLockConfirmDialogOpen] = useState(false);
+  
+  // Validation error dialog state
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [isValidationErrorDialogOpen, setIsValidationErrorDialogOpen] = useState(false);
 
   // Functions to handle CEO feedback
   const updateCeoGoalFeedback = (goalId: string, field: string, value: string | number) => {
@@ -176,7 +180,31 @@ export default function CEOPDRReviewPage() {
     const commentsKey = `ceo_comments_${pdrId}`;
     localStorage.setItem(commentsKey, ceoComments);
     setIsCommentsDialogOpen(false);
-    console.log('✅ CEO comments saved');
+    console.log('✅ CEO comments saved as draft');
+  };
+
+  // Handle save comments and submit (lock) the review
+  const handleSaveAndSubmitFromComments = () => {
+    // First save the comments
+    const commentsKey = `ceo_comments_${pdrId}`;
+    localStorage.setItem(commentsKey, ceoComments);
+    
+    // Close the comments dialog
+    setIsCommentsDialogOpen(false);
+    
+    // Now attempt to save and lock the review
+    setTimeout(() => {
+      // Small delay to ensure dialog closes before validation
+      const errors = validateCEOFeedback();
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+        setIsValidationErrorDialogOpen(true);
+        return;
+      }
+      
+      // If validation passes, open the confirmation dialog
+      setIsLockConfirmDialogOpen(true);
+    }, 100);
   };
 
   const handleOpenCommentsDialog = () => {
@@ -185,35 +213,46 @@ export default function CEOPDRReviewPage() {
 
   // Validate that CEO has provided comprehensive feedback
   const validateCEOFeedback = () => {
+    console.log('🔍 Validation: Starting CEO feedback validation');
+    console.log('📊 Goals:', goals);
+    console.log('📊 Behaviors:', behaviors);
+    console.log('📊 CEO Goal Feedback:', ceoGoalFeedback);
+    console.log('📊 CEO Behavior Feedback:', ceoBehaviorFeedback);
+    console.log('📊 CEO Comments:', ceoComments);
+    
     const validationErrors: string[] = [];
     
     // Check goals feedback
     goals.forEach((goal) => {
       const feedback = ceoGoalFeedback[goal.id];
+      console.log(`🎯 Validating goal "${goal.title}":`, feedback);
       if (!feedback?.ceoRating) {
-        validationErrors.push(`Goal "${goal.title}" is missing CEO rating`);
+        validationErrors.push(`Goal "${goal.title}" - Missing CEO rating`);
       }
-      if (!feedback?.ceoComments?.trim()) {
-        validationErrors.push(`Goal "${goal.title}" is missing CEO comments`);
+      if (!feedback?.ceoDescription?.trim()) {
+        validationErrors.push(`Goal "${goal.title}" - Missing CEO comments`);
       }
     });
     
     // Check behaviors feedback
     behaviors.forEach((behavior) => {
       const feedback = ceoBehaviorFeedback[behavior.id];
+      console.log(`⚡ Validating behavior "${behavior.title}":`, feedback);
       if (!feedback?.ceoRating) {
-        validationErrors.push(`Behavior "${behavior.title}" is missing CEO rating`);
+        validationErrors.push(`Behavior "${behavior.title}" - Missing CEO rating`);
       }
       if (!feedback?.ceoComments?.trim()) {
-        validationErrors.push(`Behavior "${behavior.title}" is missing CEO comments`);
+        validationErrors.push(`Behavior "${behavior.title}" - Missing CEO comments`);
       }
     });
     
     // Check overall comments
+    console.log('💬 Validating overall comments:', ceoComments);
     if (!ceoComments.trim()) {
       validationErrors.push('Overall CEO comments are required');
     }
     
+    console.log('❌ Validation errors:', validationErrors);
     return validationErrors;
   };
 
@@ -221,10 +260,16 @@ export default function CEOPDRReviewPage() {
   const handleSaveAndLockReview = () => {
     if (!pdr) return;
     
+    console.log('🔒 CEO Review: Starting save and lock process');
+    console.log('📋 PDR ID:', pdrId);
+    console.log('📊 Current PDR:', pdr);
+    
     // Validate feedback completeness
-    const validationErrors = validateCEOFeedback();
-    if (validationErrors.length > 0) {
-      alert(`Please complete all required feedback:\n\n${validationErrors.join('\n')}`);
+    const errors = validateCEOFeedback();
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      setIsValidationErrorDialogOpen(true);
+      setIsLockConfirmDialogOpen(false); // Close confirmation dialog
       return;
     }
     
@@ -253,12 +298,38 @@ export default function CEOPDRReviewPage() {
     localStorage.setItem(`demo_pdr_${pdrId}`, JSON.stringify(updatedPDR));
     localStorage.setItem('demo_current_pdr', JSON.stringify(updatedPDR));
     
+    console.log('💾 Saved PDR to localStorage keys:');
+    console.log(`  - demo_pdr_${pdrId}`);
+    console.log('  - demo_current_pdr');
+    console.log('🔓 Updated PDR status to:', updatedPDR.status);
+    
+    // Trigger a storage event to notify other components
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: `demo_pdr_${pdrId}`,
+      newValue: JSON.stringify(updatedPDR),
+      storageArea: localStorage
+    }));
+    
     setIsLockConfirmDialogOpen(false);
     console.log('✅ CEO Review: Review completed and PDR locked');
     console.log('📊 CEO Review Data:', ceoReviewData);
+    
+    // Show success message
+    setTimeout(() => {
+      console.log('🎉 PDR is now locked and ready for mid-year review! Navigate to Reviews page to see the updated status.');
+    }, 1000);
   };
 
   const handleOpenLockConfirmDialog = () => {
+    console.log('🔒 Attempting to open lock confirmation dialog');
+    const errors = validateCEOFeedback();
+    if (errors.length > 0) {
+      console.log('❌ Validation failed, showing errors:', errors);
+      setValidationErrors(errors);
+      setIsValidationErrorDialogOpen(true);
+      return;
+    }
+    console.log('✅ Validation passed, opening lock confirmation dialog');
     setIsLockConfirmDialogOpen(true);
   };
 
@@ -266,30 +337,32 @@ export default function CEOPDRReviewPage() {
     const loadPDRData = () => {
       console.log('🔍 CEO Review: Loading PDR data for ID:', pdrId);
       
-      // Load PDR data from localStorage
+      // Load PDR data from localStorage - prioritize specific PDR storage
       let pdrData = null;
       
-      // Check current PDR first
-      const currentPDR = localStorage.getItem('demo_current_pdr');
-      if (currentPDR) {
+      // Check specific PDR storage FIRST (this is the most up-to-date)
+      const specificPDR = localStorage.getItem(`demo_pdr_${pdrId}`);
+      if (specificPDR) {
         try {
-          const parsed = JSON.parse(currentPDR);
-          if (parsed.id === pdrId) {
-            pdrData = parsed;
-          }
+          pdrData = JSON.parse(specificPDR);
+          console.log('📋 CEO Review: Loading from specific PDR storage:', { id: pdrData.id, status: pdrData.status });
         } catch (error) {
-          console.error('Error parsing current PDR:', error);
+          console.error('Error parsing specific PDR:', error);
         }
       }
       
-      // Check specific PDR storage
+      // Fallback to current PDR only if specific PDR not found
       if (!pdrData) {
-        const specificPDR = localStorage.getItem(`demo_pdr_${pdrId}`);
-        if (specificPDR) {
+        const currentPDR = localStorage.getItem('demo_current_pdr');
+        if (currentPDR) {
           try {
-            pdrData = JSON.parse(specificPDR);
+            const parsed = JSON.parse(currentPDR);
+            if (parsed.id === pdrId) {
+              pdrData = parsed;
+              console.log('📋 CEO Review: Loading from current PDR storage:', { id: pdrData.id, status: pdrData.status });
+            }
           } catch (error) {
-            console.error('Error parsing specific PDR:', error);
+            console.error('Error parsing current PDR:', error);
           }
         }
       }
@@ -679,6 +752,7 @@ export default function CEOPDRReviewPage() {
                                 value={ceoGoalFeedback[goal.id]?.ceoTitle || ''}
                                 onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoTitle', e.target.value)}
                                 className="mt-1"
+                                disabled={pdr.isLocked}
                               />
                             </div>
                             
@@ -693,6 +767,7 @@ export default function CEOPDRReviewPage() {
                                 onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoDescription', e.target.value)}
                                 className="mt-1 min-h-[60px]"
                                 rows={3}
+                                disabled={pdr.isLocked}
                               />
                             </div>
                             
@@ -710,6 +785,7 @@ export default function CEOPDRReviewPage() {
                                   value={ceoGoalFeedback[goal.id]?.ceoProgress || ''}
                                   onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoProgress', parseInt(e.target.value) || 0)}
                                   className="mt-1"
+                                  disabled={pdr.isLocked}
                                 />
                               </div>
                               
@@ -726,6 +802,7 @@ export default function CEOPDRReviewPage() {
                                   value={ceoGoalFeedback[goal.id]?.ceoRating || ''}
                                   onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoRating', parseInt(e.target.value) || 0)}
                                   className="mt-1"
+                                  disabled={pdr.isLocked}
                                 />
                               </div>
                             </div>
@@ -830,6 +907,7 @@ export default function CEOPDRReviewPage() {
                                 value={ceoBehaviorFeedback[behavior.id]?.ceoRating || ''}
                                 onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'ceoRating', parseInt(e.target.value) || 0)}
                                 className="mt-1"
+                                disabled={pdr.isLocked}
                               />
                               {ceoBehaviorFeedback[behavior.id]?.ceoRating && (
                                 <div className="mt-2 space-y-1">
@@ -852,6 +930,7 @@ export default function CEOPDRReviewPage() {
                                 onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'ceoExamples', e.target.value)}
                                 className="mt-1 min-h-[60px]"
                                 rows={3}
+                                disabled={pdr.isLocked}
                               />
                             </div>
                             
@@ -866,6 +945,7 @@ export default function CEOPDRReviewPage() {
                                 onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'ceoComments', e.target.value)}
                                 className="mt-1 min-h-[80px]"
                                 rows={4}
+                                disabled={pdr.isLocked}
                               />
                             </div>
                             
@@ -969,7 +1049,7 @@ export default function CEOPDRReviewPage() {
                   {(() => {
                     const totalItems = goals.length + behaviors.length + 1; // +1 for overall comments
                     const completedGoals = goals.filter(g => 
-                      ceoGoalFeedback[g.id]?.ceoRating && ceoGoalFeedback[g.id]?.ceoComments?.trim()
+                      ceoGoalFeedback[g.id]?.ceoRating && ceoGoalFeedback[g.id]?.ceoDescription?.trim()
                     ).length;
                     const completedBehaviors = behaviors.filter(b => 
                       ceoBehaviorFeedback[b.id]?.ceoRating && ceoBehaviorFeedback[b.id]?.ceoComments?.trim()
@@ -1018,7 +1098,13 @@ export default function CEOPDRReviewPage() {
               <CardContent>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {pdr.status === 'SUBMITTED' && !pdr.isLocked && (
+                    {(() => {
+                      const showButton = pdr.status === 'SUBMITTED' && !pdr.isLocked;
+                      console.log('🎯 Button visibility check - PDR status:', pdr.status, 'isLocked:', pdr.isLocked);
+                      console.log('🎯 Expected status: SUBMITTED');
+                      console.log('🎯 Should show button:', showButton);
+                      return showButton;
+                    })() && (
                       <AlertDialog open={isLockConfirmDialogOpen} onOpenChange={setIsLockConfirmDialogOpen}>
                         <AlertDialogTrigger asChild>
                           <Button onClick={handleOpenLockConfirmDialog} className="w-full">
@@ -1028,20 +1114,21 @@ export default function CEOPDRReviewPage() {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Finalize CEO Review</AlertDialogTitle>
+                            <AlertDialogTitle>Submit and Lock PDR Review</AlertDialogTitle>
                             <AlertDialogDescription>
-                              This will save all your feedback and lock the PDR for formal review. Once locked:
+                              This will finalize your review and lock the PDR. Once submitted and locked:
+                              <br />• All your feedback will be saved permanently
                               <br />• The employee's goals will be formally set for measurement
                               <br />• The PDR will be ready for mid-year check-ins
                               <br />• You won't be able to edit your feedback without unlocking
                               <br /><br />
-                              Are you sure you want to finalize this review?
+                              Are you sure you want to submit and lock this review?
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction onClick={handleSaveAndLockReview}>
-                              Save & Lock Review
+                              Submit and Lock
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
@@ -1062,9 +1149,13 @@ export default function CEOPDRReviewPage() {
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-[525px]">
                         <DialogHeader>
-                          <DialogTitle>CEO Comments</DialogTitle>
+                          <DialogTitle>CEO Summary Comments</DialogTitle>
                           <DialogDescription>
-                            Add your comments about this PDR review. These comments will be visible to the employee.
+                            Add your overall comments about this PDR review. These comments will be visible to the employee.
+                            <br /><br />
+                            <strong>Save as Draft:</strong> Save your progress to return and modify later
+                            <br />
+                            <strong>Save and Submit:</strong> Save comments and lock the PDR for mid-year review
                           </DialogDescription>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
@@ -1077,15 +1168,19 @@ export default function CEOPDRReviewPage() {
                               onChange={(e) => setCeoComments(e.target.value)}
                               className="min-h-[120px]"
                               rows={6}
+                              disabled={pdr.isLocked}
                             />
                           </div>
                         </div>
-                        <DialogFooter>
+                        <DialogFooter className="gap-2">
                           <Button variant="outline" onClick={() => setIsCommentsDialogOpen(false)}>
                             Cancel
                           </Button>
-                          <Button onClick={handleSaveComments}>
-                            Save Comments
+                          <Button variant="secondary" onClick={handleSaveComments}>
+                            Save as Draft
+                          </Button>
+                          <Button onClick={handleSaveAndSubmitFromComments}>
+                            Save and Submit
                           </Button>
                         </DialogFooter>
                       </DialogContent>
@@ -1122,6 +1217,30 @@ export default function CEOPDRReviewPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Validation Error Dialog */}
+      <AlertDialog open={isValidationErrorDialogOpen} onOpenChange={setIsValidationErrorDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Incomplete Feedback</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please complete all required feedback before submitting the review:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-60 overflow-y-auto">
+            <ul className="list-disc list-inside space-y-1 text-sm">
+              {validationErrors.map((error, index) => (
+                <li key={index} className="text-red-600">{error}</li>
+              ))}
+            </ul>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setIsValidationErrorDialogOpen(false)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useDemoAdminDashboard as useCEODashboard } from '@/hooks/use-demo-admin';
 import { AdminHeader, PageHeader } from '@/components/admin/admin-header';
 import { PDRManagementDashboard } from '@/components/admin/pdr-management-dashboard';
@@ -7,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Table,
@@ -25,6 +26,7 @@ import {
   TrendingUp,
   Plus,
   Eye,
+  RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -56,7 +58,32 @@ const StatCard = ({ title, value, change, changeType, icon: Icon }: {
 export default function CEODashboard() {
   console.log('CEODashboard component mounted');
   
-  const { data: dashboardData, isLoading, error } = useCEODashboard();
+  const { data: dashboardData, isLoading, error, refreshDashboard } = useCEODashboard();
+
+  // Auto-refresh dashboard when PDR data changes
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key && (e.key.startsWith('demo_pdr_') || e.key === 'demo_current_pdr')) {
+        console.log('💾 Dashboard: PDR data changed, refreshing:', e.key);
+        refreshDashboard();
+      }
+    };
+
+    const handleFocus = () => {
+      console.log('🎯 Dashboard: Window focused, but skipping refresh (modal fix)');
+      // Temporarily disabled to fix modal issue
+      // refreshDashboard();
+    };
+
+    // Listen for localStorage changes and window focus
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [refreshDashboard]);
 
   console.log('CEO Dashboard Debug:', { 
     dashboardData, 
@@ -130,12 +157,22 @@ export default function CEODashboard() {
           { label: 'Dashboard' }
         ]}
         actions={
-          <Button asChild>
-            <Link href="/admin/reviews/new">
-              <Plus className="mr-2 h-4 w-4" />
-              New Review
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={refreshDashboard}
+              className="bg-blue-50 border-blue-200 hover:bg-blue-100"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh
+            </Button>
+            <Button asChild>
+              <Link href="/admin/reviews/new">
+                <Plus className="mr-2 h-4 w-4" />
+                New Review
+              </Link>
+            </Button>
+          </div>
         }
       />
 
@@ -202,37 +239,53 @@ export default function CEODashboard() {
                       </p>
                     ) : (
                       recentActivity.slice(0, 5).map((activity: any) => (
-                        <div key={activity.id} className="flex items-center space-x-4">
-                          <Avatar className="h-9 w-9">
-                            <AvatarFallback>
+                        <div key={activity.id} className="flex items-start space-x-4 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                          <Avatar className="h-10 w-10 mt-1">
+                            <AvatarFallback className="text-xs">
                               {activity.user?.firstName?.[0]}{activity.user?.lastName?.[0]}
                             </AvatarFallback>
                           </Avatar>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium leading-none">
-                              {activity.user?.firstName} {activity.user?.lastName}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {activity.message}
-                            </p>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Badge 
-                              variant={
-                                activity.priority === 'high' ? 'destructive' :
-                                activity.priority === 'medium' ? 'default' :
-                                'secondary'
-                              }
-                            >
-                              {activity.type}
-                            </Badge>
-                            {activity.pdr && (
-                              <Button variant="ghost" size="sm" asChild>
-                                <Link href={`/admin/reviews/${activity.pdr.id}`}>
-                                  <Eye className="h-4 w-4" />
-                                </Link>
-                              </Button>
-                            )}
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="space-y-1">
+                                <p className="text-sm font-semibold leading-none">
+                                  {activity.employeeName || `${activity.user?.firstName} ${activity.user?.lastName}`}
+                                </p>
+                                <p className="text-sm font-medium text-primary">
+                                  {activity.action || activity.description}
+                                </p>
+                              </div>
+                              <div className="flex items-center space-x-2 flex-shrink-0">
+                                <Badge 
+                                  variant={
+                                    activity.priority === 'high' ? 'destructive' :
+                                    activity.priority === 'medium' ? 'default' :
+                                    'secondary'
+                                  }
+                                  className="text-xs"
+                                >
+                                  {activity.type}
+                                </Badge>
+                                {activity.pdr && (
+                                  <Button variant="ghost" size="sm" asChild>
+                                    <Link href={`/admin/reviews/${activity.pdr.id}`}>
+                                      <Eye className="h-4 w-4" />
+                                    </Link>
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-muted-foreground">
+                              <div>
+                                <span className="font-medium">Performed by:</span> {activity.performedBy || `${activity.user?.firstName} ${activity.user?.lastName}`}
+                              </div>
+                              <div>
+                                <span className="font-medium">Status:</span> {activity.statusChange || 'N/A'}
+                              </div>
+                              <div className="md:col-span-2">
+                                <span className="font-medium">Date & Time:</span> {activity.dateTime || new Date(activity.timestamp).toLocaleString('en-AU', { timeZone: 'Australia/Adelaide' })} (Adelaide)
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))
@@ -256,17 +309,44 @@ export default function CEODashboard() {
                         <p className="text-muted-foreground">All caught up! No pending reviews.</p>
                       </div>
                     ) : (
-                      pendingReviews.slice(0, 3).map((review: any) => (
-                        <div key={review.id} className="flex items-center justify-between space-x-4">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium leading-none">
-                              {review.user?.firstName} {review.user?.lastName}
+                      pendingReviews.slice(0, 5).map((review: any) => (
+                        <div key={review.id} className="flex items-start space-x-4 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                          <Avatar className="h-9 w-9">
+                            <AvatarFallback className="text-xs">
+                              {review.user?.firstName?.[0]}{review.user?.lastName?.[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-semibold leading-none">
+                                {review.employeeName || `${review.user?.firstName} ${review.user?.lastName}`}
+                              </p>
+                              <div className="flex items-center space-x-2">
+                                <Badge 
+                                  variant={
+                                    review.priority === 'HIGH' ? 'destructive' :
+                                    review.priority === 'MEDIUM' ? 'default' :
+                                    'secondary'
+                                  }
+                                  className="text-xs"
+                                >
+                                  {review.urgencyMessage || review.priority}
+                                </Badge>
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              <span className="font-medium">Department:</span> {review.department}
                             </p>
-                            <p className="text-sm text-muted-foreground">
-                              {review.period?.name} - {review.status}
+                            <p className="text-xs text-muted-foreground">
+                              <span className="font-medium">Action Required:</span> {review.actionRequired || 'Review and provide feedback'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              <span className="font-medium">Submitted:</span> {review.daysSinceSubmission !== undefined 
+                                ? `${review.daysSinceSubmission} day${review.daysSinceSubmission !== 1 ? 's' : ''} ago`
+                                : new Date(review.submittedAt).toLocaleDateString('en-AU')}
                             </p>
                           </div>
-                          <Button variant="outline" size="sm" asChild>
+                          <Button variant="outline" size="sm" asChild className="flex-shrink-0">
                             <Link href={`/admin/reviews/${review.id}`}>
                               Review
                             </Link>

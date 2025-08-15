@@ -2,7 +2,7 @@
 
 ## Overview
 
-This implementation adds a comprehensive state machine to the PDR system with Australian Financial Year support, role-based permissions, and a notification system. The implementation follows the exact requirements from the prompt and maintains compatibility with existing dashboards.
+This implementation adds a comprehensive state machine to the PDR system with Australian Financial Year support, role-based permissions, and a notification system. **Note: The current codebase operates primarily in demo mode using localStorage for data persistence and simplified status handling.**
 
 ## ✅ Completed Implementation
 
@@ -22,22 +22,30 @@ This implementation adds a comprehensive state machine to the PDR system with Au
   - `meetingBooked` / `meetingBookedAt` (booking functionality)
   - `lockedAt` / `lockedBy` (CEO lock tracking)
 
-- **New Status Values**:
+- **Status Values** (Current Implementation):
   - `"Created"` - Initial PDR state
-  - `"open for review"` - Submitted for CEO review
-  - `"Plan - Locked"` - CEO has locked, pending meeting
-  - `"PDR_Booked"` - Meeting scheduled
+  - `"SUBMITTED"` - Employee has submitted for review (primary demo status)
+  - `"UNDER_REVIEW"` - CEO is reviewing
+  - `"COMPLETED"` - Review process completed
+  - Legacy state machine values also defined: `"OPEN_FOR_REVIEW"`, `"PLAN_LOCKED"`, `"PDR_BOOKED"`
+  - Additional workflow statuses: `"DRAFT"`, `"MID_YEAR_CHECK"`, `"END_YEAR_REVIEW"`, `"LOCKED"`
 
 - **Notification System**:
   - New `Notification` model with types: `PDR_LOCKED`, `PDR_SUBMITTED`, `PDR_REMINDER`
   - Linked to users and PDRs
 
 ### 3. State Machine Logic (`src/lib/pdr-state-machine.ts`)
-- **Valid Transitions**:
+- **Valid Transitions** (Theoretical Implementation):
   ```
-  Created → open for review (Employee: submitForReview)
-  open for review → Plan - Locked (CEO: submitCeoReview)
-  Plan - Locked → PDR_Booked (CEO: markBooked)
+  Created → OPEN_FOR_REVIEW (Employee: submitForReview)
+  OPEN_FOR_REVIEW → PLAN_LOCKED (CEO: submitCeoReview)
+  PLAN_LOCKED → PDR_BOOKED (CEO: markBooked)
+  ```
+- **Current Demo Implementation**:
+  ```
+  Created → SUBMITTED (Employee: submit PDR from review page)
+  SUBMITTED → UNDER_REVIEW (CEO: can review and provide feedback)
+  UNDER_REVIEW → COMPLETED (Process completion)
   ```
 
 - **Permission System**:
@@ -70,7 +78,15 @@ This implementation adds a comprehensive state machine to the PDR system with Au
 
 ### 5. Frontend Implementation
 
-#### New Hooks:
+#### Current Demo Hooks:
+- `useDemoPDR()` - Demo PDR management with localStorage
+- `useDemoPDRDashboard()` - Demo dashboard data management
+- `useDemoAuth()` - Demo authentication system
+- `useDemoAdmin()` - Demo admin/CEO functionality
+- `useDemoGoals()` - Goal management in demo mode
+- `useDemoBehaviors()` - Behavior management in demo mode
+
+#### Theoretical Hooks (Defined but using demo versions):
 - `useNotifications()` - Notification management
 - `usePDRPermissions()` - Permission checking
 - `useSubmitPDRForReview()` - Employee submission
@@ -83,17 +99,20 @@ This implementation adds a comprehensive state machine to the PDR system with Au
 - `PDRManagementDashboard` - CEO dashboard with filters and booking
 
 #### Features:
-- Real-time permission-based UI gating
-- Status-based component rendering
-- Notification display with auto-dismiss
-- Booking checkbox functionality
+- **Demo Mode**: localStorage-based data persistence
+- **Status-based UI**: Dynamic component rendering based on PDR status
+- **Dashboard Updates**: Real-time updates via custom events (`demo-pdr-changed`)
+- **Employee Flow**: Create → Submit → View (read-only after submission)
+- **CEO Flow**: Review submitted PDRs, provide feedback
+- **Simplified Status Mapping**: Focuses on `Created`, `SUBMITTED`, `UNDER_REVIEW`, `COMPLETED`
 
 ### 6. CEO Dashboard Updates
-- **Status Filters**: Tabs for Created, open for review, Plan - Locked, PDR_Booked
-- **Booking Interface**: Checkbox to mark meetings as booked
-- **Visual States**: Greyed out rows for booked meetings
-- **Notification Integration**: Real-time updates
-- **Search and Filter**: Employee search, status filtering
+- **Demo Implementation**: Uses `useDemoAdmin()` and `useDemoReviews()`
+- **Data Source**: Reads from localStorage (`demo_current_pdr`, `demo_pdr_*` keys)
+- **Status Filtering**: Supports filtering by PDR status
+- **Real-time Updates**: Updates when employee PDRs change
+- **Review Interface**: CEO can view and provide feedback on submitted PDRs
+- **Status Mapping**: Maps demo statuses to review interface statuses
 
 ### 7. Comprehensive Testing
 - **Unit Tests**: Financial year calculations, state machine logic
@@ -101,9 +120,14 @@ This implementation adds a comprehensive state machine to the PDR system with Au
 - **Acceptance Tests**: Complete workflow from creation to booking
 - **Edge Cases**: Boundary dates, invalid transitions, concurrent edits
 
-## 🚀 Migration and Setup Commands
+## 🚀 Setup Commands
 
-### 1. Run Database Migration
+### Current Demo Mode Setup
+The codebase currently operates in demo mode with localStorage persistence. No database setup required for basic functionality.
+
+### For Production Database Setup (If Implementing Full State Machine)
+
+#### 1. Run Database Migration
 ```bash
 # Apply the schema changes
 npx prisma db push
@@ -112,12 +136,12 @@ npx prisma db push
 npx prisma migrate dev --name add_pdr_state_machine
 ```
 
-### 2. Generate Updated Prisma Client
+#### 2. Generate Updated Prisma Client
 ```bash
 npx prisma generate
 ```
 
-### 3. Install Missing Dependencies (if needed)
+#### 3. Install Dependencies
 ```bash
 npm install @radix-ui/react-checkbox
 npm install date-fns
@@ -140,14 +164,21 @@ npm run test -- src/lib/__tests__/pdr-state-machine.test.ts
 npm run type-check
 ```
 
-## 📋 Key Features Implemented
+## 📋 Key Features Status
 
-### ✅ State Machine Requirements
-- [x] Exact status names implemented ("Created", "open for review", "Plan - Locked", "PDR_Booked")
-- [x] Role-based transitions (Employee → CEO → Booking)
-- [x] Field validation before transitions
-- [x] Idempotent operations
+### ✅ Demo Mode Implementation (Current)
+- [x] Demo status flow: `Created` → `SUBMITTED` → `UNDER_REVIEW` → `COMPLETED`
+- [x] localStorage-based data persistence
+- [x] Employee and CEO role simulation
+- [x] Real-time dashboard updates
+- [x] Status-based UI rendering
+
+### 🔄 Full State Machine (Available but not actively used)
+- [x] Schema supports full status set: `Created`, `OPEN_FOR_REVIEW`, `PLAN_LOCKED`, `PDR_BOOKED`
+- [x] State machine logic defined in `src/lib/pdr-state-machine.ts`
+- [x] Field validation framework
 - [x] Audit trail with timestamps
+- [ ] Active API endpoints for state transitions (demo hooks used instead)
 
 ### ✅ Australian FY Implementation
 - [x] FY calculation based on attempt date
@@ -156,24 +187,25 @@ npm run type-check
 - [x] FY label format (YYYY-YYYY)
 - [x] Automatic population of FY fields
 
-### ✅ Permission System
-- [x] Employee: read/write own fields in Created/open for review
-- [x] CEO: read-only list for Created, full access in open for review
-- [x] Locked state: read-only for both, booking for CEO only
-- [x] Field-level permissions (employee vs CEO fields)
+### 🔄 Permission System (Demo Mode)
+- [x] Role-based dashboard access (Employee vs CEO)
+- [x] Status-based UI permissions (edit vs view-only)
+- [x] Demo authentication system
+- [x] Basic field-level access control
+- [ ] Full permission system (available in `use-pdr-permissions.ts` but demo mode used)
 
-### ✅ Notification System
-- [x] PDR_LOCKED notification on CEO submission
-- [x] Notification bar in UI
-- [x] Mark as read/unread functionality
-- [x] Real-time notification count
+### 🔄 Notification System (Schema Ready)
+- [x] Notification model defined in schema
+- [x] Notification types: `PDR_LOCKED`, `PDR_SUBMITTED`, `PDR_REMINDER`
+- [x] Basic notification framework in place
+- [ ] Active notification system (demo mode doesn't fully utilize)
 
-### ✅ CEO Dashboard
-- [x] Status-based tabs with counts
-- [x] Booking checkbox functionality
-- [x] Row greying for booked meetings
-- [x] Search and filter capabilities
-- [x] Real-time status updates
+### ✅ CEO Dashboard (Demo Mode)
+- [x] Real-time PDR status monitoring
+- [x] Demo review interface
+- [x] Status-based filtering
+- [x] Employee PDR visibility
+- [x] localStorage integration for real-time updates
 
 ### ✅ Data Integrity
 - [x] Atomic transitions with proper error handling
@@ -183,14 +215,26 @@ npm run type-check
 
 ## 🔄 State Flow Diagram
 
+### Current Demo Implementation
+```
+Created (Employee can edit)
+   ↓ Submit PDR (Employee)
+SUBMITTED (Read-only for employee, CEO can review)
+   ↓ CEO Review Process (CEO)
+UNDER_REVIEW (Both read-only, CEO provides feedback)
+   ↓ Process Completion
+COMPLETED (Terminal, all read-only)
+```
+
+### Full State Machine (Available in Schema)
 ```
 Created (Employee editable)
    ↓ submitForReview (Employee)
-open for review (Both can edit their fields)
+OPEN_FOR_REVIEW (Both can edit their fields)
    ↓ submitCeoReview (CEO)
-Plan - Locked (Read-only, CEO can book)
+PLAN_LOCKED (Read-only, CEO can book)
    ↓ markBooked (CEO)
-PDR_Booked (Terminal, all read-only)
+PDR_BOOKED (Terminal, all read-only)
 ```
 
 ## 🎯 Validation Examples
@@ -215,18 +259,42 @@ PDR_Booked (Terminal, all read-only)
 
 ## 🚨 Important Notes
 
-1. **Existing Data**: Migration populates FY fields for existing PDRs based on created_at
-2. **Compatibility**: Legacy status values maintained for backward compatibility
+### Current Demo Mode
+1. **Data Persistence**: Uses localStorage for demo data persistence
+2. **Authentication**: Demo authentication system with localStorage
+3. **Status Flow**: Simplified status transitions for demo purposes
+4. **Real-time Updates**: Custom events for dashboard synchronization
+5. **No Database Required**: Full functionality without database setup
+
+### Production Implementation
+1. **Schema Ready**: Full state machine schema implemented in Prisma
+2. **API Endpoints**: Production API endpoints defined but demo hooks used
 3. **Timezone**: All FY calculations use Australia/Adelaide timezone
-4. **Security**: All endpoints validate user permissions and state transitions
-5. **Performance**: Database indexes added for FY queries and status filtering
-6. **Error Handling**: Comprehensive error messages with specific error codes
+4. **Security**: Permission system framework available
+5. **Performance**: Database indexes defined for production queries
+6. **Error Handling**: Comprehensive error framework in place
 
 ## 🧪 Test Coverage
 
-- **Unit Tests**: 40+ test cases for utilities and state machine
-- **Integration Tests**: 15+ API endpoint scenarios with permissions
-- **Acceptance Tests**: Complete workflow validation
-- **Edge Cases**: Boundary dates, invalid transitions, concurrent updates
+- **Unit Tests**: Available for financial year calculations and state machine logic
+- **Demo Testing**: Manual testing through demo interface
+- **Edge Cases**: Financial year boundary dates, status transitions
+- **Integration**: localStorage synchronization and UI updates
 
-The implementation is production-ready with comprehensive testing, proper error handling, and follows all the specified requirements from the original prompt.
+## 🚀 Current State Summary
+
+The codebase contains a **dual implementation**:
+
+1. **Demo Mode (Active)**: 
+   - localStorage-based persistence
+   - Simplified status flow (`Created` → `SUBMITTED` → `UNDER_REVIEW` → `COMPLETED`)
+   - Full UI functionality for testing and development
+   - No database required
+
+2. **Production Framework (Available)**:
+   - Complete state machine implementation in schema
+   - Full API endpoints and permission system
+   - Comprehensive validation and audit framework
+   - Ready for database-backed production deployment
+
+The demo mode provides full PDR functionality for development and testing, while the production framework is ready for implementation when database-backed persistence is required.

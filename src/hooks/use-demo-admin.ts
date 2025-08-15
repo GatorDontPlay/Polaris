@@ -3,60 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { CEODashboardData, ActivityItem, PDR } from '@/types';
 
-const DEMO_DASHBOARD_DATA: CEODashboardData = {
-  stats: {
-    totalEmployees: 25,
-    completedPDRs: 18,
-    pendingReviews: 7,
-    averageRating: 4.2,
-  },
-  recentActivity: [
-    {
-      id: '1',
-      type: 'PDR_SUBMITTED',
-      description: 'John Smith submitted their PDR for review',
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-      userId: 'user-1',
-    },
-    {
-      id: '2',
-      type: 'GOAL_COMPLETED',
-      description: 'Sarah Johnson completed Q3 project milestone',
-      timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
-      userId: 'user-2',
-    },
-    {
-      id: '3',
-      type: 'REVIEW_APPROVED',
-      description: 'Mid-year review approved for Michael Brown',
-      timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
-      userId: 'user-3',
-    },
-  ],
-  pendingReviews: [
-    {
-      id: 'pdr-1',
-      employeeName: 'Alice Wilson',
-      department: 'Engineering',
-      submittedAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-      priority: 'HIGH' as const,
-    },
-    {
-      id: 'pdr-2',
-      employeeName: 'Bob Chen',
-      department: 'Marketing',
-      submittedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-      priority: 'MEDIUM' as const,
-    },
-    {
-      id: 'pdr-3',
-      employeeName: 'Carol Davis',
-      department: 'Sales',
-      submittedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-      priority: 'LOW' as const,
-    },
-  ],
-};
+// No seeded dashboard data - clean slate for manual testing
 
 // Function to get all PDRs from localStorage
 function getAllPDRsFromStorage(): PDR[] {
@@ -91,28 +38,33 @@ function getAllPDRsFromStorage(): PDR[] {
   
   // Check for any additional PDRs stored individually
   console.log('getAllPDRsFromStorage: Scanning localStorage for demo_pdr_ keys');
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    console.log(`getAllPDRsFromStorage: Found key ${i}:`, key);
-    if (key && key.startsWith('demo_pdr_') && key !== 'demo_current_pdr') {
-      try {
-        const pdrData = localStorage.getItem(key);
-        console.log(`getAllPDRsFromStorage: Data for ${key}:`, pdrData);
-        if (pdrData) {
-          const parsed = JSON.parse(pdrData);
-          // Avoid duplicates
-          if (!pdrs.some(pdr => pdr.id === parsed.id)) {
-            pdrs.push({
-              ...parsed,
-              createdAt: new Date(parsed.createdAt),
-              updatedAt: new Date(parsed.updatedAt),
-              ...(parsed.submittedAt && { submittedAt: new Date(parsed.submittedAt) }),
-            });
-          }
+  
+  // Get all localStorage keys and filter for PDR keys
+  const allKeys = Object.keys(localStorage);
+  const pdrKeys = allKeys.filter(key => key.startsWith('demo_pdr_') && key !== 'demo_current_pdr');
+  console.log('getAllPDRsFromStorage: Found PDR keys:', pdrKeys);
+  
+  for (const key of pdrKeys) {
+    try {
+      const pdrData = localStorage.getItem(key);
+      console.log(`getAllPDRsFromStorage: Data for ${key}:`, pdrData ? 'Found' : 'null');
+      if (pdrData) {
+        const parsed = JSON.parse(pdrData);
+        console.log(`getAllPDRsFromStorage: Parsed ${key}:`, { id: parsed.id, status: parsed.status, isLocked: parsed.isLocked });
+        // Avoid duplicates
+        if (!pdrs.some(pdr => pdr.id === parsed.id)) {
+          pdrs.push({
+            ...parsed,
+            createdAt: new Date(parsed.createdAt),
+            updatedAt: new Date(parsed.updatedAt),
+            ...(parsed.submittedAt && { submittedAt: new Date(parsed.submittedAt) }),
+          });
+        } else {
+          console.log(`getAllPDRsFromStorage: Skipping duplicate PDR ${parsed.id}`);
         }
-      } catch (error) {
-        console.error('Error parsing PDR:', error);
       }
+    } catch (error) {
+      console.error(`getAllPDRsFromStorage: Error parsing PDR ${key}:`, error);
     }
   }
   
@@ -121,12 +73,29 @@ function getAllPDRsFromStorage(): PDR[] {
 }
 
 export function useDemoAdminDashboard() {
-  const [dashboardData, setDashboardData] = useState<CEODashboardData>(DEMO_DASHBOARD_DATA);
+  // Initialize with empty dashboard data - no seeded data
+  const [dashboardData, setDashboardData] = useState<CEODashboardData>({
+    stats: {
+      totalEmployees: 0,
+      completedPDRs: 0,
+      pendingReviews: 0,
+      averageRating: 0,
+    },
+    recentActivity: [],
+    pendingReviews: [],
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Function to refresh dashboard data
+  const refreshDashboard = () => {
+    console.log('🔄 Dashboard refresh triggered');
+    setRefreshKey(prev => prev + 1);
+  };
 
   useEffect(() => {
-    console.log('useDemoAdminDashboard: useEffect triggered');
+    console.log('useDemoAdminDashboard: useEffect triggered, refreshKey:', refreshKey);
     
     // Small delay to ensure component is mounted
     const timer = setTimeout(() => {
@@ -148,49 +117,137 @@ export function useDemoAdminDashboard() {
             averageRating: 4.2, // Keep static for demo
           },
           recentActivity: [
-            // Add activity for real PDRs
-            ...realPDRs.map((pdr, index) => ({
-              id: `real-${pdr.id}`,
-              type: 'PDR_SUBMITTED' as const,
-              description: `Employee Demo submitted their PDR for review`,
-              message: `Employee Demo submitted their PDR for review`,
-              timestamp: pdr.submittedAt || pdr.updatedAt,
-              userId: pdr.userId,
-              user: {
-                firstName: 'Employee',
-                lastName: 'Demo',
-              },
-              priority: 'high' as const,
-            })),
-            // Keep some original demo activity
-            ...DEMO_DASHBOARD_DATA.recentActivity.slice(0, 2),
-          ].slice(0, 5), // Limit to 5 items
+            // Add dynamic activity for real PDRs based on status
+            ...realPDRs.flatMap((pdr, index) => {
+              const activities = [];
+              
+              // Helper function to format date to Adelaide time
+              const formatAdelaideTime = (dateString: string) => {
+                const date = new Date(dateString);
+                return date.toLocaleString('en-AU', {
+                  timeZone: 'Australia/Adelaide',
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: false
+                });
+              };
+              
+              // PDR Submitted activity
+              if (pdr.submittedAt) {
+                activities.push({
+                  id: `real-${pdr.id}-submitted`,
+                  type: 'PDR_SUBMITTED' as const,
+                  employeeName: 'Employee Demo',
+                  action: 'PDR Submitted for Review',
+                  performedBy: 'Employee Demo',
+                  statusChange: 'Created → Submitted',
+                  dateTime: formatAdelaideTime(pdr.submittedAt),
+                  description: `Employee Demo submitted their PDR for review`,
+                  message: `PDR submitted by Employee Demo\nStatus: Created → Submitted\n${formatAdelaideTime(pdr.submittedAt)} (Adelaide)`,
+                  timestamp: pdr.submittedAt,
+                  userId: pdr.userId,
+                  user: {
+                    firstName: 'Employee',
+                    lastName: 'Demo',
+                  },
+                  priority: 'high' as const,
+                  pdr: { id: pdr.id },
+                });
+              }
+              
+              // CEO Review Completed activity
+              if (pdr.status === 'PLAN_LOCKED' && pdr.isLocked) {
+                activities.push({
+                  id: `real-${pdr.id}-locked`,
+                  type: 'PDR_LOCKED' as const,
+                  employeeName: 'Employee Demo',
+                  action: 'PDR Review Completed & Locked',
+                  performedBy: 'CEO Admin',
+                  statusChange: 'Submitted → Plan Locked',
+                  dateTime: formatAdelaideTime(pdr.updatedAt),
+                  description: `CEO completed review and locked PDR for Employee Demo`,
+                  message: `PDR reviewed and locked by CEO Admin\nEmployee: Employee Demo\nStatus: Submitted → Plan Locked\n${formatAdelaideTime(pdr.updatedAt)} (Adelaide)`,
+                  timestamp: pdr.updatedAt,
+                  userId: 'ceo-user',
+                  user: {
+                    firstName: 'CEO',
+                    lastName: 'Admin',
+                  },
+                  priority: 'medium' as const,
+                  pdr: { id: pdr.id },
+                });
+              }
+
+              // Meeting Booked activity
+              if ((pdr.status === 'PDR_BOOKED' || pdr.status === 'PDR_Booked') && pdr.meetingBooked) {
+                activities.push({
+                  id: `real-${pdr.id}-meeting-booked`,
+                  type: 'MEETING_BOOKED' as const,
+                  employeeName: 'Employee Demo',
+                  action: 'PDR Meeting Scheduled',
+                  performedBy: 'CEO Admin',
+                  statusChange: 'Plan Locked → Meeting Booked',
+                  dateTime: formatAdelaideTime(pdr.meetingBookedAt || pdr.updatedAt),
+                  description: `CEO scheduled PDR meeting for Employee Demo`,
+                  message: `PDR meeting scheduled by CEO Admin\nEmployee: Employee Demo\nStatus: Plan Locked → Meeting Booked\n${formatAdelaideTime(pdr.meetingBookedAt || pdr.updatedAt)} (Adelaide)`,
+                  timestamp: pdr.meetingBookedAt || pdr.updatedAt,
+                  userId: 'ceo-user',
+                  user: {
+                    firstName: 'CEO',
+                    lastName: 'Admin',
+                  },
+                  priority: 'low' as const,
+                  pdr: { id: pdr.id },
+                });
+              }
+              
+              return activities;
+            }),
+            // No demo activity - clean slate for testing
+          ]
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) // Sort by most recent first
+          .slice(0, 5), // Limit to 5 items
           pendingReviews: [
-            // Add real pending PDRs
+            // Only show PDRs that actually need CEO attention
             ...realPDRs
-              .filter(pdr => 
-                pdr.status === 'SUBMITTED' || 
-                pdr.status === 'OPEN_FOR_REVIEW' || 
-                pdr.status === 'UNDER_REVIEW' ||
-                pdr.status === 'Created'
-              )
-              .map(pdr => ({
-                id: pdr.id,
-                employeeName: 'Employee Demo',
-                department: 'Demo Department', 
-                submittedAt: pdr.submittedAt || pdr.createdAt,
-                priority: 'HIGH' as const,
-                status: pdr.status,
-                user: {
-                  firstName: 'Employee',
-                  lastName: 'Demo',
-                },
-                period: {
-                  name: pdr.fyLabel || '2024',
-                },
-              })),
-            // Keep original demo reviews
-            ...DEMO_DASHBOARD_DATA.pendingReviews,
+              .filter(pdr => {
+                // Only include PDRs that are submitted and waiting for CEO review
+                const needsCEOAction = pdr.status === 'SUBMITTED' && !pdr.isLocked;
+                console.log(`PDR ${pdr.id}: status=${pdr.status}, isLocked=${pdr.isLocked}, needsCEOAction=${needsCEOAction}`);
+                return needsCEOAction;
+              })
+              .map(pdr => {
+                // Calculate urgency based on submission date
+                const submittedDate = new Date(pdr.submittedAt || pdr.updatedAt);
+                const daysSinceSubmission = Math.floor((Date.now() - submittedDate.getTime()) / (1000 * 60 * 60 * 24));
+                const priority = daysSinceSubmission > 7 ? 'HIGH' : daysSinceSubmission > 3 ? 'MEDIUM' : 'LOW';
+                
+                return {
+                  id: pdr.id,
+                  employeeName: 'Employee Demo',
+                  department: 'Demo Department', 
+                  submittedAt: pdr.submittedAt || pdr.updatedAt,
+                  priority: priority as 'HIGH' | 'MEDIUM' | 'LOW',
+                  status: pdr.status,
+                  daysSinceSubmission: daysSinceSubmission,
+                  urgencyMessage: daysSinceSubmission > 7 ? 'Overdue' : 
+                                daysSinceSubmission > 3 ? 'Due Soon' : 'Recently Submitted',
+                  user: {
+                    firstName: 'Employee',
+                    lastName: 'Demo',
+                  },
+                  period: {
+                    name: pdr.fyLabel || '2024',
+                  },
+                  actionRequired: 'Review and provide feedback',
+                };
+              })
+              .sort((a, b) => b.daysSinceSubmission - a.daysSinceSubmission), // Sort by urgency (oldest first)
+            // No demo data - clean slate for testing
           ],
         };
         
@@ -204,54 +261,19 @@ export function useDemoAdminDashboard() {
     }, 100); // 100ms delay to ensure localStorage is available
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [refreshKey]);
 
   return {
     data: dashboardData,
     isLoading,
     error,
+    refreshDashboard,
   };
 }
 
 export function useDemoEmployees() {
-  const employees = [
-    {
-      id: 'emp-1',
-      name: 'John Smith',
-      email: 'john.smith@company.com',
-      department: 'Engineering',
-      role: 'Senior Developer',
-      status: 'Active',
-      lastPDR: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
-    },
-    {
-      id: 'emp-2',
-      name: 'Sarah Johnson',
-      email: 'sarah.johnson@company.com',
-      department: 'Product',
-      role: 'Product Manager',
-      status: 'Active',
-      lastPDR: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 days ago
-    },
-    {
-      id: 'emp-3',
-      name: 'Michael Brown',
-      email: 'michael.brown@company.com',
-      department: 'Design',
-      role: 'UX Designer',
-      status: 'Active',
-      lastPDR: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000), // 45 days ago
-    },
-    {
-      id: 'emp-4',
-      name: 'Alice Wilson',
-      email: 'alice.wilson@company.com',
-      department: 'Engineering',
-      role: 'Frontend Developer',
-      status: 'Active',
-      lastPDR: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-    },
-  ];
+  // No seeded employee data - clean slate for manual testing
+  const employees: any[] = [];
 
   return {
     data: employees,
@@ -264,87 +286,106 @@ export function useDemoEmployees() {
 export function useDemoReviews() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Function to refresh data
+  const refreshReviews = () => {
+    console.log('🔄 Manual refresh triggered');
+    setRefreshKey(prev => prev + 1);
+  };
+
+  // Function to load and process PDR data
+  const loadReviewsData = () => {
+    console.log('🔍 useDemoReviews: Loading reviews data, refreshKey:', refreshKey);
+    
+    try {
+      const realPDRs = getAllPDRsFromStorage();
+      console.log('📊 useDemoReviews: Got PDRs from storage:', realPDRs);
+      console.log('📈 useDemoReviews: PDR statuses:', realPDRs.map(pdr => ({ 
+        id: pdr.id, 
+        status: pdr.status, 
+        isLocked: pdr.isLocked,
+        updatedAt: pdr.updatedAt 
+      })));
+  
+      // Convert real PDRs to review format
+      const realReviews = realPDRs.map(pdr => {
+        // More robust status mapping with explicit handling
+        let reviewStatus;
+        console.log(`🔍 Processing PDR ${pdr.id}: raw status = "${pdr.status}" (type: ${typeof pdr.status})`);
+        
+        switch (pdr.status) {
+          case 'PLAN_LOCKED':
+            reviewStatus = 'locked';
+            break;
+          case 'COMPLETED':
+            reviewStatus = 'completed';
+            break;
+          case 'UNDER_REVIEW':
+            reviewStatus = 'under_review';
+            break;
+          case 'SUBMITTED':
+            reviewStatus = 'pending_review';
+            break;
+          case 'Created':
+            reviewStatus = 'pending_review';
+            break;
+          case undefined:
+          case null:
+          case '':
+            console.warn(`⚠️ PDR ${pdr.id} has empty/null status, defaulting to pending_review`);
+            reviewStatus = 'pending_review';
+            break;
+          default:
+            console.warn(`⚠️ PDR ${pdr.id} has unmapped status "${pdr.status}", defaulting to pending_review`);
+            reviewStatus = 'pending_review';
+        }
+
+        console.log(`🔄 PDR ${pdr.id}: "${pdr.status}" → "${reviewStatus}"`);
+
+        return {
+          id: pdr.id,
+          employeeName: 'Employee Demo',
+          employeeEmail: 'employee@demo.com',
+          department: 'Demo Department',
+          submittedAt: pdr.submittedAt || pdr.createdAt,
+          status: reviewStatus,
+          priority: 'HIGH',
+          completionRate: pdr.status === 'COMPLETED' ? 100 :
+                         pdr.status === 'PLAN_LOCKED' ? 100 :
+                         pdr.status === 'SUBMITTED' ? 95 :
+                         pdr.currentStep ? (pdr.currentStep / 5) * 100 : 20,
+          lastActivity: pdr.updatedAt,
+        };
+      });
+
+      // Only use real reviews - no demo data
+      const allReviews = realReviews;
+      console.log('✅ useDemoReviews: Final reviews array:', allReviews);
+      console.log('📊 useDemoReviews: Review statuses:', allReviews.map(r => ({ id: r.id, status: r.status })));
+      
+      setReviews(allReviews);
+      setIsLoading(false);
+    } catch (error) {
+      console.error('❌ useDemoReviews: Error loading data:', error);
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    console.log('useDemoReviews: useEffect triggered');
+    console.log('🔄 useDemoReviews: useEffect triggered, refreshKey:', refreshKey);
     
     const timer = setTimeout(() => {
-      try {
-        const realPDRs = getAllPDRsFromStorage();
-        console.log('useDemoReviews: Got PDRs from storage:', realPDRs);
-    
-    // Convert real PDRs to review format
-    const realReviews = realPDRs.map(pdr => ({
-      id: pdr.id,
-      employeeName: 'Employee Demo',
-      employeeEmail: 'employee@demo.com',
-      department: 'Demo Department',
-      submittedAt: pdr.submittedAt || pdr.createdAt,
-      status: pdr.status === 'Created' ? 'pending_review' : 
-              pdr.status === 'SUBMITTED' ? 'pending_review' :
-              pdr.status === 'UNDER_REVIEW' ? 'under_review' :
-              pdr.status === 'COMPLETED' ? 'completed' : 'pending_review',
-      priority: 'HIGH',
-      completionRate: pdr.status === 'COMPLETED' ? 100 :
-                     pdr.status === 'SUBMITTED' ? 95 :
-                     pdr.currentStep ? (pdr.currentStep / 5) * 100 : 20,
-      lastActivity: pdr.updatedAt,
-    }));
-
-    // Static demo reviews
-    const demoReviews = [
-      {
-        id: 'demo-pdr-1',
-        employeeName: 'Alice Wilson',
-        employeeEmail: 'alice.wilson@company.com',
-        department: 'Engineering',
-        submittedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        status: 'pending_review',
-        priority: 'HIGH',
-        completionRate: 95,
-        lastActivity: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      },
-      {
-        id: 'demo-pdr-2',
-        employeeName: 'Bob Chen',
-        employeeEmail: 'bob.chen@company.com',
-        department: 'Marketing',
-        submittedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-        status: 'under_review',
-        priority: 'MEDIUM',
-        completionRate: 88,
-        lastActivity: new Date(Date.now() - 6 * 60 * 60 * 1000),
-      },
-      {
-        id: 'demo-pdr-3',
-        employeeName: 'Carol Davis',
-        employeeEmail: 'carol.davis@company.com',
-        department: 'Sales',
-        submittedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-        status: 'completed',
-        priority: 'LOW',
-        completionRate: 100,
-        lastActivity: new Date(Date.now() - 12 * 60 * 60 * 1000),
-      },
-    ];
-
-        // Combine real and demo reviews
-        const allReviews = [...realReviews, ...demoReviews];
-        console.log('useDemoReviews: Setting reviews:', allReviews);
-        setReviews(allReviews);
-        setIsLoading(false);
-      } catch (error) {
-        console.error('useDemoReviews: Error loading data:', error);
-        setIsLoading(false);
-      }
+      loadReviewsData();
     }, 100);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [refreshKey]);
 
   return {
     data: reviews,
     isLoading,
     error: null,
+    refreshReviews,
   };
 }

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useDemoAuth } from '@/hooks/use-demo-auth';
-import { useDemoPDRDashboard } from '@/hooks/use-demo-pdr';
+import { useDemoPDRDashboard, useDemoPDRHistory } from '@/hooks/use-demo-pdr';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +31,7 @@ export default function EmployeeDashboard() {
   
   // Get current user's PDRs using demo system
   const { data: currentPDR, createPDR, isLoading: pdrLoading } = useDemoPDRDashboard();
+  const { data: pdrHistory, isLoading: historyLoading } = useDemoPDRHistory();
   const [isCreatingPDR, setIsCreatingPDR] = useState(false);
   
   console.log('EmployeeDashboard - PDR Debug:', { 
@@ -184,7 +185,14 @@ export default function EmployeeDashboard() {
                 Current PDR - 2024 Annual Review
               </CardTitle>
               <CardDescription>
-                Complete your performance development review for this cycle
+                {currentPDR.status === 'SUBMITTED' 
+                  ? 'Your PDR has been submitted and is awaiting CEO review'
+                  : currentPDR.status === 'UNDER_REVIEW'
+                  ? 'Your PDR is currently under review by the CEO'
+                  : currentPDR.status === 'COMPLETED'
+                  ? 'Your PDR review process has been completed'
+                  : 'Complete your performance development review for this cycle'
+                }
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -201,10 +209,16 @@ export default function EmployeeDashboard() {
                     <span className="text-sm font-medium">{currentPDR.currentStep} of 5 steps</span>
                   </div>
                 </div>
-                <Badge variant={currentPDR.status === 'SUBMITTED' ? 'secondary' : 'default'}>
+                <Badge variant={
+                  currentPDR.status === 'SUBMITTED' ? 'secondary' : 
+                  currentPDR.status === 'COMPLETED' ? 'success' :
+                  'default'
+                }>
                   {currentPDR.status === 'Created' && 'In Progress'}
-                  {currentPDR.status === 'OPEN_FOR_REVIEW' && 'Submitted'}
+                  {currentPDR.status === 'SUBMITTED' && 'Submitted'}
+                  {currentPDR.status === 'OPEN_FOR_REVIEW' && 'Under Review'}
                   {currentPDR.status === 'PLAN_LOCKED' && 'Under Review'}
+                  {currentPDR.status === 'UNDER_REVIEW' && 'Under Review'}
                   {currentPDR.status === 'COMPLETED' && 'Completed'}
                 </Badge>
               </div>
@@ -273,8 +287,12 @@ export default function EmployeeDashboard() {
                 <Button 
                   onClick={handleContinuePDR}
                   className="flex-1"
+                  variant={currentPDR.status === 'SUBMITTED' || currentPDR.status === 'UNDER_REVIEW' || currentPDR.status === 'COMPLETED' ? 'outline' : 'default'}
                 >
-                  Continue PDR
+                  {currentPDR.status === 'SUBMITTED' ? 'View PDR' : 
+                   currentPDR.status === 'UNDER_REVIEW' ? 'View PDR' : 
+                   currentPDR.status === 'COMPLETED' ? 'View PDR' : 
+                   'Continue PDR'}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
                 <Button 
@@ -410,53 +428,60 @@ export default function EmployeeDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {currentPDR && (
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <h4 className="font-medium">2024 Annual Review</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {currentPDR.status === 'COMPLETED' ? 'Completed' : 'In Progress'} • Started {new Date(currentPDR.createdAt).toLocaleDateString()}
-                    </p>
+              {historyLoading ? (
+                <div className="space-y-4">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 rounded animate-pulse w-32" />
+                        <div className="h-3 bg-gray-200 rounded animate-pulse w-48" />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="h-6 bg-gray-200 rounded animate-pulse w-16" />
+                        <div className="h-8 bg-gray-200 rounded animate-pulse w-12" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : pdrHistory.length > 0 ? (
+                pdrHistory.map((pdr) => (
+                  <div key={pdr.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <h4 className="font-medium">
+                        {pdr.fyLabel ? `${pdr.fyLabel} Annual Review` : 'Annual Review'}
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                        {pdr.status === 'COMPLETED' ? 'Completed' : 
+                         pdr.status === 'SUBMITTED' ? 'Submitted for review' :
+                         pdr.status === 'UNDER_REVIEW' ? 'Under review' :
+                         'In Progress'} • Started {new Date(pdr.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant={
+                        pdr.status === 'SUBMITTED' ? 'secondary' : 
+                        pdr.status === 'COMPLETED' ? 'success' : 
+                        'default'
+                      }>
+                        {pdr.status === 'Created' && 'In Progress'}
+                        {pdr.status === 'SUBMITTED' && 'Submitted'}
+                        {pdr.status === 'OPEN_FOR_REVIEW' && 'Under Review'}
+                        {pdr.status === 'PLAN_LOCKED' && 'Under Review'}
+                        {pdr.status === 'UNDER_REVIEW' && 'Under Review'}
+                        {pdr.status === 'COMPLETED' && 'Completed'}
+                      </Badge>
+                      <Button size="sm" onClick={() => router.push(`/pdr/${pdr.id}`)}>
+                        {pdr.status === 'COMPLETED' || pdr.status === 'SUBMITTED' || pdr.status === 'UNDER_REVIEW' ? 'View' : 'Continue'}
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge variant={currentPDR.status === 'COMPLETED' ? 'secondary' : 'default'}>
-                      {currentPDR.status === 'Created' && 'In Progress'}
-                      {currentPDR.status === 'OPEN_FOR_REVIEW' && 'Submitted'}
-                      {currentPDR.status === 'PLAN_LOCKED' && 'Under Review'}
-                      {currentPDR.status === 'COMPLETED' && 'Completed'}
-                    </Badge>
-                    <Button size="sm" onClick={() => router.push(`/pdr/${currentPDR.id}`)}>
-                      {currentPDR.status === 'COMPLETED' ? 'View' : 'Continue'}
-                    </Button>
-                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No PDR history available.</p>
+                  <p className="text-sm mt-1">Create your first PDR to get started.</p>
                 </div>
               )}
-              
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h4 className="font-medium">2023 Annual Review</h4>
-                  <p className="text-sm text-muted-foreground">Completed • Rating: 4.2/5</p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge className="bg-green-100 text-green-800">Completed</Badge>
-                  <Button size="sm" variant="outline">
-                    View
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h4 className="font-medium">2022 Annual Review</h4>
-                  <p className="text-sm text-muted-foreground">Completed • Rating: 4.0/5</p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge className="bg-green-100 text-green-800">Completed</Badge>
-                  <Button size="sm" variant="outline">
-                    View
-                  </Button>
-                </div>
-              </div>
             </div>
           </CardContent>
         </Card>

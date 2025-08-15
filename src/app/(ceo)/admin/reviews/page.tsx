@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { AdminHeader, PageHeader } from '@/components/admin/admin-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,19 +23,63 @@ import {
   Plus,
   Eye,
   MessageSquare,
-  Calendar
+  Calendar,
+  RefreshCw
 } from 'lucide-react';
 import { formatDateAU } from '@/lib/utils';
 import { useDemoReviews } from '@/hooks/use-demo-admin';
 
 export default function ReviewsPage() {
-  const { data: reviews, isLoading } = useDemoReviews();
+  const { data: reviews, isLoading, refreshReviews } = useDemoReviews();
+
+  // Refresh data when page becomes visible to catch localStorage changes
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('📱 ReviewsPage: Page became visible, refreshing data');
+        refreshReviews();
+      }
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key && (e.key.startsWith('demo_pdr_') || e.key === 'demo_current_pdr')) {
+        console.log('💾 ReviewsPage: localStorage changed for PDR data, refreshing:', e.key);
+        refreshReviews();
+      }
+    };
+
+    const handleFocus = () => {
+      console.log('🎯 ReviewsPage: Window focused, refreshing data');
+      refreshReviews();
+    };
+
+    // Listen for various events that should trigger refresh
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleFocus);
+    
+    // Also refresh on component mount
+    const timer = setTimeout(() => {
+      console.log('⏰ ReviewsPage: Initial refresh on mount');
+      refreshReviews();
+    }, 500);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleFocus);
+      clearTimeout(timer);
+    };
+  }, [refreshReviews]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending_review':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'under_review':
         return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'locked':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'completed':
         return 'bg-green-100 text-green-800 border-green-200';
       case 'overdue':
@@ -45,16 +90,27 @@ export default function ReviewsPage() {
   };
 
   const getStatusLabel = (status: string) => {
+    console.log(`🏷️ getStatusLabel called with status: "${status}" (type: ${typeof status})`);
+    
     switch (status) {
       case 'pending_review':
         return 'Pending Review';
       case 'under_review':
         return 'Under Review';
+      case 'locked':
+        return 'Plan Locked';
       case 'completed':
         return 'Completed';
       case 'overdue':
         return 'Overdue';
+      case undefined:
+      case null:
+      case '':
+      case 'Unknown':
+        console.warn(`⚠️ getStatusLabel received invalid status: "${status}", returning "Pending Review"`);
+        return 'Pending Review';
       default:
+        console.warn(`⚠️ getStatusLabel received unmapped status: "${status}", returning as-is`);
         return status;
     }
   };
@@ -83,6 +139,7 @@ export default function ReviewsPage() {
 
   const pendingReviews = reviews.filter(review => review.status === 'pending_review');
   const underReview = reviews.filter(review => review.status === 'under_review');
+  const lockedReviews = reviews.filter(review => review.status === 'locked');
   const completedReviews = reviews.filter(review => review.status === 'completed');
 
   if (isLoading) {
@@ -114,10 +171,20 @@ export default function ReviewsPage() {
           { label: 'PDR Reviews' }
         ]}
         actions={
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            New Review Cycle
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={refreshReviews}
+              className="bg-blue-50 border-blue-200 hover:bg-blue-100"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh Data
+            </Button>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              New Review Cycle
+            </Button>
+          </div>
         }
       />
 
@@ -128,7 +195,7 @@ export default function ReviewsPage() {
         />
 
         {/* Review Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -148,6 +215,18 @@ export default function ReviewsPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Under Review</p>
                   <p className="text-2xl font-bold">{underReview.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <MessageSquare className="h-8 w-8 text-purple-600" />
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-muted-foreground">Plan Locked</p>
+                  <p className="text-2xl font-bold">{lockedReviews.length}</p>
                 </div>
               </div>
             </CardContent>
@@ -195,6 +274,9 @@ export default function ReviewsPage() {
                 <TabsTrigger value="reviewing">
                   Under Review ({underReview.length})
                 </TabsTrigger>
+                <TabsTrigger value="locked">
+                  Locked ({lockedReviews.length})
+                </TabsTrigger>
                 <TabsTrigger value="completed">
                   Completed ({completedReviews.length})
                 </TabsTrigger>
@@ -209,6 +291,10 @@ export default function ReviewsPage() {
 
               <TabsContent value="reviewing" className="space-y-4 flex-1 min-h-0">
                 <ReviewTable reviews={underReview} />
+              </TabsContent>
+
+              <TabsContent value="locked" className="space-y-4 flex-1 min-h-0">
+                <ReviewTable reviews={lockedReviews} />
               </TabsContent>
 
               <TabsContent value="completed" className="space-y-4 flex-1 min-h-0">

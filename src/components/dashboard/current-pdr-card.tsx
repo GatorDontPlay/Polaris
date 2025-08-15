@@ -87,7 +87,14 @@ export function CurrentPDRCard({
             {pdr.period?.name || '2024 Annual Review'}
           </h3>
           <p className="text-sm text-gray-600 mt-1">
-            Step {pdr.currentStep} of {PDR_STEPS.length} - Continue your review process
+            {pdr.status === 'SUBMITTED' 
+              ? 'Submitted for review - awaiting CEO feedback'
+              : pdr.status === 'UNDER_REVIEW'
+              ? 'Under review by CEO'
+              : pdr.status === 'COMPLETED'
+              ? 'Review process completed'
+              : `Step ${pdr.currentStep} of ${PDR_STEPS.length} - Continue your review process`
+            }
           </p>
         </div>
 
@@ -104,8 +111,9 @@ export function CurrentPDRCard({
           <Button 
             onClick={() => onContinue?.(pdr.id)}
             className="inline-flex items-center"
+            variant={pdr.status === 'SUBMITTED' || pdr.status === 'UNDER_REVIEW' || pdr.status === 'COMPLETED' ? 'outline' : 'default'}
           >
-            Continue PDR
+            {pdr.status === 'SUBMITTED' || pdr.status === 'UNDER_REVIEW' || pdr.status === 'COMPLETED' ? 'View PDR' : 'Continue PDR'}
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
         </div>

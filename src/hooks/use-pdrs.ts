@@ -140,13 +140,14 @@ async function submitCEOReview(pdrId: string): Promise<PDR> {
 }
 
 // Mark PDR meeting as booked
-async function markPDRAsBooked(pdrId: string): Promise<PDR> {
+async function markPDRAsBooked(pdrId: string, meetingDate?: string): Promise<PDR> {
   const response = await fetch(`/api/pdrs/${pdrId}/mark-booked`, {
     method: 'POST',
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
     },
+    body: JSON.stringify({ meetingDate }),
   });
 
   if (!response.ok) {
@@ -257,7 +258,8 @@ export function useMarkPDRAsBooked() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: markPDRAsBooked,
+    mutationFn: ({ pdrId, meetingDate }: { pdrId: string; meetingDate?: string }) => 
+      markPDRAsBooked(pdrId, meetingDate),
     onSuccess: (updatedPDR) => {
       // Update the specific PDR cache
       queryClient.setQueryData(['pdrs', updatedPDR.id], updatedPDR);

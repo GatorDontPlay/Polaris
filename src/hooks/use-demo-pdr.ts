@@ -3,22 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { PDR, Goal, CompanyValue, Behavior, GoalFormData, BehaviorFormData } from '@/types';
 
-// Demo data for testing - using realistic dates for better demo experience
-const DEMO_PDR: PDR = {
-  id: '550e8400-e29b-41d4-a716-446655440100',
-  userId: 'demo-employee-1', // Must match demo auth user ID
-  periodId: '550e8400-e29b-41d4-a716-446655440300',
-  fyLabel: 'FY 2024-25',
-  fyStartDate: new Date('2024-04-01'),
-  fyEndDate: new Date('2025-03-31'),
-  status: 'SUBMITTED',
-  currentStep: 4,
-  isLocked: false,
-  meetingBooked: false,
-  createdAt: new Date('2024-07-15T09:30:00.000Z'), // Created in July 2024
-  updatedAt: new Date('2024-11-20T14:45:00.000Z'), // Last updated in November 2024
-  submittedAt: new Date('2024-11-18T16:20:00.000Z'), // Submitted a couple days before last update
-};
+// No seeded PDR data - clean slate for manual testing
 
 const DEMO_COMPANY_VALUES: CompanyValue[] = [
   {
@@ -48,7 +33,7 @@ const DEMO_COMPANY_VALUES: CompanyValue[] = [
 ];
 
 export function useDemoPDR(pdrId: string) {
-  const [pdr, setPdr] = useState<PDR>(DEMO_PDR);
+  const [pdr, setPdr] = useState<PDR | null>(null);
   const [isLoading] = useState(false);
   const [error] = useState<string | null>(null);
 
@@ -66,15 +51,35 @@ export function useDemoPDR(pdrId: string) {
           ...(parsedPdr.submittedAt && { submittedAt: new Date(parsedPdr.submittedAt) }),
         });
       } catch {
-        setPdr(DEMO_PDR);
+        setPdr(null);
       }
+    } else {
+      setPdr(null);
     }
   }, [pdrId]);
 
   const updatePdr = (updates: Partial<PDR>) => {
+    if (!pdr) return;
     const updatedPdr = { ...pdr, ...updates, updatedAt: new Date() };
     setPdr(updatedPdr);
     localStorage.setItem(`demo_pdr_${pdrId}`, JSON.stringify(updatedPdr));
+    
+    // Also update the current PDR if this is the active one
+    const currentPdr = localStorage.getItem('demo_current_pdr');
+    if (currentPdr) {
+      try {
+        const parsedCurrentPdr = JSON.parse(currentPdr);
+        if (parsedCurrentPdr.id === pdrId) {
+          localStorage.setItem('demo_current_pdr', JSON.stringify(updatedPdr));
+          // Trigger event to update dashboard
+          window.dispatchEvent(new CustomEvent('demo-pdr-changed'));
+        }
+      } catch {
+        // If parsing fails, assume this might be the current PDR
+        localStorage.setItem('demo_current_pdr', JSON.stringify(updatedPdr));
+        window.dispatchEvent(new CustomEvent('demo-pdr-changed'));
+      }
+    }
   };
 
   const deletePdr = () => {
@@ -82,8 +87,26 @@ export function useDemoPDR(pdrId: string) {
     localStorage.removeItem(`demo_pdr_${pdrId}`);
     localStorage.removeItem(`demo_goals_${pdrId}`);
     localStorage.removeItem(`demo_behaviors_${pdrId}`);
-    // Reset to initial state
-    setPdr(DEMO_PDR);
+    
+    // Also clear the current PDR from dashboard if it matches this PDR
+    const currentPdr = localStorage.getItem('demo_current_pdr');
+    if (currentPdr) {
+      try {
+        const parsedCurrentPdr = JSON.parse(currentPdr);
+        if (parsedCurrentPdr.id === pdrId) {
+          localStorage.removeItem('demo_current_pdr');
+          // Trigger custom event to update dashboard in same tab
+          window.dispatchEvent(new CustomEvent('demo-pdr-changed'));
+        }
+      } catch {
+        // If parsing fails, just remove it to be safe
+        localStorage.removeItem('demo_current_pdr');
+        window.dispatchEvent(new CustomEvent('demo-pdr-changed'));
+      }
+    }
+    
+    // Reset to initial state (no PDR)
+    setPdr(null);
   };
 
   return {
@@ -226,8 +249,7 @@ export function useDemoPDRDashboard() {
   const [currentPDR, setCurrentPDR] = useState<PDR | null>(null);
   const [isLoading] = useState(false);
 
-  useEffect(() => {
-    // Load current PDR from localStorage
+  const loadCurrentPDR = () => {
     const savedPdr = localStorage.getItem('demo_current_pdr');
     if (savedPdr) {
       try {
@@ -242,7 +264,35 @@ export function useDemoPDRDashboard() {
       } catch {
         setCurrentPDR(null);
       }
+    } else {
+      setCurrentPDR(null);
     }
+  };
+
+  useEffect(() => {
+    // Load current PDR from localStorage
+    loadCurrentPDR();
+
+    // Listen for storage changes to update when PDR is deleted
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'demo_current_pdr') {
+        loadCurrentPDR();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for custom events in case deletion happens in same tab
+    const handleCustomPDRChange = () => {
+      loadCurrentPDR();
+    };
+    
+    window.addEventListener('demo-pdr-changed', handleCustomPDRChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('demo-pdr-changed', handleCustomPDRChange);
+    };
   }, []);
 
   const createPDR = () => {
@@ -268,20 +318,129 @@ export function useDemoPDRDashboard() {
     return newPDR;
   };
 
+  const resetDemoToSubmitted = () => {
+    // This function is deprecated - no hardcoded demo data
+    console.log('⚠️ resetDemoToSubmitted called but no demo data exists');
+    return null;
+  };
+
+  const debugLocalStorage = () => {
+    console.log('🔍 Debug localStorage state:');
+    const keys = Object.keys(localStorage);
+    const demoKeys = keys.filter(key => key.startsWith('demo_') || key.startsWith('ceo_'));
+    
+    console.log('Found demo keys:', demoKeys);
+    
+    demoKeys.forEach(key => {
+      const value = localStorage.getItem(key);
+      console.log(`${key}:`, value ? JSON.parse(value) : null);
+    });
+    
+    if (demoKeys.length === 0) {
+      console.log('✅ No demo data found in localStorage');
+    }
+  };
+
+  const clearAllDemoData = () => {
+    // Clear all localStorage demo data EXCEPT user auth data
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if ((key.startsWith('demo_') || key.startsWith('ceo_')) && key !== 'demo_user') {
+        localStorage.removeItem(key);
+      }
+    });
+    setCurrentPDR(null);
+    
+    // Trigger event to update dashboard
+    window.dispatchEvent(new CustomEvent('demo-pdr-changed'));
+    
+    console.log('🧹 Demo PDR data cleared - keeping user auth data intact');
+  };
+
   return {
     data: currentPDR,
     isLoading,
     createPDR,
-    resetDemo: () => {
-      // Clear all localStorage demo data
-      const keys = Object.keys(localStorage);
-      keys.forEach(key => {
-        if (key.startsWith('demo_')) {
-          localStorage.removeItem(key);
-        }
-      });
-      setCurrentPDR(null);
-      console.log('🧹 Demo data cleared - refresh page to see updated demo with realistic dates');
+    resetDemoToSubmitted,
+  };
+}
+
+// Hook for PDR history - gets all user PDRs
+export function useDemoPDRHistory() {
+  const [pdrHistory, setPdrHistory] = useState<PDR[]>([]);
+  const [isLoading] = useState(false);
+
+  const loadPDRHistory = () => {
+    const pdrs: PDR[] = [];
+    
+    // Check if we're in the browser
+    if (typeof window === 'undefined') {
+      return;
     }
+
+    // Get current PDR
+    const currentPDR = localStorage.getItem('demo_current_pdr');
+    if (currentPDR) {
+      try {
+        const parsed = JSON.parse(currentPDR);
+        pdrs.push({
+          ...parsed,
+          createdAt: new Date(parsed.createdAt),
+          updatedAt: new Date(parsed.updatedAt),
+          ...(parsed.submittedAt && { submittedAt: new Date(parsed.submittedAt) }),
+        });
+      } catch (error) {
+        console.error('Error parsing current PDR:', error);
+      }
+    }
+
+    // Get all individual PDRs stored in localStorage
+    const allKeys = Object.keys(localStorage);
+    const pdrKeys = allKeys.filter(key => key.startsWith('demo_pdr_') && key !== 'demo_current_pdr');
+    
+    for (const key of pdrKeys) {
+      try {
+        const pdrData = localStorage.getItem(key);
+        if (pdrData) {
+          const parsed = JSON.parse(pdrData);
+          // Avoid duplicates
+          if (!pdrs.some(pdr => pdr.id === parsed.id)) {
+            pdrs.push({
+              ...parsed,
+              createdAt: new Date(parsed.createdAt),
+              updatedAt: new Date(parsed.updatedAt),
+              ...(parsed.submittedAt && { submittedAt: new Date(parsed.submittedAt) }),
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`Error parsing PDR ${key}:`, error);
+      }
+    }
+
+    // Sort by creation date (newest first)
+    pdrs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    setPdrHistory(pdrs);
+  };
+
+  useEffect(() => {
+    loadPDRHistory();
+
+    // Listen for PDR changes to update history
+    const handlePDRChange = () => {
+      loadPDRHistory();
+    };
+
+    window.addEventListener('demo-pdr-changed', handlePDRChange);
+
+    return () => {
+      window.removeEventListener('demo-pdr-changed', handlePDRChange);
+    };
+  }, []);
+
+  return {
+    data: pdrHistory,
+    isLoading,
   };
 }
