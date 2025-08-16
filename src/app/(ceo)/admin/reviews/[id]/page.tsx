@@ -129,6 +129,16 @@ export default function CEOPDRReviewPage() {
   const [midYearGoalComments, setMidYearGoalComments] = useState<Record<string, string>>({});
   const [midYearBehaviorComments, setMidYearBehaviorComments] = useState<Record<string, string>>({});
   
+  // Final review state
+  const [finalGoalReviews, setFinalGoalReviews] = useState<Record<string, {
+    rating: number;
+    comments: string;
+  }>>({});
+  const [finalBehaviorReviews, setFinalBehaviorReviews] = useState<Record<string, {
+    rating: number;
+    comments: string;
+  }>>({});
+  
   // Save & Lock confirmation dialog state
   const [isLockConfirmDialogOpen, setIsLockConfirmDialogOpen] = useState(false);
   
@@ -229,6 +239,31 @@ export default function CEOPDRReviewPage() {
       setMidYearBehaviorComments(updatedComments);
       localStorage.setItem(`mid_year_behavior_comments_${pdrId}`, JSON.stringify(updatedComments));
     }
+  };
+
+  // Save final review data
+  const saveFinalGoalReview = (goalId: string, field: 'rating' | 'comments', value: number | string) => {
+    const updatedReviews = {
+      ...finalGoalReviews,
+      [goalId]: {
+        ...finalGoalReviews[goalId],
+        [field]: value
+      }
+    };
+    setFinalGoalReviews(updatedReviews);
+    localStorage.setItem(`final_goal_reviews_${pdrId}`, JSON.stringify(updatedReviews));
+  };
+
+  const saveFinalBehaviorReview = (behaviorId: string, field: 'rating' | 'comments', value: number | string) => {
+    const updatedReviews = {
+      ...finalBehaviorReviews,
+      [behaviorId]: {
+        ...finalBehaviorReviews[behaviorId],
+        [field]: value
+      }
+    };
+    setFinalBehaviorReviews(updatedReviews);
+    localStorage.setItem(`final_behavior_reviews_${pdrId}`, JSON.stringify(updatedReviews));
   };
 
   // Save mid-year check-in and update status to Final Review
@@ -509,6 +544,29 @@ export default function CEOPDRReviewPage() {
             console.log('✅ CEO Review: Loaded mid-year behavior comments');
           } catch (error) {
             console.error('Error parsing mid-year behavior comments:', error);
+          }
+        }
+
+        // Load final review data
+        const finalGoalReviewsKey = `final_goal_reviews_${pdrId}`;
+        const savedFinalGoalReviews = localStorage.getItem(finalGoalReviewsKey);
+        if (savedFinalGoalReviews) {
+          try {
+            setFinalGoalReviews(JSON.parse(savedFinalGoalReviews));
+            console.log('✅ CEO Review: Loaded final goal reviews');
+          } catch (error) {
+            console.error('Error parsing final goal reviews:', error);
+          }
+        }
+
+        const finalBehaviorReviewsKey = `final_behavior_reviews_${pdrId}`;
+        const savedFinalBehaviorReviews = localStorage.getItem(finalBehaviorReviewsKey);
+        if (savedFinalBehaviorReviews) {
+          try {
+            setFinalBehaviorReviews(JSON.parse(savedFinalBehaviorReviews));
+            console.log('✅ CEO Review: Loaded final behavior reviews');
+          } catch (error) {
+            console.error('Error parsing final behavior reviews:', error);
           }
         }
 
@@ -815,6 +873,10 @@ export default function CEOPDRReviewPage() {
             <TabsTrigger value="mid-year" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               Mid Year Checkin
+            </TabsTrigger>
+            <TabsTrigger value="final-review" className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              Final Review
             </TabsTrigger>
           </TabsList>
 
@@ -1610,6 +1672,230 @@ export default function CEOPDRReviewPage() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="final-review" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Final Year-End Review</CardTitle>
+                <CardDescription>
+                  Provide final ratings and comments for {pdr?.user?.firstName} {pdr?.user?.lastName}'s annual performance review
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Goals Final Review */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Target className="h-5 w-5" />
+                    Goals Final Review ({goals.length} goals)
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    {goals.map((goal, index) => {
+                      const finalReview = finalGoalReviews[goal.id] || { rating: 0, comments: '' };
+                      
+                      return (
+                        <div key={goal.id} className="border border-border/30 rounded-lg p-4 bg-background/50">
+                          <div className="mb-4">
+                            <h4 className="font-medium text-base mb-2">{goal.title}</h4>
+                            <p className="text-sm text-muted-foreground mb-3">{goal.description}</p>
+                            
+                            {/* Previous Progress Context */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-muted/20 rounded-md mb-4">
+                              <div>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Employee Progress</p>
+                                <p className="text-sm mt-1">{goal.employeeProgress || 'No progress notes provided'}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Mid-Year Rating</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-sm font-medium">Employee: {goal.employeeRating || 0}/5</span>
+                                  <span className="text-sm font-medium">CEO: {ceoGoalFeedback[goal.id]?.ceoRating || 0}/5</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Final Review Input */}
+                          <div className="space-y-4">
+                            <div>
+                              <label className="text-sm font-medium mb-2 block">Final Year-End Rating</label>
+                              <div className="flex items-center gap-2">
+                                {[1, 2, 3, 4, 5].map((rating) => (
+                                  <button
+                                    key={rating}
+                                    onClick={() => saveFinalGoalReview(goal.id, 'rating', rating)}
+                                    className={`w-8 h-8 rounded-full border-2 transition-colors ${
+                                      finalReview.rating >= rating
+                                        ? 'bg-primary border-primary text-primary-foreground'
+                                        : 'border-muted-foreground/30 hover:border-primary/50'
+                                    }`}
+                                  >
+                                    {rating}
+                                  </button>
+                                ))}
+                                <span className="ml-2 text-sm text-muted-foreground">
+                                  {finalReview.rating}/5
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <label className="text-sm font-medium mb-2 block">Final Comments</label>
+                              <Textarea
+                                placeholder="Provide final year-end assessment and comments..."
+                                value={finalReview.comments}
+                                onChange={(e) => saveFinalGoalReview(goal.id, 'comments', e.target.value)}
+                                className="min-h-[100px]"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Goals Subtotal */}
+                  {goals.length > 0 && (
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-blue-800 mb-2">Goals Summary</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                        <div>
+                          <div className="text-2xl font-bold text-blue-700">
+                            {Object.values(finalGoalReviews).reduce((sum, review) => sum + (review.rating || 0), 0)}
+                          </div>
+                          <div className="text-sm text-blue-600">Total Score</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-blue-700">
+                            {goals.length * 5}
+                          </div>
+                          <div className="text-sm text-blue-600">Possible Score</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-blue-700">
+                            {goals.length > 0 
+                              ? ((Object.values(finalGoalReviews).reduce((sum, review) => sum + (review.rating || 0), 0) / (goals.length * 5)) * 100).toFixed(1)
+                              : 0}%
+                          </div>
+                          <div className="text-sm text-blue-600">Achievement Rate</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Behaviors Final Review */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Behaviors Final Review ({behaviors.length} behaviors)
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    {behaviors.map((behavior, index) => {
+                      const finalReview = finalBehaviorReviews[behavior.id] || { rating: 0, comments: '' };
+                      
+                      return (
+                        <div key={behavior.id} className="border border-border/30 rounded-lg p-4 bg-background/50">
+                          <div className="mb-4">
+                            <h4 className="font-medium text-base mb-2">{behavior.value?.name}</h4>
+                            <p className="text-sm text-muted-foreground mb-3">{behavior.description}</p>
+                            
+                            {/* Previous Assessment Context */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-muted/20 rounded-md mb-4">
+                              <div>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Employee Examples</p>
+                                <p className="text-sm mt-1">{behavior.employeeExamples || 'No examples provided'}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Mid-Year Rating</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-sm font-medium">Employee: {behavior.employeeRating || 0}/5</span>
+                                  <span className="text-sm font-medium">CEO: {ceoBehaviorFeedback[behavior.id]?.ceoRating || 0}/5</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Final Review Input */}
+                          <div className="space-y-4">
+                            <div>
+                              <label className="text-sm font-medium mb-2 block">Final Year-End Rating</label>
+                              <div className="flex items-center gap-2">
+                                {[1, 2, 3, 4, 5].map((rating) => (
+                                  <button
+                                    key={rating}
+                                    onClick={() => saveFinalBehaviorReview(behavior.id, 'rating', rating)}
+                                    className={`w-8 h-8 rounded-full border-2 transition-colors ${
+                                      finalReview.rating >= rating
+                                        ? 'bg-primary border-primary text-primary-foreground'
+                                        : 'border-muted-foreground/30 hover:border-primary/50'
+                                    }`}
+                                  >
+                                    {rating}
+                                  </button>
+                                ))}
+                                <span className="ml-2 text-sm text-muted-foreground">
+                                  {finalReview.rating}/5
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <label className="text-sm font-medium mb-2 block">Final Comments</label>
+                              <Textarea
+                                placeholder="Provide final year-end assessment and comments..."
+                                value={finalReview.comments}
+                                onChange={(e) => saveFinalBehaviorReview(behavior.id, 'comments', e.target.value)}
+                                className="min-h-[100px]"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Behaviors Subtotal */}
+                  {behaviors.length > 0 && (
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-green-800 mb-2">Behaviors Summary</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                        <div>
+                          <div className="text-2xl font-bold text-green-700">
+                            {Object.values(finalBehaviorReviews).reduce((sum, review) => sum + (review.rating || 0), 0)}
+                          </div>
+                          <div className="text-sm text-green-600">Total Score</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-green-700">
+                            {behaviors.length * 5}
+                          </div>
+                          <div className="text-sm text-green-600">Possible Score</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-green-700">
+                            {behaviors.length > 0 
+                              ? ((Object.values(finalBehaviorReviews).reduce((sum, review) => sum + (review.rating || 0), 0) / (behaviors.length * 5)) * 100).toFixed(1)
+                              : 0}%
+                          </div>
+                          <div className="text-sm text-green-600">Achievement Rate</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Final Review Actions */}
+                <div className="pt-6 border-t border-border/30 flex justify-end">
+                  <Button className="bg-primary hover:bg-primary/90">
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Complete Final Review
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
