@@ -781,15 +781,19 @@ export default function CEOPDRReviewPage() {
                             </div>
                             
                             <div>
-                              <Label className="text-sm font-medium">Progress</Label>
+                              <Label className="text-sm font-medium">Employee Progress</Label>
                               <div className="mt-1 space-y-2">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-sm">{goal.progress || 0}%</span>
+                                  <span className="text-sm">
+                                    {goal.employeeProgress ? goal.employeeProgress : 'No progress reported'}
+                                  </span>
                                   <span className="text-sm text-muted-foreground">
-                                    Due: {goal.targetDate ? formatDateAU(new Date(goal.targetDate)) : 'No date set'}
+                                    Rating: {goal.employeeRating || 'Not rated'}
                                   </span>
                                 </div>
-                                <Progress value={goal.progress || 0} className="h-2" />
+                                {goal.employeeRating && (
+                                  <Progress value={(goal.employeeRating / 5) * 100} className="h-2" />
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1043,36 +1047,29 @@ export default function CEOPDRReviewPage() {
                       <span className="font-semibold">{goals.length}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Completed</span>
+                      <span>Employee Rated</span>
                       <span className="font-semibold text-green-600">
-                        {goals.filter(g => {
-                          const status = g.status || 'NOT_STARTED';
-                          return status === 'COMPLETED';
-                        }).length}
+                        {goals.filter(g => g.employeeRating && g.employeeRating > 0).length}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>In Progress</span>
+                      <span>CEO Rated</span>
                       <span className="font-semibold text-blue-600">
-                        {goals.filter(g => {
-                          const status = g.status || 'NOT_STARTED';
-                          return status === 'IN_PROGRESS';
-                        }).length}
+                        {goals.filter(g => g.ceoRating && g.ceoRating > 0).length}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Not Started</span>
+                      <span>Not Rated</span>
                       <span className="font-semibold text-gray-600">
-                        {goals.filter(g => {
-                          const status = g.status || 'NOT_STARTED';
-                          return status === 'NOT_STARTED';
-                        }).length}
+                        {goals.filter(g => !g.employeeRating || g.employeeRating === 0).length}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Average Progress</span>
+                      <span>Average Employee Rating</span>
                       <span className="font-semibold">
-                        {goals.length > 0 ? Math.round(goals.reduce((acc, g) => acc + (g.progress || 0), 0) / goals.length) : 0}%
+                        {goals.length > 0 && goals.some(g => g.employeeRating) 
+                          ? (goals.reduce((acc, g) => acc + (g.employeeRating || 0), 0) / goals.filter(g => g.employeeRating).length).toFixed(1)
+                          : '0.0'}/5
                       </span>
                     </div>
                   </div>
@@ -1093,14 +1090,14 @@ export default function CEOPDRReviewPage() {
                       <span>Average Self Rating</span>
                       <span className="font-semibold">
                         {behaviors.length > 0 
-                          ? (behaviors.reduce((acc, b) => acc + (b.selfRating || 0), 0) / behaviors.length).toFixed(1)
+                          ? (behaviors.reduce((acc, b) => acc + (b.employeeRating || 0), 0) / behaviors.length).toFixed(1)
                           : '0.0'}/5
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>Manager Ratings</span>
                       <span className="font-semibold text-muted-foreground">
-                        {behaviors.filter(b => b.managerRating).length}/{behaviors.length} completed
+                        {behaviors.filter(b => b.ceoRating).length}/{behaviors.length} completed
                       </span>
                     </div>
                   </div>
