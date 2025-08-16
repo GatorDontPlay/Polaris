@@ -152,6 +152,11 @@ export default function CEODashboard() {
   const recentActivity = dashboardData?.recentActivity || [];
   const allPendingReviews = dashboardData?.pendingReviews || [];
   
+  // Calculate counts for each filter category
+  const goalSettingCount = allPendingReviews.filter((review: any) => review.status === 'SUBMITTED').length;
+  const midYearCount = allPendingReviews.filter((review: any) => review.status === 'PLAN_LOCKED' || review.status === 'LOCKED').length;
+  const yearEndCount = allPendingReviews.filter((review: any) => review.status === 'FINAL_REVIEW' || review.status === 'END_YEAR_REVIEW').length;
+  
   // Filter pending reviews based on selected filter
   const pendingReviews = allPendingReviews.filter((review: any) => {
     switch (pendingReviewsFilter) {
@@ -331,6 +336,11 @@ export default function CEODashboard() {
                         }`}
                       >
                         Goal Setting
+                        {goalSettingCount > 0 && (
+                          <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 text-xs font-medium bg-primary text-primary-foreground rounded-full">
+                            {goalSettingCount}
+                          </span>
+                        )}
                       </button>
                       <button
                         onClick={() => setPendingReviewsFilter('mid-year')}
@@ -341,6 +351,11 @@ export default function CEODashboard() {
                         }`}
                       >
                         Mid Year Checkin
+                        {midYearCount > 0 && (
+                          <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 text-xs font-medium bg-primary text-primary-foreground rounded-full">
+                            {midYearCount}
+                          </span>
+                        )}
                       </button>
                       <button
                         onClick={() => setPendingReviewsFilter('year-end')}
@@ -351,6 +366,11 @@ export default function CEODashboard() {
                         }`}
                       >
                         Year End Review
+                        {yearEndCount > 0 && (
+                          <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 text-xs font-medium bg-primary text-primary-foreground rounded-full">
+                            {yearEndCount}
+                          </span>
+                        )}
                       </button>
                     </div>
                   </div>
