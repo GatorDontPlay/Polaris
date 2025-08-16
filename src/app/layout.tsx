@@ -5,7 +5,12 @@ import { QueryProvider } from '@/providers/query-provider'
 import { ThemeProvider } from '@/providers/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ 
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-sans',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'PDR Advanced - Performance Development Review System',
@@ -41,7 +46,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
-      <body className={`${inter.className} h-full bg-background text-foreground antialiased`}>
+      <body className={`${inter.variable} font-sans h-full bg-background text-foreground antialiased`}>
         <ThemeProvider>
           <QueryProvider>
             <div id="root" className="min-h-screen bg-background flex flex-col">
