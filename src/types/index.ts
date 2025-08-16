@@ -21,7 +21,9 @@ export type PDRStatus =
   | 'COMPLETED' 
   | 'LOCKED';
 
-export type Priority = 'HIGH' | 'MEDIUM' | 'LOW';
+export type Priority = 'HIGH' | 'MEDIUM' | 'LOW'; // Legacy - use weighting instead
+
+export type GoalMapping = 'PEOPLE_CULTURE' | 'VALUE_DRIVEN_INNOVATION' | 'OPERATING_EFFICIENCY' | 'CUSTOMER_EXPERIENCE';
 
 export type AuditAction = 'INSERT' | 'UPDATE' | 'DELETE';
 
@@ -85,8 +87,10 @@ export interface Goal {
   title: string;
   description?: string;
   targetOutcome?: string;
-  successCriteria?: string;
-  priority: Priority;
+  successCriteria?: string; // Legacy field
+  goalMapping?: GoalMapping; // New field: replaces successCriteria (optional for backward compatibility)
+  priority: Priority; // Legacy field
+  weighting: number; // New field: 0-100, must total 100 across all PDR goals
   employeeProgress?: string;
   employeeRating?: number;
   ceoComments?: string;
@@ -228,8 +232,10 @@ export interface GoalFormData {
   title: string;
   description?: string;
   targetOutcome?: string;
-  successCriteria?: string;
-  priority: Priority;
+  successCriteria?: string; // Legacy field
+  goalMapping: GoalMapping; // New field: replaces successCriteria (required)
+  priority: Priority; // Legacy field
+  weighting: number; // New field: 0-100, integer only
 }
 
 export interface BehaviorFormData {

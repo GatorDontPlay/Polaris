@@ -20,84 +20,99 @@ export function StepperIndicator({
   onStepClick,
   className,
 }: StepperIndicatorProps) {
+  const progressPercentage = Math.round((currentStep / totalSteps) * 100);
+
   return (
     <div className={cn('w-full', className)}>
-      <div className="flex items-center justify-between">
+      {/* Progress Bar - Moved to top for better hierarchy */}
+      <div className="mb-6">
+        <div className="flex justify-between items-center text-sm text-muted-foreground mb-3">
+          <span className="font-medium">Progress</span>
+          <span className="font-semibold text-foreground">{progressPercentage}%</span>
+        </div>
+        <div className="w-full bg-muted/50 rounded-full h-3 overflow-hidden">
+          <div
+            className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500 ease-out shadow-sm"
+            style={{ width: `${progressPercentage}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Steps Container - Responsive design */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-0">
         {steps.map((step, index) => {
           const isCompleted = step.number < currentStep;
           const isActive = step.number === currentStep;
           const isClickable = onStepClick && step.number <= currentStep;
 
           return (
-            <div key={step.number} className="flex items-center flex-1">
+            <div key={step.number} className="flex items-center flex-1 group">
               {/* Step Circle */}
               <div
                 className={cn(
-                  'flex items-center justify-center w-10 h-10 rounded-full border-2 text-sm font-medium transition-all duration-200',
+                  'flex items-center justify-center w-12 h-12 rounded-full border-2 text-sm font-bold transition-all duration-300 shadow-lg',
                   {
-                    'bg-primary text-primary-foreground border-primary': isActive,
-                    'bg-green-500 text-white border-green-500': isCompleted,
-                    'bg-muted text-muted-foreground border-border': !isActive && !isCompleted,
-                    'cursor-pointer hover:bg-primary/10': isClickable,
+                    'bg-gradient-to-br from-blue-500 to-blue-600 text-white border-blue-500 shadow-blue-500/25': isActive,
+                    'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-emerald-500 shadow-emerald-500/25': isCompleted,
+                    'bg-background text-muted-foreground border-border hover:border-border/80': !isActive && !isCompleted,
+                    'cursor-pointer hover:scale-105 hover:shadow-xl': isClickable,
+                    'ring-4 ring-blue-500/20': isActive,
                   }
                 )}
                 onClick={() => isClickable && onStepClick(step.number)}
               >
                 {isCompleted ? (
-                  <CheckIcon className="w-5 h-5" />
+                  <CheckIcon className="w-6 h-6" />
                 ) : (
                   step.number
                 )}
               </div>
 
               {/* Step Content */}
-              <div className="ml-4 flex-1">
+              <div className="ml-4 flex-1 min-w-0">
                 <div
                   className={cn(
-                    'text-sm font-medium',
+                    'text-base font-semibold leading-tight',
                     {
-                      'text-primary': isActive,
-                      'text-green-600': isCompleted,
+                      'text-foreground': isActive,
+                      'text-emerald-600 dark:text-emerald-400': isCompleted,
                       'text-muted-foreground': !isActive && !isCompleted,
                     }
                   )}
                 >
                   {step.title}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">
+                <div 
+                  className={cn(
+                    'text-sm mt-1 leading-relaxed',
+                    {
+                      'text-muted-foreground/90': isActive,
+                      'text-muted-foreground/70': isCompleted,
+                      'text-muted-foreground/60': !isActive && !isCompleted,
+                    }
+                  )}
+                >
                   {step.description}
                 </div>
               </div>
 
-              {/* Connector Line */}
+              {/* Connector Line - Hidden on mobile, visible on desktop */}
               {index < steps.length - 1 && (
-                <div
-                  className={cn(
-                    'h-0.5 w-12 mx-4 transition-colors',
-                    {
-                      'bg-primary': step.number < currentStep,
-                      'bg-border': step.number >= currentStep,
-                    }
-                  )}
-                />
+                <div className="hidden lg:flex items-center mx-6">
+                  <div
+                    className={cn(
+                      'h-1 w-16 rounded-full transition-all duration-300',
+                      {
+                        'bg-gradient-to-r from-emerald-500 to-blue-500': step.number < currentStep,
+                        'bg-border/50': step.number >= currentStep,
+                      }
+                    )}
+                  />
+                </div>
               )}
             </div>
           );
         })}
-      </div>
-
-      {/* Progress Bar */}
-      <div className="mt-4">
-        <div className="flex justify-between text-xs text-muted-foreground mb-2">
-          <span>Progress</span>
-          <span>{Math.round((currentStep / totalSteps) * 100)}%</span>
-        </div>
-        <div className="w-full bg-muted rounded-full h-2">
-          <div
-            className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
-            style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-          />
-        </div>
       </div>
     </div>
   );

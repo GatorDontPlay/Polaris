@@ -145,6 +145,7 @@ export default function GoalsPage({ params }: GoalsPageProps) {
           onSubmit={handleCreateGoal}
           onCancel={() => setShowAddForm(false)}
           isSubmitting={isSubmitting}
+          existingGoals={goals || []}
         />
       )}
 
@@ -159,6 +160,7 @@ export default function GoalsPage({ params }: GoalsPageProps) {
               {...(canEdit && { onDelete: () => handleDeleteGoal(goal.id) })}
               isSubmitting={isSubmitting}
               isReadOnly={!canEdit}
+              existingGoals={goals || []}
             />
           ))}
           

@@ -24,11 +24,7 @@ interface ReviewPageProps {
   params: { id: string };
 }
 
-const PRIORITY_COLORS = {
-  HIGH: 'bg-priority-high-background text-priority-high border-priority-high/20',
-  MEDIUM: 'bg-priority-medium-background text-priority-medium border-priority-medium/20',
-  LOW: 'bg-priority-low-background text-priority-low border-priority-low/20',
-};
+// Priority colors are no longer needed - using weighting instead
 
 export default function ReviewPage({ params }: ReviewPageProps) {
   const router = useRouter();
@@ -235,8 +231,8 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                   <div className="flex items-start justify-between mb-2">
                     <h4 className="font-medium text-foreground">{goal.title}</h4>
                     <div className="flex items-center space-x-2">
-                      <Badge className={PRIORITY_COLORS[goal.priority]}>
-                        {goal.priority}
+                      <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20">
+                        {goal.weighting || 0}%
                       </Badge>
                       {goal.employeeRating && (
                         <div className="flex items-center">

@@ -606,17 +606,12 @@ export default function CEOPDRReviewPage() {
     }
   };
 
-  const getPriorityBadge = (priority: string) => {
-    switch (priority) {
-      case 'HIGH':
-        return <Badge variant="destructive">High</Badge>;
-      case 'MEDIUM':
-        return <Badge variant="default">Medium</Badge>;
-      case 'LOW':
-        return <Badge variant="secondary">Low</Badge>;
-      default:
-        return <Badge variant="outline">{priority}</Badge>;
-    }
+  const getWeightingBadge = (weighting: number) => {
+    return (
+      <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20">
+        {weighting}%
+      </Badge>
+    );
   };
 
   const getGoalStatusBadge = (status: string) => {
@@ -903,7 +898,7 @@ export default function CEOPDRReviewPage() {
                             <div className="flex items-start justify-between">
                               <h4 className="font-semibold text-blue-600">Employee Goal</h4>
                               <div className="flex items-center gap-2">
-                                {getPriorityBadge(goal.priority || 'MEDIUM')}
+                                {getWeightingBadge(goal.weighting || 0)}
                                 {getGoalStatusBadge(goal.status)}
                               </div>
                             </div>
@@ -1714,10 +1709,23 @@ export default function CEOPDRReviewPage() {
                                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Goal Description</p>
                                 <p className="text-sm text-foreground">{goal.description}</p>
                               </div>
-                              <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Success Criteria</p>
-                                <p className="text-sm text-foreground">{goal.successCriteria || 'No criteria specified'}</p>
-                              </div>
+                              {goal.goalMapping && (
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Goal Mapping</p>
+                                  <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                                    {goal.goalMapping === 'PEOPLE_CULTURE' ? 'People & Culture' :
+                                     goal.goalMapping === 'VALUE_DRIVEN_INNOVATION' ? 'Value-Driven Innovation' :
+                                     goal.goalMapping === 'OPERATING_EFFICIENCY' ? 'Operating Efficiency' :
+                                     goal.goalMapping === 'CUSTOMER_EXPERIENCE' ? 'Customer Experience' : goal.goalMapping}
+                                  </Badge>
+                                </div>
+                              )}
+                              {goal.successCriteria && (
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Success Criteria (Legacy)</p>
+                                  <p className="text-sm text-foreground">{goal.successCriteria}</p>
+                                </div>
+                              )}
                             </div>
                           </div>
                           

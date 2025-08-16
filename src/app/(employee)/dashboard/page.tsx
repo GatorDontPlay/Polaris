@@ -277,75 +277,86 @@ export default function EmployeeDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4">
-              {/* Ultra-Compact Progress and Pills */}
-              <div className="flex items-center justify-between mb-2">
+              {/* Modern Progress and Pills */}
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-3 flex-1 mr-3">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-16 bg-gray-200 rounded-full h-1">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-20 bg-muted/50 rounded-full h-1.5 overflow-hidden">
                       <div 
-                        className="bg-blue-600 h-1 rounded-full transition-all duration-300" 
+                        className="bg-gradient-to-r from-blue-500 to-blue-600 h-1.5 rounded-full transition-all duration-500 ease-out" 
                         style={{ width: `${(currentPDR.currentStep / 5) * 100}%` }}
                       ></div>
                     </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">{currentPDR.currentStep}/5</span>
+                    <span className="text-xs text-foreground/80 font-medium whitespace-nowrap">{currentPDR.currentStep}/5</span>
                   </div>
                   
-                  {/* Ultra-Compact Pills */}
-                  <div className="flex gap-0.5 flex-wrap">
-                    <div className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs ${
-                      currentPDR.currentStep >= 1 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                  {/* Modern Minimal Pills - Symmetrical */}
+                  <div className="flex gap-1 flex-wrap">
+                    <div className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 min-w-[4.5rem] sm:min-w-[5.5rem] ${
+                      currentPDR.currentStep >= 1 
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                        : 'bg-muted/50 text-muted-foreground border border-border/50 hover:bg-muted/70'
                     }`}>
                       {currentPDR.currentStep >= 1 ? (
-                        <CheckCircle2 className="h-2.5 w-2.5" />
+                        <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
                       ) : (
-                        <Target className="h-2.5 w-2.5" />
+                        <Target className="h-3 w-3 flex-shrink-0" />
                       )}
                       <span className="hidden sm:inline">Goals</span>
                       <span className="sm:hidden">G</span>
                     </div>
-                    <div className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs ${
-                      currentPDR.currentStep >= 2 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    <div className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 min-w-[4.5rem] sm:min-w-[5.5rem] ${
+                      currentPDR.currentStep >= 2 
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                        : 'bg-muted/50 text-muted-foreground border border-border/50 hover:bg-muted/70'
                     }`}>
                       {currentPDR.currentStep >= 2 ? (
-                        <CheckCircle2 className="h-2.5 w-2.5" />
+                        <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
                       ) : (
-                        <TrendingUp className="h-2.5 w-2.5" />
+                        <TrendingUp className="h-3 w-3 flex-shrink-0" />
                       )}
                       <span className="hidden sm:inline">Behaviors</span>
                       <span className="sm:hidden">B</span>
                     </div>
-                    <div className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs ${
-                      currentPDR.currentStep >= 3 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    <div className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 min-w-[4.5rem] sm:min-w-[5.5rem] ${
+                      currentPDR.currentStep >= 3 
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                        : 'bg-muted/50 text-muted-foreground border border-border/50 hover:bg-muted/70'
                     }`}>
                       {currentPDR.currentStep >= 3 ? (
-                        <CheckCircle2 className="h-2.5 w-2.5" />
+                        <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
                       ) : (
-                        <FileText className="h-2.5 w-2.5" />
+                        <FileText className="h-3 w-3 flex-shrink-0" />
                       )}
                       <span className="hidden sm:inline">Review</span>
                       <span className="sm:hidden">R</span>
                     </div>
-                    <div className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs ${
-                      currentPDR.currentStep >= 4 ? 'bg-green-100 text-green-700' : 
-                      currentPDR.status === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                    <div className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 min-w-[4.5rem] sm:min-w-[5.5rem] ${
+                      currentPDR.currentStep >= 4 
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                        : currentPDR.status === 'SUBMITTED' 
+                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
+                        : 'bg-muted/50 text-muted-foreground border border-border/50 hover:bg-muted/70'
                     }`}>
                       {currentPDR.currentStep >= 4 ? (
-                        <CheckCircle2 className="h-2.5 w-2.5" />
+                        <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
                       ) : currentPDR.status === 'SUBMITTED' ? (
-                        <Clock className="h-2.5 w-2.5" />
+                        <Clock className="h-3 w-3 flex-shrink-0" />
                       ) : (
-                        <Calendar className="h-2.5 w-2.5" />
+                        <Calendar className="h-3 w-3 flex-shrink-0" />
                       )}
                       <span className="hidden sm:inline">Mid-Year</span>
                       <span className="sm:hidden">M</span>
                     </div>
-                    <div className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs ${
-                      currentPDR.currentStep >= 5 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    <div className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 min-w-[4.5rem] sm:min-w-[5.5rem] ${
+                      currentPDR.currentStep >= 5 
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                        : 'bg-muted/50 text-muted-foreground border border-border/50 hover:bg-muted/70'
                     }`}>
                       {currentPDR.currentStep >= 5 ? (
-                        <CheckCircle2 className="h-2.5 w-2.5" />
+                        <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
                       ) : (
-                        <FileText className="h-2.5 w-2.5" />
+                        <FileText className="h-3 w-3 flex-shrink-0" />
                       )}
                       <span className="hidden sm:inline">End-Year</span>
                       <span className="sm:hidden">E</span>
@@ -435,73 +446,70 @@ export default function EmployeeDashboard() {
           />
         </div>
 
-        {/* Quick Actions - Full Width */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>
-              Common tasks and shortcuts
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-3">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-              <Button 
-                variant="outline" 
-                className="h-8 text-sm px-3 justify-start"
-                onClick={() => router.push(`/pdr/${currentPDR?.id}/goals`)}
-                disabled={!currentPDR}
-              >
-                <Target className="mr-2 h-3 w-3" />
-                <span className="hidden sm:inline">Update Goals</span>
-                <span className="sm:hidden">Goals</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                className="h-8 text-sm px-3 justify-start"
-                onClick={() => router.push(`/pdr/${currentPDR?.id}/behaviors`)}
-                disabled={!currentPDR}
-              >
-                <TrendingUp className="mr-2 h-3 w-3" />
-                <span className="hidden sm:inline">Rate Behaviors</span>
-                <span className="sm:hidden">Behaviors</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                className="h-8 text-sm px-3 justify-start"
-                onClick={() => router.push(`/pdr/${currentPDR?.id}/mid-year`)}
-                disabled={!currentPDR || currentPDR.status !== 'SUBMITTED'}
-                title={currentPDR?.status !== 'SUBMITTED' ? 'Complete and submit your PDR first' : 'Available during mid-year period'}
-              >
-                <Calendar className="mr-2 h-3 w-3" />
-                <span className="hidden sm:inline">Mid-Year Check-in</span>
-                <span className="sm:hidden">Mid-Year</span>
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="h-8 text-sm px-3 justify-start text-muted-foreground hover:text-foreground"
-                onClick={() => router.push(`/pdr/${currentPDR?.id}/review`)}
-                disabled={!currentPDR}
-              >
-                <FileText className="mr-2 h-3 w-3" />
-                <span className="hidden sm:inline">Review Progress</span>
-                <span className="sm:hidden">Review</span>
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="h-8 text-sm px-3 justify-start text-muted-foreground hover:text-foreground"
-                onClick={() => router.push(`/pdr/${currentPDR?.id}`)}
-                disabled={!currentPDR}
-              >
-                <ArrowRight className="mr-2 h-3 w-3" />
-                <span className="hidden sm:inline">Continue PDR</span>
-                <span className="sm:hidden">Continue</span>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Quick Actions and PDR History - Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>
+                Common tasks and shortcuts
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-3">
+              <div className="grid grid-cols-1 gap-2">
+                <Button 
+                  variant="outline" 
+                  className="h-10 text-sm px-3 justify-start"
+                  onClick={() => router.push(`/pdr/${currentPDR?.id}/goals`)}
+                  disabled={!currentPDR}
+                >
+                  <Target className="mr-2 h-4 w-4" />
+                  Update Goals
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="h-10 text-sm px-3 justify-start"
+                  onClick={() => router.push(`/pdr/${currentPDR?.id}/behaviors`)}
+                  disabled={!currentPDR}
+                >
+                  <TrendingUp className="mr-2 h-4 w-4" />
+                  Rate Behaviors
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="h-10 text-sm px-3 justify-start"
+                  onClick={() => router.push(`/pdr/${currentPDR?.id}/mid-year`)}
+                  disabled={!currentPDR || currentPDR.status !== 'SUBMITTED'}
+                  title={currentPDR?.status !== 'SUBMITTED' ? 'Complete and submit your PDR first' : 'Available during mid-year period'}
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Mid-Year Check-in
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="h-10 text-sm px-3 justify-start text-muted-foreground hover:text-foreground"
+                  onClick={() => router.push(`/pdr/${currentPDR?.id}/review`)}
+                  disabled={!currentPDR}
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Review Progress
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="h-10 text-sm px-3 justify-start text-muted-foreground hover:text-foreground"
+                  onClick={() => router.push(`/pdr/${currentPDR?.id}`)}
+                  disabled={!currentPDR}
+                >
+                  <ArrowRight className="mr-2 h-4 w-4" />
+                  Continue PDR
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* PDR History */}
-        <Card>
+          {/* PDR History */}
+          <Card>
           <CardHeader>
             <CardTitle>PDR History</CardTitle>
             <CardDescription>
@@ -567,6 +575,7 @@ export default function EmployeeDashboard() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

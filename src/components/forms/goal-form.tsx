@@ -7,7 +7,8 @@ import { Goal, GoalFormData } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Save, X, Edit2, Plus } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Trash2, Save, X, Edit2, Plus, HelpCircle } from 'lucide-react';
 import { useState } from 'react';
 
 interface GoalFormProps {
@@ -17,13 +18,10 @@ interface GoalFormProps {
   onCancel?: () => void;
   isSubmitting?: boolean;
   isReadOnly?: boolean;
+  existingGoals?: Goal[]; // For weighting validation
 }
 
-const PRIORITY_COLORS = {
-  HIGH: 'bg-priority-high-background text-priority-high',
-  MEDIUM: 'bg-priority-medium-background text-priority-medium', 
-  LOW: 'bg-priority-low-background text-priority-low',
-};
+// Priority colors are no longer used - replaced with weighting
 
 export function GoalForm({ 
   goal, 
@@ -31,7 +29,8 @@ export function GoalForm({
   onDelete, 
   onCancel,
   isSubmitting = false,
-  isReadOnly = false 
+  isReadOnly = false,
+  existingGoals = []
 }: GoalFormProps) {
   const [isEditing, setIsEditing] = useState(!goal);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -49,17 +48,32 @@ export function GoalForm({
       description: goal.description || '',
       targetOutcome: goal.targetOutcome || '',
       successCriteria: goal.successCriteria || '',
+      goalMapping: goal.goalMapping,
       priority: goal.priority,
+      weighting: goal.weighting || 0,
     } : {
       title: '',
       description: '',
       targetOutcome: '',
       successCriteria: '',
+      goalMapping: '' as any, // Will trigger validation if not selected
       priority: 'MEDIUM',
+      weighting: 0,
     },
   });
 
   const priority = watch('priority');
+  const weighting = watch('weighting');
+  
+  // Calculate total weighting excluding current goal
+  const calculateTotalWeighting = () => {
+    const otherGoals = existingGoals.filter(g => g.id !== goal?.id);
+    return otherGoals.reduce((sum, g) => sum + (g.weighting || 0), 0);
+  };
+  
+  const totalWeighting = calculateTotalWeighting() + (weighting || 0);
+  const remainingWeighting = 100 - calculateTotalWeighting();
+  const isOverWeight = totalWeighting > 100;
 
   const handleFormSubmit = async (data: GoalFormData) => {
     try {
@@ -106,8 +120,8 @@ export function GoalForm({
             <div className="flex-1">
               <CardTitle className="text-lg">{goal.title}</CardTitle>
               <div className="flex items-center space-x-2 mt-2">
-                <Badge className={PRIORITY_COLORS[goal.priority]}>
-                  {goal.priority}
+                <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20">
+                  {goal.weighting || 0}%
                 </Badge>
               </div>
             </div>
@@ -145,9 +159,20 @@ export function GoalForm({
               <p className="text-foreground/90 leading-relaxed">{goal.targetOutcome}</p>
             </div>
           )}
+          {goal.goalMapping && (
+            <div>
+              <h4 className="font-semibold text-foreground mb-3 text-base">Goal Mapping</h4>
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                {goal.goalMapping === 'PEOPLE_CULTURE' ? 'People & Culture' :
+                 goal.goalMapping === 'VALUE_DRIVEN_INNOVATION' ? 'Value-Driven Innovation' :
+                 goal.goalMapping === 'OPERATING_EFFICIENCY' ? 'Operating Efficiency' :
+                 goal.goalMapping === 'CUSTOMER_EXPERIENCE' ? 'Customer Experience' : goal.goalMapping}
+              </Badge>
+            </div>
+          )}
           {goal.successCriteria && (
             <div>
-              <h4 className="font-semibold text-foreground mb-3 text-base">Success Criteria</h4>
+              <h4 className="font-semibold text-foreground mb-3 text-base">Success Criteria (Legacy)</h4>
               <p className="text-foreground/90 leading-relaxed">{goal.successCriteria}</p>
             </div>
           )}
@@ -206,97 +231,234 @@ export function GoalForm({
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
-          {/* Title */}
-          <div>
-            <label htmlFor="title" className="block text-sm font-semibold text-foreground mb-1">
-              Goal Title *
-            </label>
-            <input
-              id="title"
-              type="text"
-              {...register('title')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Enter a clear, specific goal title"
-            />
-            {errors.title && (
-              <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
-            )}
-          </div>
+          {/* Title, Weighting, and Goal Mapping Row */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {/* Title - Takes 2/5 width on desktop */}
+            <div className="md:col-span-2">
+              <div className="flex items-center gap-2 mb-1">
+                <label htmlFor="title" className="block text-sm font-semibold text-foreground">
+                  Goal Title *
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Goal Title</h4>
+                      <p className="text-sm text-muted-foreground">
+                        This is the short name of what you are going to try to achieve. Keep it clear and specific.
+                      </p>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <p><strong>Examples:</strong></p>
+                        <p>• "Deliver ISO 27001 Accreditation"</p>
+                        <p>• "Setup 10 Boiler Plates"</p>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <input
+                id="title"
+                type="text"
+                maxLength={50}
+                {...register('title')}
+                className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground transition-colors"
+                placeholder="Enter a clear, specific goal title"
+              />
+              <div className="flex justify-between mt-1">
+                <div>
+                  {errors.title && (
+                    <p className="text-sm text-destructive">{errors.title.message}</p>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {watch('title')?.length || 0}/50
+                </p>
+              </div>
+            </div>
 
-          {/* Priority */}
-          <div>
-            <label htmlFor="priority" className="block text-sm font-semibold text-foreground mb-1">
-              Priority
-            </label>
-            <select
-              id="priority"
-              {...register('priority')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="HIGH">High</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="LOW">Low</option>
-            </select>
-            <div className="mt-1">
-              <Badge className={PRIORITY_COLORS[priority]}>
-                {priority}
-              </Badge>
+            {/* Weighting - Takes 1/5 width on desktop */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <label htmlFor="weighting" className="block text-sm font-semibold text-foreground">
+                  Weighting *
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Goal Weighting</h4>
+                      <p className="text-sm text-muted-foreground">
+                        This determines how heavily this goal will weigh against your overall performance score. All goals in your PDR must total exactly 100.
+                      </p>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <p><strong>Examples:</strong></p>
+                        <p>• 1 goal only = 100</p>
+                        <p>• 2 goals = 60 + 40 = 100</p>
+                        <p>• 3 goals = 50 + 30 + 20 = 100</p>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <input
+                id="weighting"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                {...register('weighting', { valueAsNumber: true })}
+                className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground transition-colors"
+                placeholder="0-100"
+              />
+              <div className="mt-1">
+                {errors.weighting && (
+                  <p className="text-sm text-destructive">{errors.weighting.message}</p>
+                )}
+                <div className="text-xs text-muted-foreground">
+                  <div>Total: {totalWeighting}/100</div>
+                  {isOverWeight && (
+                    <p className="text-destructive">⚠️ Over 100</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Goal Mapping - Takes 2/5 width on desktop */}
+            <div className="md:col-span-2">
+              <div className="flex items-center gap-2 mb-1">
+                <label htmlFor="goalMapping" className="block text-sm font-semibold text-foreground">
+                  Goal Mapping *
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Goal Mapping</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Map your goal/objective to your view of best fit to one of the company goals/pillars. This helps align your personal objectives with organizational priorities.
+                      </p>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <select
+                id="goalMapping"
+                {...register('goalMapping')}
+                className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors"
+              >
+                <option value="">Select goal mapping...</option>
+                <option value="PEOPLE_CULTURE">People & Culture</option>
+                <option value="VALUE_DRIVEN_INNOVATION">Value-Driven Innovation</option>
+                <option value="OPERATING_EFFICIENCY">Operating Efficiency</option>
+                <option value="CUSTOMER_EXPERIENCE">Customer Experience</option>
+              </select>
+              {errors.goalMapping && (
+                <p className="mt-1 text-sm text-destructive">{errors.goalMapping.message}</p>
+              )}
             </div>
           </div>
 
-          {/* Description */}
-          <div>
-            <label htmlFor="description" className="block text-sm font-semibold text-foreground mb-1">
-              Description
-            </label>
-            <textarea
-              id="description"
-              {...register('description')}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Provide context and details about this goal"
-            />
-            {errors.description && (
-              <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
-            )}
-          </div>
+          {/* Description and Target Outcome Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Description */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <label htmlFor="description" className="block text-sm font-semibold text-foreground">
+                  Description
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Goal Description</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Describe the goal/objective that you are aiming to achieve. Provide context and details about what you want to accomplish.
+                      </p>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <textarea
+                id="description"
+                {...register('description')}
+                rows={3}
+                maxLength={500}
+                className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground transition-colors resize-none"
+                placeholder="Describe the goal/objective you are aiming to achieve"
+              />
+              <div className="flex justify-between mt-1">
+                <div>
+                  {errors.description && (
+                    <p className="text-sm text-destructive">{errors.description.message}</p>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {watch('description')?.length || 0}/500
+                </p>
+              </div>
+            </div>
 
-          {/* Target Outcome */}
-          <div>
-            <label htmlFor="targetOutcome" className="block text-sm font-semibold text-foreground mb-1">
-              Target Outcome
-            </label>
-            <textarea
-              id="targetOutcome"
-              {...register('targetOutcome')}
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="What specific outcome are you aiming to achieve?"
-            />
-            {errors.targetOutcome && (
-              <p className="mt-1 text-sm text-red-600">{errors.targetOutcome.message}</p>
-            )}
-          </div>
-
-          {/* Success Criteria */}
-          <div>
-            <label htmlFor="successCriteria" className="block text-sm font-semibold text-foreground mb-1">
-              Success Criteria
-            </label>
-            <textarea
-              id="successCriteria"
-              {...register('successCriteria')}
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="How will you measure success? What are the key metrics?"
-            />
-            {errors.successCriteria && (
-              <p className="mt-1 text-sm text-red-600">{errors.successCriteria.message}</p>
-            )}
+            {/* Target Outcome */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <label htmlFor="targetOutcome" className="block text-sm font-semibold text-foreground">
+                  Target Outcome
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Target Outcome</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Describe individual outcomes you expected to see from performing and achieving this goal/objective.
+                      </p>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <textarea
+                id="targetOutcome"
+                {...register('targetOutcome')}
+                rows={3}
+                maxLength={250}
+                className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground transition-colors resize-none"
+                placeholder="Describe expected outcomes from achieving this goal"
+              />
+              <div className="flex justify-between mt-1">
+                <div>
+                  {errors.targetOutcome && (
+                    <p className="text-sm text-destructive">{errors.targetOutcome.message}</p>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {watch('targetOutcome')?.length || 0}/250
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end space-x-2 pt-4">
+          <div className="flex justify-end space-x-2 pt-2 border-t border-border/50 mt-4">
             <Button
               type="button"
               variant="outline"

@@ -45,20 +45,31 @@ export const goalSchema = z.object({
   title: z
     .string()
     .min(1, 'Title is required')
-    .max(255, 'Title must be less than 255 characters'),
+    .max(50, 'Title must be 50 characters or less'),
   description: z
     .string()
-    .max(1000, 'Description must be less than 1000 characters')
+    .max(500, 'Description must be 500 characters or less')
     .optional(),
   targetOutcome: z
     .string()
-    .max(1000, 'Target outcome must be less than 1000 characters')
+    .max(250, 'Target outcome must be 250 characters or less')
     .optional(),
   successCriteria: z
     .string()
     .max(1000, 'Success criteria must be less than 1000 characters')
-    .optional(),
-  priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'),
+    .optional(), // Legacy field
+  goalMapping: z
+    .enum(['PEOPLE_CULTURE', 'VALUE_DRIVEN_INNOVATION', 'OPERATING_EFFICIENCY', 'CUSTOMER_EXPERIENCE'], {
+      required_error: 'Please select a goal to map against',
+      invalid_type_error: 'Please select a goal to map against'
+    }),
+  priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'), // Legacy field
+  weighting: z
+    .number()
+    .int('Weighting must be a whole number')
+    .min(0, 'Weighting must be 0 or greater')
+    .max(100, 'Weighting cannot exceed 100')
+    .default(0),
 });
 
 export const goalUpdateSchema = goalSchema.extend({

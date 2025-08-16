@@ -97,7 +97,7 @@ export function CurrentPDRCard({
           <h3 className="font-semibold text-foreground text-lg">
             {pdr.period?.name || '2024 Annual Review'}
           </h3>
-          <p className="text-sm text-gray-600 mt-1">
+          <p className="text-sm text-muted-foreground/80 mt-1">
             {pdr.status === 'SUBMITTED' 
               ? 'Submitted for review - awaiting CEO feedback'
               : pdr.status === 'UNDER_REVIEW'
