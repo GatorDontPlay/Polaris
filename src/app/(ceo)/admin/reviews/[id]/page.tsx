@@ -1416,12 +1416,20 @@ export default function CEOPDRReviewPage() {
                                 {/* Check-in Comments */}
                                 <div className="space-y-2">
                                   <h6 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Check-in Comments</h6>
-                                  <Textarea
-                                    placeholder="Add mid-year check-in notes..."
-                                    value={checkinComments}
-                                    onChange={(e) => saveMidYearComment(goal.id, e.target.value, 'goal')}
-                                    className="min-h-[80px] text-sm"
-                                  />
+                                  {pdr?.status === 'END_YEAR_REVIEW' ? (
+                                    <div className="min-h-[80px] p-3 bg-muted/30 rounded-md text-sm">
+                                      {checkinComments || (
+                                        <span className="text-muted-foreground italic">No check-in comments provided</span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <Textarea
+                                      placeholder="Add mid-year check-in notes..."
+                                      value={checkinComments}
+                                      onChange={(e) => saveMidYearComment(goal.id, e.target.value, 'goal')}
+                                      className="min-h-[80px] text-sm"
+                                    />
+                                  )}
                                 </div>
                               </div>
                               
@@ -1494,12 +1502,20 @@ export default function CEOPDRReviewPage() {
                                 {/* Check-in Comments */}
                                 <div className="space-y-2">
                                   <h6 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Check-in Comments</h6>
-                                  <Textarea
-                                    placeholder="Add mid-year check-in notes..."
-                                    value={checkinComments}
-                                    onChange={(e) => saveMidYearComment(behavior.id, e.target.value, 'behavior')}
-                                    className="min-h-[80px] text-sm"
-                                  />
+                                  {pdr?.status === 'END_YEAR_REVIEW' ? (
+                                    <div className="min-h-[80px] p-3 bg-muted/30 rounded-md text-sm">
+                                      {checkinComments || (
+                                        <span className="text-muted-foreground italic">No check-in comments provided</span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <Textarea
+                                      placeholder="Add mid-year check-in notes..."
+                                      value={checkinComments}
+                                      onChange={(e) => saveMidYearComment(behavior.id, e.target.value, 'behavior')}
+                                      className="min-h-[80px] text-sm"
+                                    />
+                                  )}
                                 </div>
                               </div>
                               
@@ -1560,15 +1576,36 @@ export default function CEOPDRReviewPage() {
                     </div>
                   </div>
 
-                  {/* Save and Close Button */}
-                  <div className="flex justify-end pt-6 border-t border-border/30">
-                    <Button 
-                      onClick={() => setIsMidYearSaveConfirmDialogOpen(true)}
-                      className="bg-primary hover:bg-primary/90"
-                    >
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Save and Close Mid-Year Review
-                    </Button>
+                  {/* Save and Close Button or Completion Status */}
+                  <div className="pt-6 border-t border-border/30">
+                    {pdr?.status === 'END_YEAR_REVIEW' ? (
+                      <div className="flex items-center justify-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+                        <CheckCircle className="mr-2 h-5 w-5 text-green-600" />
+                        <div className="text-center">
+                          <div className="font-medium text-green-800">Mid-Year Review Completed</div>
+                          <div className="text-sm text-green-600">
+                            {pdr.midYearCompletedAt && (
+                              <>Completed on {new Date(pdr.midYearCompletedAt).toLocaleDateString('en-AU', { 
+                                timeZone: 'Australia/Adelaide',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                              })}</>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex justify-end">
+                        <Button 
+                          onClick={() => setIsMidYearSaveConfirmDialogOpen(true)}
+                          className="bg-primary hover:bg-primary/90"
+                        >
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Save and Close Mid-Year Review
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
