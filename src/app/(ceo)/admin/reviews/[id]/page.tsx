@@ -1675,7 +1675,7 @@ export default function CEOPDRReviewPage() {
           </TabsContent>
 
           <TabsContent value="final-review" className="space-y-4">
-            <Card>
+            <Card className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle>Final Year-End Review</CardTitle>
                 <CardDescription>
@@ -1694,9 +1694,9 @@ export default function CEOPDRReviewPage() {
                     const finalReview = finalGoalReviews[goal.id] || { rating: 0, comments: '' };
                     
                     return (
-                      <div key={goal.id} className="border border-border/30 rounded-lg overflow-hidden">
+                      <div key={goal.id} className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm rounded-lg overflow-hidden">
                         {/* Goal Header */}
-                        <div className="bg-muted/30 p-4 border-b border-border/30">
+                        <div className="bg-gradient-to-r from-muted/20 to-muted/10 p-4 border-b border-border/30">
                           <h4 className="font-semibold text-lg mb-1">{goal.title}</h4>
                           <p className="text-sm text-muted-foreground">{goal.description}</p>
                         </div>
@@ -1797,28 +1797,28 @@ export default function CEOPDRReviewPage() {
                   
                   {/* Goals Summary */}
                   {goals.length > 0 && (
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-blue-800 mb-3">Goals Final Summary</h4>
+                    <div className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm rounded-lg p-6">
+                      <h4 className="font-semibold text-foreground mb-4">Goals Final Summary</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                         <div>
-                          <div className="text-2xl font-bold text-blue-700">
+                          <div className="text-2xl font-bold text-foreground">
                             {Object.values(finalGoalReviews).reduce((sum, review) => sum + (review.rating || 0), 0)}
                           </div>
-                          <div className="text-sm text-blue-600">CEO Total Score</div>
+                          <div className="text-sm text-muted-foreground">CEO Total Score</div>
                         </div>
                         <div>
-                          <div className="text-2xl font-bold text-blue-700">
+                          <div className="text-2xl font-bold text-foreground">
                             {goals.length * 5}
                           </div>
-                          <div className="text-sm text-blue-600">Possible Score</div>
+                          <div className="text-sm text-muted-foreground">Possible Score</div>
                         </div>
                         <div>
-                          <div className="text-2xl font-bold text-blue-700">
+                          <div className="text-2xl font-bold text-foreground">
                             {goals.length > 0 
                               ? ((Object.values(finalGoalReviews).reduce((sum, review) => sum + (review.rating || 0), 0) / (goals.length * 5)) * 100).toFixed(1)
                               : 0}%
                           </div>
-                          <div className="text-sm text-blue-600">Achievement Rate</div>
+                          <div className="text-sm text-muted-foreground">Achievement Rate</div>
                         </div>
                       </div>
                     </div>
@@ -1836,9 +1836,9 @@ export default function CEOPDRReviewPage() {
                     const finalReview = finalBehaviorReviews[behavior.id] || { rating: 0, comments: '' };
                     
                     return (
-                      <div key={behavior.id} className="border border-border/30 rounded-lg overflow-hidden">
+                      <div key={behavior.id} className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm rounded-lg overflow-hidden">
                         {/* Behavior Header */}
-                        <div className="bg-muted/30 p-4 border-b border-border/30">
+                        <div className="bg-gradient-to-r from-muted/20 to-muted/10 p-4 border-b border-border/30">
                           <h4 className="font-semibold text-lg mb-1">{behavior.value?.name}</h4>
                           <p className="text-sm text-muted-foreground">{behavior.description}</p>
                         </div>
@@ -1939,28 +1939,28 @@ export default function CEOPDRReviewPage() {
                   
                   {/* Behaviors Summary */}
                   {behaviors.length > 0 && (
-                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-green-800 mb-3">Behaviors Final Summary</h4>
+                    <div className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm rounded-lg p-6">
+                      <h4 className="font-semibold text-foreground mb-4">Behaviors Final Summary</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                         <div>
-                          <div className="text-2xl font-bold text-green-700">
+                          <div className="text-2xl font-bold text-foreground">
                             {Object.values(finalBehaviorReviews).reduce((sum, review) => sum + (review.rating || 0), 0)}
                           </div>
-                          <div className="text-sm text-green-600">CEO Total Score</div>
+                          <div className="text-sm text-muted-foreground">CEO Total Score</div>
                         </div>
                         <div>
-                          <div className="text-2xl font-bold text-green-700">
+                          <div className="text-2xl font-bold text-foreground">
                             {behaviors.length * 5}
                           </div>
-                          <div className="text-sm text-green-600">Possible Score</div>
+                          <div className="text-sm text-muted-foreground">Possible Score</div>
                         </div>
                         <div>
-                          <div className="text-2xl font-bold text-green-700">
+                          <div className="text-2xl font-bold text-foreground">
                             {behaviors.length > 0 
                               ? ((Object.values(finalBehaviorReviews).reduce((sum, review) => sum + (review.rating || 0), 0) / (behaviors.length * 5)) * 100).toFixed(1)
                               : 0}%
                           </div>
-                          <div className="text-sm text-green-600">Achievement Rate</div>
+                          <div className="text-sm text-muted-foreground">Achievement Rate</div>
                         </div>
                       </div>
                     </div>
