@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useCEODashboard } from '@/hooks/use-admin';
 import { useDemoAdminDashboard } from '@/hooks/use-demo-admin';
 import { useDemoAuth } from '@/hooks/use-demo-auth';
@@ -63,6 +63,9 @@ export default function CEODashboard() {
   // Check if we're in demo mode
   const { user: demoUser } = useDemoAuth();
   const isDemo = !!demoUser;
+  
+  // Filter state for pending reviews
+  const [pendingReviewsFilter, setPendingReviewsFilter] = useState<'goal-setting' | 'mid-year' | 'year-end'>('goal-setting');
   
   // Use appropriate data source based on authentication mode
   const realDashboard = useCEODashboard();
@@ -147,7 +150,21 @@ export default function CEODashboard() {
 
   const stats = dashboardData?.stats;
   const recentActivity = dashboardData?.recentActivity || [];
-  const pendingReviews = dashboardData?.pendingReviews || [];
+  const allPendingReviews = dashboardData?.pendingReviews || [];
+  
+  // Filter pending reviews based on selected filter
+  const pendingReviews = allPendingReviews.filter((review: any) => {
+    switch (pendingReviewsFilter) {
+      case 'goal-setting':
+        return review.status === 'SUBMITTED';
+      case 'mid-year':
+        return review.status === 'PLAN_LOCKED' || review.status === 'LOCKED';
+      case 'year-end':
+        return review.status === 'FINAL_REVIEW' || review.status === 'END_YEAR_REVIEW';
+      default:
+        return true;
+    }
+  });
 
   return (
     <div className="flex flex-col min-h-0">
@@ -302,6 +319,41 @@ export default function CEODashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-2">
+                  {/* Filter Tabs */}
+                  <div className="mb-3">
+                    <div className="inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
+                      <button
+                        onClick={() => setPendingReviewsFilter('goal-setting')}
+                        className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+                          pendingReviewsFilter === 'goal-setting' 
+                            ? 'bg-background text-foreground shadow-sm' 
+                            : 'hover:bg-muted-foreground/10'
+                        }`}
+                      >
+                        Goal Setting
+                      </button>
+                      <button
+                        onClick={() => setPendingReviewsFilter('mid-year')}
+                        className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+                          pendingReviewsFilter === 'mid-year' 
+                            ? 'bg-background text-foreground shadow-sm' 
+                            : 'hover:bg-muted-foreground/10'
+                        }`}
+                      >
+                        Mid Year Checkin
+                      </button>
+                      <button
+                        onClick={() => setPendingReviewsFilter('year-end')}
+                        className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+                          pendingReviewsFilter === 'year-end' 
+                            ? 'bg-background text-foreground shadow-sm' 
+                            : 'hover:bg-muted-foreground/10'
+                        }`}
+                      >
+                        Year End Review
+                      </button>
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     {pendingReviews.length === 0 ? (
                       <div className="text-center py-4">
