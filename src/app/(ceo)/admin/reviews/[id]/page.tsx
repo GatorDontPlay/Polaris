@@ -736,6 +736,10 @@ export default function CEOPDRReviewPage() {
               <FileText className="h-4 w-4" />
               Summary
             </TabsTrigger>
+            <TabsTrigger value="mid-year" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Mid Year Checkin
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="goals" className="space-y-4">
@@ -1272,6 +1276,133 @@ export default function CEOPDRReviewPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="mid-year" className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Mid Year Performance Review</CardTitle>
+                  <CardDescription>
+                    Mid-year check-in and performance assessment for {pdr?.user?.firstName} {pdr?.user?.lastName}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Performance Progress Overview */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Performance Progress</h3>
+                    
+                    {/* Goals Progress */}
+                    <div className="bg-gradient-to-br from-card via-card to-card/95 border border-border/50 rounded-lg p-4">
+                      <h4 className="font-medium mb-3 flex items-center gap-2">
+                        <Target className="h-4 w-4" />
+                        Goals Progress ({goals.length} goals)
+                      </h4>
+                      <div className="space-y-3">
+                        {goals.map((goal, index) => {
+                          const employeeRating = goal.employeeRating || 0;
+                          const ceoRating = ceoGoalFeedback[goal.id]?.ceoRating || 0;
+                          const hasProgress = employeeRating > 0 || ceoRating > 0;
+                          
+                          return (
+                            <div key={goal.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-md">
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{goal.title}</p>
+                                <p className="text-xs text-muted-foreground line-clamp-1">{goal.description}</p>
+                              </div>
+                              <div className="flex items-center gap-3 text-sm">
+                                <div className="text-center">
+                                  <div className="font-medium">{employeeRating}/5</div>
+                                  <div className="text-xs text-muted-foreground">Employee</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="font-medium">{ceoRating}/5</div>
+                                  <div className="text-xs text-muted-foreground">CEO</div>
+                                </div>
+                                <Badge variant={hasProgress ? 'default' : 'secondary'} className="text-xs">
+                                  {hasProgress ? 'In Progress' : 'Not Started'}
+                                </Badge>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Behaviors Progress */}
+                    <div className="bg-gradient-to-br from-card via-card to-card/95 border border-border/50 rounded-lg p-4">
+                      <h4 className="font-medium mb-3 flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4" />
+                        Behaviors Assessment ({behaviors.length} behaviors)
+                      </h4>
+                      <div className="space-y-3">
+                        {behaviors.map((behavior, index) => {
+                          const employeeRating = behavior.employeeRating || 0;
+                          const ceoRating = ceoBehaviorFeedback[behavior.id]?.ceoRating || 0;
+                          const hasProgress = employeeRating > 0 || ceoRating > 0;
+                          
+                          return (
+                            <div key={behavior.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-md">
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{behavior.value?.name}</p>
+                                <p className="text-xs text-muted-foreground line-clamp-1">{behavior.description}</p>
+                              </div>
+                              <div className="flex items-center gap-3 text-sm">
+                                <div className="text-center">
+                                  <div className="font-medium">{employeeRating}/5</div>
+                                  <div className="text-xs text-muted-foreground">Employee</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="font-medium">{ceoRating}/5</div>
+                                  <div className="text-xs text-muted-foreground">CEO</div>
+                                </div>
+                                <Badge variant={hasProgress ? 'default' : 'secondary'} className="text-xs">
+                                  {hasProgress ? 'Assessed' : 'Pending'}
+                                </Badge>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mid Year Summary */}
+                  <div className="bg-gradient-to-br from-primary/5 via-primary/3 to-primary/5 border border-primary/20 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5" />
+                      Mid Year Summary
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-primary">
+                          {goals.length > 0 && goals.some(g => g.employeeRating) 
+                            ? (goals.reduce((acc, g) => acc + (g.employeeRating || 0), 0) / goals.filter(g => g.employeeRating).length).toFixed(1)
+                            : '0.0'}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Goals Average</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-primary">
+                          {behaviors.length > 0 && behaviors.some(b => b.employeeRating)
+                            ? (behaviors.reduce((acc, b) => acc + (b.employeeRating || 0), 0) / behaviors.filter(b => b.employeeRating).length).toFixed(1)
+                            : '0.0'}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Behaviors Average</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-primary">
+                          {Math.round(((goals.filter(g => g.employeeRating && g.employeeRating > 0).length + 
+                                        behaviors.filter(b => b.employeeRating && b.employeeRating > 0).length) / 
+                                       (goals.length + behaviors.length)) * 100)}%
+                        </div>
+                        <div className="text-sm text-muted-foreground">Completion Rate</div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
         </Tabs>
