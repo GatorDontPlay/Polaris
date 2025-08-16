@@ -1035,74 +1035,59 @@ export default function CEOPDRReviewPage() {
           </TabsContent>
 
           <TabsContent value="summary" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle>Goals Summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span>Total Goals</span>
-                      <span className="font-semibold">{goals.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Employee Rated</span>
-                      <span className="font-semibold text-green-600">
-                        {goals.filter(g => g.employeeRating && g.employeeRating > 0).length}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Goals Summary - Compact Card Design */}
+              <div className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm rounded-lg px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <h3 className="font-semibold text-foreground text-sm">Goals Summary</h3>
+                    <div className="flex items-center space-x-3 text-xs">
+                      <span className="px-2 py-1 bg-muted rounded-md text-muted-foreground font-medium">
+                        {goals.length} Total
                       </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>CEO Rated</span>
-                      <span className="font-semibold text-blue-600">
-                        {goals.filter(g => g.ceoRating && g.ceoRating > 0).length}
+                      <span className="px-2 py-1 bg-status-success/10 text-status-success rounded-md font-medium">
+                        {goals.filter(g => g.employeeRating && g.employeeRating > 0).length} Employee
                       </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Not Rated</span>
-                      <span className="font-semibold text-gray-600">
-                        {goals.filter(g => !g.employeeRating || g.employeeRating === 0).length}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Average Employee Rating</span>
-                      <span className="font-semibold">
-                        {goals.length > 0 && goals.some(g => g.employeeRating) 
-                          ? (goals.reduce((acc, g) => acc + (g.employeeRating || 0), 0) / goals.filter(g => g.employeeRating).length).toFixed(1)
-                          : '0.0'}/5
+                      <span className="px-2 py-1 bg-status-info/10 text-status-info rounded-md font-medium">
+                        {goals.filter(g => g.ceoRating && g.ceoRating > 0).length} CEO
                       </span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="text-right">
+                    <div className="text-sm font-bold text-foreground">
+                      {goals.length > 0 && goals.some(g => g.employeeRating) 
+                        ? (goals.reduce((acc, g) => acc + (g.employeeRating || 0), 0) / goals.filter(g => g.employeeRating).length).toFixed(1)
+                        : '0.0'}/5
+                    </div>
+                    <div className="text-xs text-muted-foreground">Avg Rating</div>
+                  </div>
+                </div>
+              </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Behaviors Summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span>Total Behaviors</span>
-                      <span className="font-semibold">{behaviors.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Average Self Rating</span>
-                      <span className="font-semibold">
-                        {behaviors.length > 0 
-                          ? (behaviors.reduce((acc, b) => acc + (b.employeeRating || 0), 0) / behaviors.length).toFixed(1)
-                          : '0.0'}/5
+              {/* Behaviors Summary - Compact Card Design */}
+              <div className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm rounded-lg px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <h3 className="font-semibold text-foreground text-sm">Behaviors Summary</h3>
+                    <div className="flex items-center space-x-3 text-xs">
+                      <span className="px-2 py-1 bg-muted rounded-md text-muted-foreground font-medium">
+                        {behaviors.length} Total
                       </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Manager Ratings</span>
-                      <span className="font-semibold text-muted-foreground">
-                        {behaviors.filter(b => b.ceoRating).length}/{behaviors.length} completed
+                      <span className="px-2 py-1 bg-status-warning/10 text-status-warning rounded-md font-medium">
+                        {behaviors.filter(b => b.ceoRating).length}/{behaviors.length} CEO
                       </span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="text-right">
+                    <div className="text-sm font-bold text-foreground">
+                      {behaviors.length > 0 
+                        ? (behaviors.reduce((acc, b) => acc + (b.employeeRating || 0), 0) / behaviors.length).toFixed(1)
+                        : '0.0'}/5
+                    </div>
+                    <div className="text-xs text-muted-foreground">Avg Self Rating</div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <Card>
