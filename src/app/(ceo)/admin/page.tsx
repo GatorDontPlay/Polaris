@@ -225,68 +225,66 @@ export default function CEODashboard() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-7">
               <Card className="col-span-4">
-                <CardHeader>
-                  <CardTitle>Organization-wide Activity</CardTitle>
-                  <CardDescription>
-                    All employee PDR activities across the organization (last 14 days)
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Organization-wide Activity</CardTitle>
+                  <CardDescription className="text-xs">
+                    All employee PDR activities (last 14 days)
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
+                <CardContent className="pt-2">
+                  <div className="space-y-2">
                     {recentActivity.length === 0 ? (
-                      <p className="text-center py-8 text-muted-foreground">
+                      <p className="text-center py-4 text-muted-foreground text-sm">
                         No recent activity
                       </p>
                     ) : (
-                      recentActivity.slice(0, 5).map((activity: any) => (
-                        <div key={activity.id} className="flex items-start space-x-4 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                          <Avatar className="h-10 w-10 mt-1">
+                      recentActivity.slice(0, 6).map((activity: any) => (
+                        <div key={activity.id} className="flex items-center space-x-3 p-2 rounded border bg-card/50 hover:bg-accent/30 transition-colors">
+                          <Avatar className="h-7 w-7 flex-shrink-0">
                             <AvatarFallback className="text-xs">
                               {activity.user?.firstName?.[0]}{activity.user?.lastName?.[0]}
                             </AvatarFallback>
                           </Avatar>
-                          <div className="min-w-0 flex-1 space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="space-y-1">
-                                <p className="text-sm font-semibold leading-none">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="truncate">
+                                <span className="text-xs font-medium">
                                   {`${activity.user?.firstName || 'Unknown'} ${activity.user?.lastName || 'User'}`}
-                                </p>
-                                <p className="text-sm font-medium text-primary">
+                                </span>
+                                <span className="text-xs text-muted-foreground ml-2">
                                   {activity.message}
-                                </p>
+                                </span>
                               </div>
-                              <div className="flex items-center space-x-2 flex-shrink-0">
+                              <div className="flex items-center space-x-1 flex-shrink-0">
                                 <Badge 
                                   variant={
                                     activity.priority === 'high' ? 'destructive' :
                                     activity.priority === 'medium' ? 'default' :
                                     'secondary'
                                   }
-                                  className="text-xs"
+                                  className="text-xs h-5 px-1"
                                 >
-                                  {activity.type}
+                                  {activity.type.replace('_', ' ')}
                                 </Badge>
                                 {activity.pdr && (
-                                  <Button variant="ghost" size="sm" asChild>
+                                  <Button variant="ghost" size="sm" asChild className="h-6 w-6 p-0">
                                     <Link href={`/admin/reviews/${activity.pdr.id}`}>
-                                      <Eye className="h-4 w-4" />
+                                      <Eye className="h-3 w-3" />
                                     </Link>
                                   </Button>
                                 )}
                               </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-muted-foreground">
-                              <div>
-                                <span className="font-medium">Activity Type:</span> {activity.type.replace('_', ' ')}
-                              </div>
-                              <div>
-                                <span className="font-medium">Priority:</span> {activity.priority}
-                              </div>
-                              <div className="md:col-span-2">
-                                <span className="font-medium">Date & Time:</span> {new Date(activity.timestamp).toLocaleString('en-AU', { timeZone: 'Australia/Adelaide' })} (Adelaide)
-                              </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {new Date(activity.timestamp).toLocaleString('en-AU', { 
+                                timeZone: 'Australia/Adelaide',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
                             </div>
                           </div>
                         </div>
@@ -297,62 +295,56 @@ export default function CEODashboard() {
               </Card>
 
               <Card className="col-span-3">
-                <CardHeader>
-                  <CardTitle>All Pending Reviews</CardTitle>
-                  <CardDescription>
-                    All employees across the organization requiring CEO review
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">All Pending Reviews</CardTitle>
+                  <CardDescription className="text-xs">
+                    Employees requiring CEO review
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
+                <CardContent className="pt-2">
+                  <div className="space-y-2">
                     {pendingReviews.length === 0 ? (
-                      <div className="text-center py-8">
-                        <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-4" />
-                        <p className="text-muted-foreground">All caught up! No pending reviews.</p>
+                      <div className="text-center py-4">
+                        <CheckCircle className="h-8 w-8 text-green-400 mx-auto mb-2" />
+                        <p className="text-muted-foreground text-sm">All caught up!</p>
                       </div>
                     ) : (
-                      pendingReviews.slice(0, 5).map((review: any) => {
+                      pendingReviews.slice(0, 6).map((review: any) => {
                         // Calculate days since submission
                         const submittedDate = review.submittedAt ? new Date(review.submittedAt) : new Date(review.updatedAt);
                         const daysSince = Math.floor((Date.now() - submittedDate.getTime()) / (1000 * 60 * 60 * 24));
                         const priority = daysSince > 7 ? 'HIGH' : daysSince > 3 ? 'MEDIUM' : 'LOW';
                         
                         return (
-                          <div key={review.id} className="flex items-start space-x-4 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                            <Avatar className="h-9 w-9">
+                          <div key={review.id} className="flex items-center space-x-3 p-2 rounded border bg-card/50 hover:bg-accent/30 transition-colors">
+                            <Avatar className="h-7 w-7 flex-shrink-0">
                               <AvatarFallback className="text-xs">
                                 {review.user?.firstName?.[0] || 'U'}{review.user?.lastName?.[0] || 'N'}
                               </AvatarFallback>
                             </Avatar>
-                            <div className="min-w-0 flex-1 space-y-1">
-                              <div className="flex items-center justify-between">
-                                <p className="text-sm font-semibold leading-none">
-                                  {review.user ? `${review.user.firstName} ${review.user.lastName}` : 'Unknown Employee'}
-                                </p>
-                                <div className="flex items-center space-x-2">
-                                  <Badge 
-                                    variant={
-                                      priority === 'HIGH' ? 'destructive' :
-                                      priority === 'MEDIUM' ? 'default' :
-                                      'secondary'
-                                    }
-                                    className="text-xs"
-                                  >
-                                    {priority}
-                                  </Badge>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="truncate">
+                                  <span className="text-xs font-medium">
+                                    {review.user ? `${review.user.firstName} ${review.user.lastName}` : 'Unknown Employee'}
+                                  </span>
                                 </div>
+                                <Badge 
+                                  variant={
+                                    priority === 'HIGH' ? 'destructive' :
+                                    priority === 'MEDIUM' ? 'default' :
+                                    'secondary'
+                                  }
+                                  className="text-xs h-5 px-1"
+                                >
+                                  {priority}
+                                </Badge>
                               </div>
-                              <p className="text-xs text-muted-foreground">
-                                <span className="font-medium">Status:</span> {review.status.replace('_', ' ')}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                <span className="font-medium">Period:</span> {review.period?.name || 'Current Period'}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                <span className="font-medium">Submitted:</span> {daysSince === 0 ? 'Today' : `${daysSince} day${daysSince !== 1 ? 's' : ''} ago`}
-                              </p>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {review.status.replace('_', ' ')} • {daysSince === 0 ? 'Today' : `${daysSince}d ago`}
+                              </div>
                             </div>
-                            <Button variant="outline" size="sm" asChild className="flex-shrink-0">
+                            <Button variant="outline" size="sm" asChild className="h-6 px-2 text-xs">
                               <Link href={`/admin/reviews/${review.id}`}>
                                 Review
                               </Link>
