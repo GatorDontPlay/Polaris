@@ -105,11 +105,11 @@ export default function MidYearPage({ params }: MidYearPageProps) {
         {/* Page Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-              <Calendar className="h-6 w-6 mr-2 text-green-600" />
+            <h1 className="text-3xl font-bold text-foreground flex items-center">
+              <Calendar className="h-7 w-7 mr-3 text-green-400" />
               Mid-Year Check-In
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-muted-foreground mt-2 text-lg">
               Review your progress and reflect on the first half of the year
             </p>
           </div>
@@ -129,27 +129,27 @@ export default function MidYearPage({ params }: MidYearPageProps) {
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
-              <h4 className="font-medium text-gray-900 mb-2">Progress Summary</h4>
+              <h4 className="font-semibold text-foreground mb-3 text-base">Progress Summary</h4>
               <p className="text-gray-700 whitespace-pre-wrap">{midYearReview.progressSummary}</p>
             </div>
 
             {midYearReview.blockersChallenges && (
               <div>
-                <h4 className="font-medium text-gray-900 mb-2">Blockers & Challenges</h4>
+                <h4 className="font-semibold text-foreground mb-3 text-base">Blockers & Challenges</h4>
                 <p className="text-gray-700 whitespace-pre-wrap">{midYearReview.blockersChallenges}</p>
               </div>
             )}
 
             {midYearReview.supportNeeded && (
               <div>
-                <h4 className="font-medium text-gray-900 mb-2">Support Needed</h4>
+                <h4 className="font-semibold text-foreground mb-3 text-base">Support Needed</h4>
                 <p className="text-gray-700 whitespace-pre-wrap">{midYearReview.supportNeeded}</p>
               </div>
             )}
 
             {midYearReview.employeeComments && (
               <div>
-                <h4 className="font-medium text-gray-900 mb-2">Additional Comments</h4>
+                <h4 className="font-semibold text-foreground mb-3 text-base">Additional Comments</h4>
                 <p className="text-gray-700 whitespace-pre-wrap">{midYearReview.employeeComments}</p>
               </div>
             )}
@@ -186,11 +186,11 @@ export default function MidYearPage({ params }: MidYearPageProps) {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-            <Calendar className="h-6 w-6 mr-2 text-green-600" />
+          <h1 className="text-3xl font-bold text-foreground flex items-center">
+            <Calendar className="h-7 w-7 mr-3 text-green-400" />
             Mid-Year Check-In
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-muted-foreground mt-2 text-lg">
             Reflect on your progress and identify areas for support
           </p>
         </div>

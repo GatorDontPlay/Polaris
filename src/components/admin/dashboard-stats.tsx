@@ -106,7 +106,7 @@ export function DashboardStats({ stats, isLoading }: DashboardStatsProps) {
       <div className="space-y-6">
         {/* Primary Stats Loading */}
         <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Overview</h3>
+          <h3 className="text-xl font-semibold text-foreground mb-4">Overview</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <Card key={i}>
@@ -127,7 +127,7 @@ export function DashboardStats({ stats, isLoading }: DashboardStatsProps) {
 
         {/* Rating Stats Loading */}
         <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Performance Metrics</h3>
+          <h3 className="text-xl font-semibold text-foreground mb-4">Performance Metrics</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <Card key={i}>
@@ -153,7 +153,7 @@ export function DashboardStats({ stats, isLoading }: DashboardStatsProps) {
     <div className="space-y-6">
       {/* Primary Stats */}
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Overview</h3>
+        <h3 className="text-xl font-semibold text-foreground mb-4">Overview</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {statItems.map((item, index) => {
             const Icon = item.icon;
@@ -173,7 +173,7 @@ export function DashboardStats({ stats, isLoading }: DashboardStatsProps) {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-foreground">
                     {item.value}
                   </div>
                   <p className="text-xs text-gray-600 mt-1">
@@ -188,7 +188,7 @@ export function DashboardStats({ stats, isLoading }: DashboardStatsProps) {
 
       {/* Performance Metrics */}
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Performance Metrics</h3>
+        <h3 className="text-xl font-semibold text-foreground mb-4">Performance Metrics</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {ratingItems.map((item, index) => {
             const Icon = item.icon;
@@ -203,7 +203,7 @@ export function DashboardStats({ stats, isLoading }: DashboardStatsProps) {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-foreground">
                     {item.value}
                   </div>
                   <p className="text-xs text-gray-600 mt-1">

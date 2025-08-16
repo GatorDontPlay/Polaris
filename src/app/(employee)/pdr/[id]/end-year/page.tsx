@@ -130,7 +130,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
         {/* Page Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+            <h1 className="text-3xl font-bold text-foreground flex items-center">
               <Trophy className="h-6 w-6 mr-2 text-yellow-600" />
               End-Year Review
             </h1>
@@ -168,7 +168,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
-              <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+              <h4 className="font-semibold text-foreground mb-3 text-base flex items-center">
                 <Award className="h-4 w-4 mr-2 text-yellow-600" />
                 Key Achievements
               </h4>
@@ -177,7 +177,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
 
             {endYearReview.learningsGrowth && (
               <div>
-                <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                <h4 className="font-semibold text-foreground mb-3 text-base flex items-center">
                   <Star className="h-4 w-4 mr-2 text-blue-600" />
                   Learning & Growth
                 </h4>
@@ -187,7 +187,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
 
             {endYearReview.challengesFaced && (
               <div>
-                <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                <h4 className="font-semibold text-foreground mb-3 text-base flex items-center">
                   <AlertCircle className="h-4 w-4 mr-2 text-orange-600" />
                   Challenges Faced
                 </h4>
@@ -197,7 +197,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
 
             {endYearReview.nextYearGoals && (
               <div>
-                <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                <h4 className="font-semibold text-foreground mb-3 text-base flex items-center">
                   <Target className="h-4 w-4 mr-2 text-green-600" />
                   Next Year Goals
                 </h4>

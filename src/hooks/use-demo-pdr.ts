@@ -98,6 +98,23 @@ export function useDemoPDR(pdrId: string) {
   };
 
   const deletePdr = () => {
+    // Get the current PDR data before deleting for audit log
+    const currentPdrData = pdr;
+    
+    // Log the deletion in audit trail BEFORE clearing data
+    if (currentPdrData) {
+      logDemoAudit({
+        action: 'DELETE',
+        tableName: 'pdrs',
+        recordId: pdrId,
+        oldValues: currentPdrData,
+        newValues: null,
+      });
+      
+      // Trigger audit update event
+      window.dispatchEvent(new CustomEvent('demo-audit-updated'));
+    }
+    
     // Clear all related data
     localStorage.removeItem(`demo_pdr_${pdrId}`);
     localStorage.removeItem(`demo_goals_${pdrId}`);

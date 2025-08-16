@@ -50,6 +50,82 @@ export default function EmployeeDashboard() {
     }
   }, [authLoading, isAuthenticated, router]);
 
+  // Calculate dashboard stats from real data
+  const calculateDashboardStats = () => {
+    // Active Goals - count goals from current PDR
+    const activeGoals = currentPDR ? (() => {
+      const savedGoals = localStorage.getItem(`demo_goals_${currentPDR.id}`);
+      if (savedGoals) {
+        try {
+          const goals = JSON.parse(savedGoals);
+          return Array.isArray(goals) ? goals.length : 0;
+        } catch {
+          return 0;
+        }
+      }
+      return 0;
+    })() : 0;
+
+    // Completed PDRs - count PDRs with COMPLETED status
+    const completedPDRs = pdrHistory ? pdrHistory.filter(pdr => pdr.status === 'COMPLETED').length : 0;
+
+    // Average Rating - calculate from completed PDRs with ratings
+    const averageRating = pdrHistory ? (() => {
+      const ratedPDRs = pdrHistory.filter(pdr => pdr.status === 'COMPLETED');
+      if (ratedPDRs.length === 0) return 0;
+      
+      let totalRating = 0;
+      let ratingCount = 0;
+      
+      ratedPDRs.forEach(pdr => {
+        // Check for end year review rating
+        if (pdr.endYearReview?.ceoOverallRating) {
+          totalRating += pdr.endYearReview.ceoOverallRating;
+          ratingCount++;
+        }
+        // Also check individual goal ratings as fallback
+        const savedGoals = localStorage.getItem(`demo_goals_${pdr.id}`);
+        if (savedGoals) {
+          try {
+            const goals = JSON.parse(savedGoals);
+            goals.forEach((goal: any) => {
+              if (goal.employeeRating) {
+                totalRating += goal.employeeRating;
+                ratingCount++;
+              }
+            });
+          } catch {}
+        }
+      });
+      
+      return ratingCount > 0 ? totalRating / ratingCount : 0;
+    })() : 0;
+
+    // Days Until Due - calculate based on current PDR period or default
+    const daysUntilDue = currentPDR && currentPDR.period ? (() => {
+      const endDate = new Date(currentPDR.period.endDate);
+      const today = new Date();
+      const diffTime = endDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return Math.max(0, diffDays);
+    })() : (() => {
+      // Default: assume PDR is due at end of current year
+      const endOfYear = new Date(new Date().getFullYear(), 11, 31);
+      const today = new Date();
+      const diffTime = endOfYear.getTime() - today.getTime();
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    })();
+
+    return {
+      activeGoals,
+      completedPDRs,
+      averageRating: Number(averageRating.toFixed(1)),
+      daysUntilDue
+    };
+  };
+
+  const stats = calculateDashboardStats();
+
   // Handle PDR creation
   const handleCreatePDR = async () => {
     setIsCreatingPDR(true);
@@ -136,7 +212,7 @@ export default function EmployeeDashboard() {
                 <Target className="h-8 w-8 text-blue-600" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Active Goals</p>
-                  <p className="text-2xl font-bold">3</p>
+                  <p className="text-2xl font-bold">{stats.activeGoals}</p>
                 </div>
               </div>
             </CardContent>
@@ -148,7 +224,7 @@ export default function EmployeeDashboard() {
                 <CheckCircle2 className="h-8 w-8 text-green-600" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Completed PDRs</p>
-                  <p className="text-2xl font-bold">2</p>
+                  <p className="text-2xl font-bold">{stats.completedPDRs}</p>
                 </div>
               </div>
             </CardContent>
@@ -160,7 +236,7 @@ export default function EmployeeDashboard() {
                 <TrendingUp className="h-8 w-8 text-yellow-600" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Average Rating</p>
-                  <p className="text-2xl font-bold">4.2</p>
+                  <p className="text-2xl font-bold">{stats.averageRating > 0 ? stats.averageRating : '-'}</p>
                 </div>
               </div>
             </CardContent>
@@ -172,7 +248,7 @@ export default function EmployeeDashboard() {
                 <Clock className="h-8 w-8 text-purple-600" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Days Until Due</p>
-                  <p className="text-2xl font-bold">45</p>
+                  <p className="text-2xl font-bold">{stats.daysUntilDue}</p>
                 </div>
               </div>
             </CardContent>
@@ -294,12 +370,9 @@ export default function EmployeeDashboard() {
                 <Button 
                   onClick={handleContinuePDR}
                   className="flex-1"
-                  variant={currentPDR.status === 'SUBMITTED' || currentPDR.status === 'UNDER_REVIEW' || currentPDR.status === 'COMPLETED' ? 'outline' : 'default'}
+                  variant={currentPDR.status === 'Created' ? 'default' : 'outline'}
                 >
-                  {currentPDR.status === 'SUBMITTED' ? 'View PDR' : 
-                   currentPDR.status === 'UNDER_REVIEW' ? 'View PDR' : 
-                   currentPDR.status === 'COMPLETED' ? 'View PDR' : 
-                   'Continue PDR'}
+                  {currentPDR.status === 'Created' ? 'Edit/Continue PDR' : 'View Current PDR'}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
                 <Button 
@@ -321,13 +394,24 @@ export default function EmployeeDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-center py-8">
-                <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                  <Plus className="h-6 w-6 text-blue-600" />
+                <div 
+                  className="mx-auto w-14 h-14 bg-blue-500/20 rounded-full flex items-center justify-center mb-6 cursor-pointer hover:bg-blue-500/30 transition-colors duration-200" 
+                  onClick={handleCreatePDR}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleCreatePDR();
+                    }
+                  }}
+                >
+                  <Plus className="h-7 w-7 text-blue-400" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                <h3 className="text-xl font-semibold text-foreground mb-3">
                   No Active PDR
                 </h3>
-                <p className="text-gray-600 mb-4">
+                <p className="text-foreground/80 mb-6 text-base font-medium leading-relaxed max-w-sm mx-auto">
                   Start your performance review by creating a new PDR for the current period.
                 </p>
                 <Button 

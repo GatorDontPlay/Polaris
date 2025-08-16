@@ -6,7 +6,7 @@
 
 - [ ] **Mid-Year Reflection Access Control**: The employee cannot view or edit anything in the mid-year reflection until the PDR state = MID_YEAR_OPEN.
 
-### Documentation Updates
+### Documentation UpThis dates
 
 - [ ] **Solution Architecture Analysis**: Analyze the `design_doc/solution_architecture.md` file and identify what is out of date compared to the current codebase.
 - [ ] **Solution Architecture Update**: Update the `design_doc/solution_architecture.md` file to be inline with the current codebase implementation.

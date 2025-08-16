@@ -88,9 +88,9 @@ export function AdminSidebar() {
           <Image
             src="/company-logo.svg"
             alt="Company Logo"
-            width={120}
-            height={36}
-            className="h-8 w-auto"
+            width={160}
+            height={48}
+            className="h-10 w-auto"
           />
           <div className="flex flex-col">
             <span className="text-xs text-muted-foreground">CEO Dashboard</span>

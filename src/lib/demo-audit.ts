@@ -116,6 +116,10 @@ export function convertAuditLogsToActivity(logs: DemoAuditLog[]): ActivityItem[]
             type = 'pdr_submitted';
             message = 'created new PDR';
             priority = 'medium';
+          } else if (log.action === 'DELETE') {
+            type = 'pdr_submitted';
+            message = 'deleted PDR';
+            priority = 'medium';
           }
           break;
 
@@ -137,6 +141,10 @@ export function convertAuditLogsToActivity(logs: DemoAuditLog[]): ActivityItem[]
               message = 'updated a goal';
               priority = 'low';
             }
+          } else if (log.action === 'DELETE') {
+            type = 'goal_added';
+            message = 'deleted a goal';
+            priority = 'low';
           }
           break;
 
@@ -158,6 +166,10 @@ export function convertAuditLogsToActivity(logs: DemoAuditLog[]): ActivityItem[]
               message = 'updated behavior assessment';
               priority = 'low';
             }
+          } else if (log.action === 'DELETE') {
+            type = 'behavior_assessed';
+            message = 'deleted behavior assessment';
+            priority = 'low';
           }
           break;
 

@@ -108,13 +108,13 @@ export default function LoginPage() {
             <Image
               src="/company-logo.svg"
               alt="Company Logo"
-              width={180}
-              height={54}
-              className="h-12 w-auto"
+              width={240}
+              height={72}
+              className="h-16 w-auto"
               priority
             />
           </div>
-          <CardTitle className="text-2xl font-bold text-center">PDR Advanced</CardTitle>
+          <CardTitle className="tracking-tight text-2xl font-bold text-center">Performance & Development Review</CardTitle>
           <CardDescription className="text-center">
             Sign in to your Performance Development Review account
           </CardDescription>

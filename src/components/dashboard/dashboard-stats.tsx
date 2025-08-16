@@ -80,7 +80,7 @@ export function DashboardStats({ stats, isLoading }: DashboardStatsProps) {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-2xl font-bold text-foreground">
                 {item.value}
               </div>
             </CardContent>

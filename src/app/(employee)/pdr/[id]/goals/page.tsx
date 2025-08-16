@@ -96,11 +96,11 @@ export default function GoalsPage({ params }: GoalsPageProps) {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-            <Target className="h-6 w-6 mr-2 text-blue-600" />
+          <h1 className="text-3xl font-bold text-foreground flex items-center">
+            <Target className="h-7 w-7 mr-3 text-blue-400" />
             Goals & Objectives
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-muted-foreground mt-2 text-lg">
             Define what you want to achieve this review period
           </p>
         </div>
@@ -121,11 +121,11 @@ export default function GoalsPage({ params }: GoalsPageProps) {
       {(!goals || goals.length === 0) && !showAddForm && (
         <Card>
           <CardContent className="text-center py-8">
-            <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <Target className="h-12 w-12 text-muted-foreground/60 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-foreground mb-3">
               Set Your Goals
             </h3>
-            <p className="text-gray-600 mb-4 max-w-md mx-auto">
+            <p className="text-muted-foreground mb-4 max-w-md mx-auto leading-relaxed">
               Start by defining your key objectives for this review period. 
               Focus on specific, measurable outcomes that align with your role and company objectives.
             </p>
@@ -186,28 +186,28 @@ export default function GoalsPage({ params }: GoalsPageProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{goals.length}</div>
-                <div className="text-sm text-gray-600">Total Goals</div>
+                <div className="text-3xl font-bold text-blue-400">{goals.length}</div>
+                <div className="text-sm text-muted-foreground font-medium">Total Goals</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">
+                <div className="text-3xl font-bold text-red-400">
                   {goals.filter(g => g.priority === 'HIGH').length}
                 </div>
-                <div className="text-sm text-gray-600">High Priority</div>
+                <div className="text-sm text-muted-foreground font-medium">High Priority</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
+                <div className="text-3xl font-bold text-green-400">
                   {goals.filter(g => g.employeeRating && g.employeeRating >= 4).length}
                 </div>
-                <div className="text-sm text-gray-600">Self-Rated 4+</div>
+                <div className="text-sm text-muted-foreground font-medium">Self-Rated 4+</div>
               </div>
             </div>
             
             {goals.length > 0 && canEdit && (
               <div className="mt-6 text-center">
-                <p className="text-gray-600 mb-4">
+                <p className="text-foreground/80 mb-4 font-medium">
                   Great! You've defined {goals.length} goal{goals.length !== 1 ? 's' : ''}. 
                   Next, let's assess how you demonstrate our company values.
                 </p>

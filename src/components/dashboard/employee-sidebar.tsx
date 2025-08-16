@@ -85,17 +85,15 @@ export function EmployeeSidebar() {
   return (
     <Sidebar className="border-r">
       <SidebarHeader className="border-b">
-        <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex flex-col items-center gap-2 px-4 py-3">
           <Image
             src="/company-logo.svg"
             alt="Company Logo"
-            width={120}
-            height={36}
-            className="h-8 w-auto"
+            width={160}
+            height={48}
+            className="h-10 w-auto"
           />
-          <div className="flex flex-col">
-            <span className="text-xs text-muted-foreground">Employee Portal</span>
-          </div>
+          <span className="text-sm font-black text-white" style={{ fontWeight: 900, letterSpacing: '-0.025em' }}>Employee PDR Portal</span>
         </div>
       </SidebarHeader>
 

@@ -132,23 +132,23 @@ export function GoalForm({
             )}
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           {goal.description && (
             <div>
-              <h4 className="font-medium text-gray-900 mb-2">Description</h4>
-              <p className="text-gray-700">{goal.description}</p>
+              <h4 className="font-semibold text-foreground mb-3 text-base">Description</h4>
+              <p className="text-foreground/90 leading-relaxed">{goal.description}</p>
             </div>
           )}
           {goal.targetOutcome && (
             <div>
-              <h4 className="font-medium text-gray-900 mb-2">Target Outcome</h4>
-              <p className="text-gray-700">{goal.targetOutcome}</p>
+              <h4 className="font-semibold text-foreground mb-3 text-base">Target Outcome</h4>
+              <p className="text-foreground/90 leading-relaxed">{goal.targetOutcome}</p>
             </div>
           )}
           {goal.successCriteria && (
             <div>
-              <h4 className="font-medium text-gray-900 mb-2">Success Criteria</h4>
-              <p className="text-gray-700">{goal.successCriteria}</p>
+              <h4 className="font-semibold text-foreground mb-3 text-base">Success Criteria</h4>
+              <p className="text-foreground/90 leading-relaxed">{goal.successCriteria}</p>
             </div>
           )}
         </CardContent>
@@ -208,7 +208,7 @@ export function GoalForm({
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
           {/* Title */}
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="title" className="block text-sm font-semibold text-foreground mb-1">
               Goal Title *
             </label>
             <input
@@ -225,7 +225,7 @@ export function GoalForm({
 
           {/* Priority */}
           <div>
-            <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="priority" className="block text-sm font-semibold text-foreground mb-1">
               Priority
             </label>
             <select
@@ -246,7 +246,7 @@ export function GoalForm({
 
           {/* Description */}
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="description" className="block text-sm font-semibold text-foreground mb-1">
               Description
             </label>
             <textarea
@@ -263,7 +263,7 @@ export function GoalForm({
 
           {/* Target Outcome */}
           <div>
-            <label htmlFor="targetOutcome" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="targetOutcome" className="block text-sm font-semibold text-foreground mb-1">
               Target Outcome
             </label>
             <textarea
@@ -280,7 +280,7 @@ export function GoalForm({
 
           {/* Success Criteria */}
           <div>
-            <label htmlFor="successCriteria" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="successCriteria" className="block text-sm font-semibold text-foreground mb-1">
               Success Criteria
             </label>
             <textarea

@@ -30,54 +30,66 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-4">
+      <Card className="w-full max-w-lg border-border/50 shadow-2xl">
+        <CardHeader className="space-y-6 pb-8">
           <div className="flex justify-center">
             <Image
               src="/company-logo.svg"
               alt="Company Logo"
-              width={180}
-              height={54}
-              className="h-12 w-auto"
+              width={240}
+              height={72}
+              className="h-16 w-auto"
               priority
             />
           </div>
-          <CardTitle className="text-2xl font-bold text-center">PDR Advanced</CardTitle>
-          <CardDescription className="text-center">
-            Select your role to access the Performance Development Review system
-          </CardDescription>
+          <div className="space-y-3">
+            <CardTitle className="tracking-tight text-3xl font-bold text-center leading-tight">
+              Performance & Development Review
+            </CardTitle>
+            <CardDescription className="text-center text-base text-muted-foreground/80 max-w-sm mx-auto leading-relaxed">
+              Choose your role to access the Performance Development Review system
+            </CardDescription>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-8 pt-0">
           <div className="grid grid-cols-1 gap-4">
             <Button
               onClick={() => selectRole('employee')}
-              className="h-20 flex flex-col items-center justify-center space-y-2"
+              className="h-24 flex items-center justify-start p-6 space-x-4 hover:scale-[1.02] transition-all duration-200 hover:shadow-lg group"
               variant="outline"
             >
-              <User className="h-8 w-8" />
-              <div>
-                <div className="font-semibold">Employee</div>
-                <div className="text-xs text-muted-foreground">Access PDR workflow</div>
+              <div className="flex-shrink-0 p-3 rounded-full bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
+                <User className="h-6 w-6 text-white" style={{ filter: 'drop-shadow(0 0 8px rgba(255, 255, 255, 0.8))' }} />
+              </div>
+              <div className="text-left flex-1">
+                <div className="font-semibold text-lg text-foreground">Employee</div>
+                <div className="text-sm text-muted-foreground/80 mt-1">Create and manage your performance review</div>
               </div>
             </Button>
             
             <Button
               onClick={() => selectRole('ceo')}
-              className="h-20 flex flex-col items-center justify-center space-y-2"
+              className="h-24 flex items-center justify-start p-6 space-x-4 hover:scale-[1.02] transition-all duration-200 hover:shadow-lg group"
               variant="outline"
             >
-              <UserCheck className="h-8 w-8" />
-              <div>
-                <div className="font-semibold">CEO</div>
-                <div className="text-xs text-muted-foreground">Admin dashboard</div>
+              <div className="flex-shrink-0 p-3 rounded-full bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors">
+                <UserCheck className="h-6 w-6 text-red-400" style={{ filter: 'drop-shadow(0 0 8px rgba(255, 0, 0, 0.8))' }} />
+              </div>
+              <div className="text-left flex-1">
+                <div className="font-semibold text-lg text-foreground">CEO</div>
+                <div className="text-sm text-muted-foreground/80 mt-1">Review and manage team performance</div>
               </div>
             </Button>
           </div>
 
-          <div className="text-xs text-center text-muted-foreground space-y-1">
-            <p>Demo system for testing PDR workflows</p>
-            <p>• Employee: Create and manage your PDR</p>
-            <p>• CEO: Review and approve PDRs</p>
+          <div className="border-t border-border/50 pt-6">
+            <div className="text-center text-sm text-muted-foreground/70 space-y-2">
+              <p className="font-medium">Demo Environment</p>
+              <div className="text-xs space-y-1">
+                <p>• Employee: Complete PDR workflow and self-assessments</p>
+                <p>• CEO: Review submissions and provide feedback</p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
