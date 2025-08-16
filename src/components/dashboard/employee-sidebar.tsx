@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useDemoAuth } from '@/hooks/use-demo-auth';
 import {
   Sidebar,
@@ -84,12 +85,15 @@ export function EmployeeSidebar() {
   return (
     <Sidebar className="border-r">
       <SidebarHeader className="border-b">
-        <div className="flex items-center gap-2 px-4 py-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/25">
-            <User className="h-4 w-4" />
-          </div>
+        <div className="flex items-center gap-3 px-4 py-3">
+          <Image
+            src="/company-logo.svg"
+            alt="Company Logo"
+            width={120}
+            height={36}
+            className="h-8 w-auto"
+          />
           <div className="flex flex-col">
-            <span className="text-sm font-semibold">PDR Advanced</span>
             <span className="text-xs text-muted-foreground">Employee Portal</span>
           </div>
         </div>

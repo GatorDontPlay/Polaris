@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
+import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -102,7 +103,17 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
+        <CardHeader className="space-y-4">
+          <div className="flex justify-center">
+            <Image
+              src="/company-logo.svg"
+              alt="Company Logo"
+              width={180}
+              height={54}
+              className="h-12 w-auto"
+              priority
+            />
+          </div>
           <CardTitle className="text-2xl font-bold text-center">PDR Advanced</CardTitle>
           <CardDescription className="text-center">
             Sign in to your Performance Development Review account
