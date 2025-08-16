@@ -135,6 +135,9 @@ export default function CEOPDRReviewPage() {
   // Validation error dialog state
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isValidationErrorDialogOpen, setIsValidationErrorDialogOpen] = useState(false);
+  
+  // Mid-year save and close confirmation dialog state
+  const [isMidYearSaveConfirmDialogOpen, setIsMidYearSaveConfirmDialogOpen] = useState(false);
 
   // Functions to handle CEO feedback
   const updateCeoGoalFeedback = (goalId: string, field: string, value: string | number) => {
@@ -226,6 +229,39 @@ export default function CEOPDRReviewPage() {
       setMidYearBehaviorComments(updatedComments);
       localStorage.setItem(`mid_year_behavior_comments_${pdrId}`, JSON.stringify(updatedComments));
     }
+  };
+
+  // Save mid-year check-in and update status to Final Review
+  const handleMidYearSaveAndClose = () => {
+    if (!pdr) return;
+    
+    console.log('🎯 Mid-Year Review: Starting save and close process');
+    console.log('📋 PDR ID:', pdrId);
+    
+    // Update PDR status to END_YEAR_REVIEW (Final Review phase)
+    const updatedPDR = {
+      ...pdr,
+      status: 'END_YEAR_REVIEW',
+      midYearCompletedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    setPdr(updatedPDR);
+    localStorage.setItem(`demo_pdr_${pdrId}`, JSON.stringify(updatedPDR));
+    localStorage.setItem('demo_current_pdr', JSON.stringify(updatedPDR));
+    
+    console.log('💾 Updated PDR status to END_YEAR_REVIEW for Final Review phase');
+    console.log('📊 Updated PDR:', updatedPDR);
+    
+    // Trigger a storage event to notify other components
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: `demo_pdr_${pdrId}`,
+      newValue: JSON.stringify(updatedPDR),
+      storageArea: localStorage
+    }));
+    
+    setIsMidYearSaveConfirmDialogOpen(false);
+    console.log('✅ Mid-Year Review: Completed and PDR moved to Final Review phase');
   };
 
   // Validate that CEO has provided comprehensive feedback
@@ -1523,6 +1559,17 @@ export default function CEOPDRReviewPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Save and Close Button */}
+                  <div className="flex justify-end pt-6 border-t border-border/30">
+                    <Button 
+                      onClick={() => setIsMidYearSaveConfirmDialogOpen(true)}
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Save and Close Mid-Year Review
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -1549,6 +1596,25 @@ export default function CEOPDRReviewPage() {
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setIsValidationErrorDialogOpen(false)}>
               OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Mid-Year Save and Close Confirmation Dialog */}
+      <AlertDialog open={isMidYearSaveConfirmDialogOpen} onOpenChange={setIsMidYearSaveConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Complete Mid-Year Review</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will save all your mid-year check-in comments and move the PDR to the Final Review phase. 
+              The PDR will then be available for year-end review filtering.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleMidYearSaveAndClose}>
+              Save and Close
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
