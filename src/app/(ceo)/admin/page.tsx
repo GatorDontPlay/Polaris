@@ -354,57 +354,59 @@ export default function CEODashboard() {
                       </button>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    {pendingReviews.length === 0 ? (
-                      <div className="text-center py-4">
-                        <CheckCircle className="h-8 w-8 text-green-400 mx-auto mb-2" />
-                        <p className="text-muted-foreground text-sm">All caught up!</p>
-                      </div>
-                    ) : (
-                      pendingReviews.slice(0, 6).map((review: any) => {
-                        // Calculate days since submission
-                        const submittedDate = review.submittedAt ? new Date(review.submittedAt) : new Date(review.updatedAt);
-                        const daysSince = Math.floor((Date.now() - submittedDate.getTime()) / (1000 * 60 * 60 * 24));
-                        const priority = daysSince > 7 ? 'HIGH' : daysSince > 3 ? 'MEDIUM' : 'LOW';
-                        
-                        return (
-                          <div key={review.id} className="flex items-center space-x-3 p-2 rounded border bg-card/50 hover:bg-accent/30 transition-colors">
-                            <Avatar className="h-7 w-7 flex-shrink-0">
-                              <AvatarFallback className="text-xs">
-                                {review.user?.firstName?.[0] || 'U'}{review.user?.lastName?.[0] || 'N'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="truncate">
-                                  <span className="text-xs font-medium">
-                                    {review.user ? `${review.user.firstName} ${review.user.lastName}` : 'Unknown Employee'}
-                                  </span>
+                  <div className="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+                    <div className="space-y-2 pr-1">
+                      {pendingReviews.length === 0 ? (
+                        <div className="text-center py-4">
+                          <CheckCircle className="h-8 w-8 text-green-400 mx-auto mb-2" />
+                          <p className="text-muted-foreground text-sm">All caught up!</p>
+                        </div>
+                      ) : (
+                        pendingReviews.map((review: any) => {
+                          // Calculate days since submission
+                          const submittedDate = review.submittedAt ? new Date(review.submittedAt) : new Date(review.updatedAt);
+                          const daysSince = Math.floor((Date.now() - submittedDate.getTime()) / (1000 * 60 * 60 * 24));
+                          const priority = daysSince > 7 ? 'HIGH' : daysSince > 3 ? 'MEDIUM' : 'LOW';
+                          
+                          return (
+                            <div key={review.id} className="flex items-center gap-3 p-3 rounded border bg-card/50 hover:bg-accent/30 transition-colors min-h-[3.5rem]">
+                              <Avatar className="h-8 w-8 flex-shrink-0">
+                                <AvatarFallback className="text-xs">
+                                  {review.user?.firstName?.[0] || 'U'}{review.user?.lastName?.[0] || 'N'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0 flex-1 flex items-center justify-between">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-sm font-medium truncate">
+                                      {review.user ? `${review.user.firstName} ${review.user.lastName}` : 'Unknown Employee'}
+                                    </span>
+                                    <Badge 
+                                      variant={
+                                        priority === 'HIGH' ? 'destructive' :
+                                        priority === 'MEDIUM' ? 'default' :
+                                        'secondary'
+                                      }
+                                      className="text-xs h-5 px-2 flex-shrink-0"
+                                    >
+                                      {priority}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {review.status.replace('_', ' ')} • {daysSince === 0 ? 'Today' : `${daysSince}d ago`}
+                                  </div>
                                 </div>
-                                <Badge 
-                                  variant={
-                                    priority === 'HIGH' ? 'destructive' :
-                                    priority === 'MEDIUM' ? 'default' :
-                                    'secondary'
-                                  }
-                                  className="text-xs h-5 px-1"
-                                >
-                                  {priority}
-                                </Badge>
-                              </div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {review.status.replace('_', ' ')} • {daysSince === 0 ? 'Today' : `${daysSince}d ago`}
+                                <Button variant="outline" size="sm" asChild className="h-8 px-3 text-xs flex-shrink-0 ml-3">
+                                  <Link href={`/admin/reviews/${review.id}`}>
+                                    Review
+                                  </Link>
+                                </Button>
                               </div>
                             </div>
-                            <Button variant="outline" size="sm" asChild className="h-6 px-2 text-xs">
-                              <Link href={`/admin/reviews/${review.id}`}>
-                                Review
-                              </Link>
-                            </Button>
-                          </div>
-                        );
-                      })
-                    )}
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
