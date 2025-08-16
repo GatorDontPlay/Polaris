@@ -310,7 +310,7 @@ export async function GET(request: NextRequest) {
     const pendingReviewPDRs = allPDRs
       .filter(pdr => {
         // Include any PDR that needs CEO attention across the entire organization
-        return ['SUBMITTED', 'UNDER_REVIEW'].includes(pdr.status) ||
+        return ['SUBMITTED', 'UNDER_REVIEW', 'PLAN_LOCKED'].includes(pdr.status) ||
                (pdr.status === 'OPEN_FOR_REVIEW' && !pdr.isLocked);
       })
       .sort((a, b) => {

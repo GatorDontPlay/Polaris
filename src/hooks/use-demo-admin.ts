@@ -218,8 +218,8 @@ export function useDemoAdminDashboard() {
             // Only show PDRs that actually need CEO attention
             ...realPDRs
               .filter(pdr => {
-                // Only include PDRs that are submitted and waiting for CEO review
-                const needsCEOAction = pdr.status === 'SUBMITTED' && !pdr.isLocked;
+                // Include PDRs that need CEO attention - including locked ones for filtering
+                const needsCEOAction = ['SUBMITTED', 'UNDER_REVIEW', 'PLAN_LOCKED'].includes(pdr.status);
                 console.log(`PDR ${pdr.id}: status=${pdr.status}, isLocked=${pdr.isLocked}, needsCEOAction=${needsCEOAction}`);
                 return needsCEOAction;
               })
