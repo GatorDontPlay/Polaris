@@ -1090,15 +1090,17 @@ export default function CEOPDRReviewPage() {
               </div>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Review Progress</CardTitle>
-                <CardDescription>
-                  Track your feedback completion before finalizing the review
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+            {/* Review Progress & CEO Actions - Side by Side Compact Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Review Progress - Compact */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Review Progress</CardTitle>
+                  <CardDescription className="text-sm">
+                    Track your feedback completion
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
                   {(() => {
                     const totalItems = goals.length + behaviors.length + 1; // +1 for overall comments
                     const completedGoals = goals.filter(g => 
@@ -1112,45 +1114,45 @@ export default function CEOPDRReviewPage() {
                     const completionPercentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
                     
                     return (
-                      <>
+                      <div className="space-y-3">
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span>Feedback Completion</span>
-                            <span className="font-medium">{completionPercentage}%</span>
+                            <span className="font-bold text-lg">{completionPercentage}%</span>
                           </div>
-                          <Progress value={completionPercentage} className="h-2" />
+                          <Progress value={completionPercentage} className="h-3" />
                         </div>
-                        <div className="grid grid-cols-3 gap-4 text-sm">
-                          <div className="text-center">
-                            <div className="font-medium">{completedGoals}/{goals.length}</div>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div className="text-center p-2 bg-muted/50 rounded">
+                            <div className="font-bold text-sm">{completedGoals}/{goals.length}</div>
                             <div className="text-muted-foreground">Goals</div>
                           </div>
-                          <div className="text-center">
-                            <div className="font-medium">{completedBehaviors}/{behaviors.length}</div>
+                          <div className="text-center p-2 bg-muted/50 rounded">
+                            <div className="font-bold text-sm">{completedBehaviors}/{behaviors.length}</div>
                             <div className="text-muted-foreground">Behaviors</div>
                           </div>
-                          <div className="text-center">
-                            <div className="font-medium">{hasOverallComments ? '✓' : '✗'}</div>
+                          <div className="text-center p-2 bg-muted/50 rounded">
+                            <div className="font-bold text-sm">{hasOverallComments ? '✓' : '✗'}</div>
                             <div className="text-muted-foreground">Comments</div>
                           </div>
                         </div>
-                      </>
+                      </div>
                     );
                   })()}
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>CEO Actions</CardTitle>
-                <CardDescription>
-                  Actions available for this PDR review
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* CEO Actions - Compact */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">CEO Actions</CardTitle>
+                  <CardDescription className="text-sm">
+                    Available actions for this PDR
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 gap-3">
                     {(() => {
                       const showButton = pdr.status === 'SUBMITTED' && !pdr.isLocked;
                       console.log('🎯 Button visibility check - PDR status:', pdr.status, 'isLocked:', pdr.isLocked);
@@ -1240,13 +1242,13 @@ export default function CEOPDRReviewPage() {
                     </Dialog>
                   </div>
                   
-                  <Separator />
-                  
-                  <div className="text-sm text-muted-foreground">
-                    <p><strong>Status:</strong> {getPDRStatusLabel(pdr.status as any) || pdr.status}</p>
-                    <p><strong>Submitted:</strong> {pdr.submittedAt ? formatDateAU(new Date(pdr.submittedAt)) : 'Not submitted'}</p>
-                    <p><strong>Last Updated:</strong> {formatDateAU(new Date(pdr.updatedAt))}</p>
-                    <p><strong>Meeting Booked:</strong> {pdr.meetingBooked ? 'Yes' : 'No'}</p>
+                  <div className="pt-2 border-t">
+                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                      <div><strong>Status:</strong> {getPDRStatusLabel(pdr.status as any) || pdr.status}</div>
+                      <div><strong>Meeting:</strong> {pdr.meetingBooked ? 'Booked' : 'Not booked'}</div>
+                      <div><strong>Submitted:</strong> {pdr.submittedAt ? formatDateAU(new Date(pdr.submittedAt)) : 'Not submitted'}</div>
+                      <div><strong>Updated:</strong> {formatDateAU(new Date(pdr.updatedAt))}</div>
+                    </div>
                   </div>
                   
                   {ceoComments && (
@@ -1264,9 +1266,10 @@ export default function CEOPDRReviewPage() {
                       </div>
                     </>
                   )}
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
