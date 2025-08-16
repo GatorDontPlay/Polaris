@@ -33,6 +33,7 @@ import {
   History,
   Bell,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const navigation = [
   {
@@ -94,27 +95,49 @@ export function EmployeeSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarMenu>
+      <SidebarContent className="px-3 py-4">
+        <SidebarMenu className="space-y-2">
           {navigation.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isActive}
-                  className="flex w-full items-center justify-between"
+                <Link 
+                  href={item.href} 
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative",
+                    "hover:bg-accent/60 hover:shadow-sm",
+                    isActive 
+                      ? "bg-primary/10 text-primary shadow-sm border border-primary/20" 
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
                 >
-                  <Link href={item.href} className="flex items-center gap-3">
-                    <item.icon className="h-4 w-4" />
-                    <span>{item.name}</span>
-                    {item.badge && (
-                      <Badge variant="secondary" className="ml-auto text-xs">
-                        {item.badge}
-                      </Badge>
-                    )}
-                  </Link>
-                </SidebarMenuButton>
+                  <div className={cn(
+                    "flex items-center justify-center w-5 h-5 transition-colors",
+                    isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                  )}>
+                    <item.icon className="h-5 w-5" />
+                  </div>
+                  <span className={cn(
+                    "font-medium text-sm transition-colors",
+                    isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                  )}>
+                    {item.name}
+                  </span>
+                  {item.badge && (
+                    <Badge 
+                      variant={isActive ? "default" : "secondary"} 
+                      className={cn(
+                        "ml-auto text-xs h-5 px-2",
+                        isActive ? "bg-primary text-primary-foreground" : "bg-muted"
+                      )}
+                    >
+                      {item.badge}
+                    </Badge>
+                  )}
+                  {isActive && (
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-l-full" />
+                  )}
+                </Link>
               </SidebarMenuItem>
             );
           })}
