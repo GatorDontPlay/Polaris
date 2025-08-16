@@ -340,10 +340,11 @@ export interface CEODashboardData {
 
 export interface ActivityItem {
   id: string;
-  type: 'pdr_submitted' | 'review_completed' | 'deadline_approaching';
-  user: Pick<User, 'id' | 'firstName' | 'lastName'>;
+  type: 'pdr_submitted' | 'review_completed' | 'deadline_approaching' | 'goal_added' | 'behavior_assessed';
+  user: Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>;
   message: string;
   timestamp: Date;
+  priority: 'low' | 'medium' | 'high';
 }
 
 // Error types

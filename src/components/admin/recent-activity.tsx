@@ -13,12 +13,13 @@ import {
   User,
   Eye
 } from 'lucide-react';
-import { ActivityItem } from '@/hooks/use-admin';
+import { ActivityItem } from '@/types';
 
 interface RecentActivityProps {
   activities: ActivityItem[];
   isLoading?: boolean;
   onViewAll?: () => void;
+  isUserActivity?: boolean; // New prop to indicate if this is user-specific activity
 }
 
 const ACTIVITY_ICONS = {
@@ -64,7 +65,7 @@ function formatTimeAgo(date: Date): string {
   });
 }
 
-export function RecentActivity({ activities, isLoading, onViewAll }: RecentActivityProps) {
+export function RecentActivity({ activities, isLoading, onViewAll, isUserActivity = false }: RecentActivityProps) {
   if (isLoading) {
     return (
       <Card>
@@ -128,46 +129,34 @@ export function RecentActivity({ activities, isLoading, onViewAll }: RecentActiv
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+      <CardContent className="p-3">
+        <div className="space-y-1 min-h-[140px]">
           {activities.map((activity) => {
             const Icon = ACTIVITY_ICONS[activity.type as keyof typeof ACTIVITY_ICONS] || Activity;
             const colorClass = ACTIVITY_COLORS[activity.type as keyof typeof ACTIVITY_COLORS] || ACTIVITY_COLORS.general;
             const priorityBadge = PRIORITY_BADGES[activity.priority];
 
             return (
-              <div key={activity.id} className="flex items-start space-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                <div className={`p-2 rounded-full ${colorClass}`}>
-                  <Icon className="h-4 w-4" />
+              <div key={activity.id} className="flex items-center space-x-1.5 px-2 py-1 rounded-full hover:bg-muted/30 transition-colors text-sm">
+                <div className={`p-0.5 rounded-full ${colorClass}`}>
+                  <Icon className="h-2.5 w-2.5" />
                 </div>
                 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="flex items-center space-x-1">
-                        <User className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm font-medium text-foreground">
-                          {activity.user.firstName} {activity.user.lastName}
-                        </span>
-                      </div>
-                      {activity.priority !== 'low' && (
-                        <Badge className={`text-xs ${priorityBadge.color}`}>
-                          {priorityBadge.label}
-                        </Badge>
-                      )}
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {formatTimeAgo(new Date(activity.timestamp))}
+                <div className="flex-1 min-w-0 flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5 truncate">
+                    {activity.priority !== 'low' && (
+                      <Badge className={`text-xs px-1 py-0 h-3.5 ${priorityBadge.color}`}>
+                        {priorityBadge.label}
+                      </Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground truncate">
+                      {isUserActivity ? `You ${activity.message}` : `${activity.user.firstName} ${activity.user.lastName} ${activity.message}`}
                     </span>
                   </div>
                   
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {activity.message}
-                  </p>
-                  
-                  <p className="text-xs text-muted-foreground/70 mt-1">
-                    {activity.user.email}
-                  </p>
+                  <span className="text-xs text-muted-foreground/70 ml-1 flex-shrink-0">
+                    {formatTimeAgo(new Date(activity.timestamp))}
+                  </span>
                 </div>
               </div>
             );

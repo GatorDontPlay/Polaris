@@ -443,17 +443,32 @@ export default function CEOPDRReviewPage() {
     }, [pdrId]);
 
   const getStatusBadge = (status: string) => {
+    const statusLabel = getPDRStatusLabel(status as any) || status;
+    
     switch (status) {
       case 'Created':
-        return <Badge variant="secondary">Draft</Badge>;
+      case 'DRAFT':
+        return <Badge variant="secondary">{statusLabel}</Badge>;
       case 'SUBMITTED':
-        return <Badge variant="default">Submitted</Badge>;
+        return <Badge variant="default">{statusLabel}</Badge>;
       case 'UNDER_REVIEW':
-        return <Badge variant="destructive">Under Review</Badge>;
+        return <Badge variant="destructive">{statusLabel}</Badge>;
+      case 'OPEN_FOR_REVIEW':
+        return <Badge variant="default">{statusLabel}</Badge>;
+      case 'PLAN_LOCKED':
+        return <Badge variant="outline" className="border-orange-500 text-orange-600">{statusLabel}</Badge>;
+      case 'PDR_BOOKED':
+        return <Badge variant="outline" className="border-blue-500 text-blue-600">{statusLabel}</Badge>;
+      case 'MID_YEAR_CHECK':
+        return <Badge variant="outline" className="border-purple-500 text-purple-600">{statusLabel}</Badge>;
+      case 'END_YEAR_REVIEW':
+        return <Badge variant="outline" className="border-indigo-500 text-indigo-600">{statusLabel}</Badge>;
       case 'COMPLETED':
-        return <Badge variant="outline" className="border-green-500 text-green-600">Completed</Badge>;
+        return <Badge variant="outline" className="border-green-500 text-green-600">{statusLabel}</Badge>;
+      case 'LOCKED':
+        return <Badge variant="destructive">{statusLabel}</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline">{statusLabel}</Badge>;
     }
   };
 
@@ -467,6 +482,22 @@ export default function CEOPDRReviewPage() {
         return <Badge variant="secondary">Low</Badge>;
       default:
         return <Badge variant="outline">{priority}</Badge>;
+    }
+  };
+
+  const getGoalStatusBadge = (status: string) => {
+    const cleanStatus = status || 'NOT_STARTED';
+    const displayText = cleanStatus.replace('_', ' ');
+    
+    switch (cleanStatus) {
+      case 'COMPLETED':
+        return <Badge variant="outline" className="border-green-500 text-green-600">{displayText}</Badge>;
+      case 'IN_PROGRESS':
+        return <Badge variant="default">{displayText}</Badge>;
+      case 'NOT_STARTED':
+        return <Badge variant="secondary">{displayText}</Badge>;
+      default:
+        return <Badge variant="outline">{displayText}</Badge>;
     }
   };
 
@@ -592,78 +623,103 @@ export default function CEOPDRReviewPage() {
       />
 
       <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-        {/* Employee Info Header */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <Avatar className="h-16 w-16">
-                  <AvatarFallback className="text-lg">
+        {/* Employee Info & PDR Timeline - Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Employee Info Header */}
+          <Card className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm">
+            <CardHeader className="pb-4">
+              <div className="flex items-center space-x-3">
+                <Avatar className="h-12 w-12">
+                  <AvatarFallback className="text-base">
                     {pdr.user.firstName[0]}{pdr.user.lastName[0]}
                   </AvatarFallback>
                 </Avatar>
-                <div>
-                  <CardTitle className="text-2xl">{pdr.user.firstName} {pdr.user.lastName}</CardTitle>
-                  <CardDescription className="text-base">{pdr.user.email}</CardDescription>
-                  <div className="flex items-center gap-2 mt-2">
+                <div className="flex-1">
+                  <CardTitle className="text-xl">{pdr.user.firstName} {pdr.user.lastName}</CardTitle>
+                  <CardDescription className="text-sm">{pdr.user.email}</CardDescription>
+                  <div className="flex items-center gap-2 mt-1">
                     {getStatusBadge(pdr.status)}
-                    {pdr.isLocked && <Badge variant="destructive">Locked</Badge>}
+                    {pdr.isLocked && <Badge variant="destructive" className="text-xs">Locked</Badge>}
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">Financial Year</div>
-                <div className="font-semibold">{pdr.fyLabel}</div>
+              <div className="mt-3 pt-3 border-t border-border/50">
+                <div className="text-xs text-muted-foreground">Financial Year</div>
+                <div className="font-medium text-sm">{pdr.fyLabel}</div>
                 <div className="text-xs text-muted-foreground">
                   {formatDateAU(new Date(pdr.fyStartDate))} - {formatDateAU(new Date(pdr.fyEndDate))}
                 </div>
               </div>
-            </div>
-          </CardHeader>
-        </Card>
+            </CardHeader>
+          </Card>
 
-        {/* PDR Timeline */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              PDR Timeline
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <div>
-                  <div className="font-medium">PDR Created</div>
-                  <div className="text-sm text-muted-foreground">
-                    {formatDateAU(new Date(pdr.createdAt))}
-                  </div>
-                </div>
-              </div>
-              {pdr.submittedAt && (
-                <div className="flex items-center gap-4">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  <div>
-                    <div className="font-medium">PDR Submitted</div>
-                    <div className="text-sm text-muted-foreground">
-                      {formatDateAU(new Date(pdr.submittedAt))}
+          {/* PDR Timeline */}
+          <Card className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Clock className="h-4 w-4" />
+                PDR Timeline
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-3">
+                {/* Always show PDR Created */}
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <div className="font-medium text-sm">PDR Created</div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatDateAU(new Date(pdr.createdAt))}
                     </div>
                   </div>
                 </div>
-              )}
-              <div className="flex items-center gap-4">
-                <Clock className="h-5 w-5 text-blue-600" />
-                <div>
-                  <div className="font-medium">Last Updated</div>
-                  <div className="text-sm text-muted-foreground">
-                    {formatDateAU(new Date(pdr.updatedAt))}
+                
+                {/* Show submission if submitted */}
+                {pdr.submittedAt && (
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <div className="font-medium text-sm">PDR Submitted</div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatDateAU(new Date(pdr.submittedAt))}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
+                
+                {/* Show current status if different from basic states */}
+                {pdr.status !== 'Created' && pdr.status !== 'SUBMITTED' && pdr.status !== 'DRAFT' && (
+                  <div className="flex items-center gap-3">
+                    {pdr.status === 'COMPLETED' ? (
+                      <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    ) : (
+                      <Clock className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <div className="font-medium text-sm">Status: {getPDRStatusLabel(pdr.status as any)}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatDateAU(new Date(pdr.updatedAt))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Always show last updated if different from other timestamps */}
+                {(!pdr.submittedAt || new Date(pdr.updatedAt).getTime() !== new Date(pdr.submittedAt).getTime()) && (
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <div className="font-medium text-sm">Last Updated</div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatDateAU(new Date(pdr.updatedAt))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="goals" className="space-y-4">
@@ -683,7 +739,7 @@ export default function CEOPDRReviewPage() {
           </TabsList>
 
           <TabsContent value="goals" className="space-y-4">
-            <Card>
+            <Card className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle>Performance Goals</CardTitle>
                 <CardDescription>
@@ -706,7 +762,7 @@ export default function CEOPDRReviewPage() {
                               <h4 className="font-semibold text-blue-600">Employee Goal</h4>
                               <div className="flex items-center gap-2">
                                 {getPriorityBadge(goal.priority || 'MEDIUM')}
-                                <Badge variant="outline">{(goal.status || 'NOT_STARTED').replace('_', ' ')}</Badge>
+                                {getGoalStatusBadge(goal.status)}
                               </div>
                             </div>
                             
@@ -826,7 +882,7 @@ export default function CEOPDRReviewPage() {
           </TabsContent>
 
           <TabsContent value="behaviors" className="space-y-4">
-            <Card>
+            <Card className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle>Behavioral Competencies</CardTitle>
                 <CardDescription>
@@ -976,7 +1032,7 @@ export default function CEOPDRReviewPage() {
 
           <TabsContent value="summary" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
+              <Card className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle>Goals Summary</CardTitle>
                 </CardHeader>
@@ -989,13 +1045,28 @@ export default function CEOPDRReviewPage() {
                     <div className="flex items-center justify-between">
                       <span>Completed</span>
                       <span className="font-semibold text-green-600">
-                        {goals.filter(g => (g.status || 'NOT_STARTED') === 'COMPLETED').length}
+                        {goals.filter(g => {
+                          const status = g.status || 'NOT_STARTED';
+                          return status === 'COMPLETED';
+                        }).length}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>In Progress</span>
                       <span className="font-semibold text-blue-600">
-                        {goals.filter(g => (g.status || 'NOT_STARTED') === 'IN_PROGRESS').length}
+                        {goals.filter(g => {
+                          const status = g.status || 'NOT_STARTED';
+                          return status === 'IN_PROGRESS';
+                        }).length}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Not Started</span>
+                      <span className="font-semibold text-gray-600">
+                        {goals.filter(g => {
+                          const status = g.status || 'NOT_STARTED';
+                          return status === 'NOT_STARTED';
+                        }).length}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">

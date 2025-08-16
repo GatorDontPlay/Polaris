@@ -107,10 +107,10 @@
   }
 
   .dark {
-    /* Base semantic colors for dark theme */
-    --background: 20 14.3% 4.1%;
+    /* Base semantic colors for dark theme - Purple/Pink inspired */
+    --background: 240 10% 3.9%;
     --foreground: 60 9.1% 97.8%;
-    --card: 20 14.3% 4.1%;
+    --card: 240 10% 3.9%;
     --card-foreground: 60 9.1% 97.8%;
     --popover: 20 14.3% 4.1%;
     --popover-foreground: 60 9.1% 97.8%;
@@ -193,15 +193,15 @@
     --chart-4: 280 65% 70%;
     --chart-5: 340 75% 65%;
 
-    /* Sidebar colors for dark theme */
-    --sidebar-background: 240 5.9% 10%;
+    /* Sidebar colors for dark theme - Purple/Pink inspired */
+    --sidebar-background: 240 10% 3.9%;
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 58%;
+    --sidebar-primary: 270 91% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent: 240 8% 12%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 69.8%;
+    --sidebar-border: 240 8% 12%;
+    --sidebar-ring: 270 91% 65%;
   }
 }
 

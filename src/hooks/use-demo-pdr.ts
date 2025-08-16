@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type { PDR, Goal, CompanyValue, Behavior, GoalFormData, BehaviorFormData } from '@/types';
+import { logDemoAudit } from '@/lib/demo-audit';
 
 // No seeded PDR data - clean slate for manual testing
 
@@ -60,9 +61,23 @@ export function useDemoPDR(pdrId: string) {
 
   const updatePdr = (updates: Partial<PDR>) => {
     if (!pdr) return;
+    
+    const oldPdr = { ...pdr };
     const updatedPdr = { ...pdr, ...updates, updatedAt: new Date() };
     setPdr(updatedPdr);
     localStorage.setItem(`demo_pdr_${pdrId}`, JSON.stringify(updatedPdr));
+    
+    // Log audit trail
+    logDemoAudit({
+      action: 'UPDATE',
+      tableName: 'pdrs',
+      recordId: pdrId,
+      oldValues: oldPdr,
+      newValues: updatedPdr,
+    });
+    
+    // Trigger audit update event
+    window.dispatchEvent(new CustomEvent('demo-audit-updated'));
     
     // Also update the current PDR if this is the active one
     const currentPdr = localStorage.getItem('demo_current_pdr');
@@ -152,14 +167,41 @@ export function useDemoGoals(pdrId: string) {
     const updatedGoals = [...goals, newGoal];
     setGoals(updatedGoals);
     localStorage.setItem(`demo_goals_${pdrId}`, JSON.stringify(updatedGoals));
+    
+    // Log audit trail
+    logDemoAudit({
+      action: 'INSERT',
+      tableName: 'goals',
+      recordId: newGoal.id,
+      newValues: newGoal,
+    });
+    
+    // Trigger audit update event
+    window.dispatchEvent(new CustomEvent('demo-audit-updated'));
   };
 
   const updateGoal = (goalId: string, goalData: GoalFormData) => {
+    const oldGoal = goals.find(g => g.id === goalId);
     const updatedGoals = goals.map(goal =>
       goal.id === goalId ? { ...goal, ...goalData, updatedAt: new Date() } : goal
     );
     setGoals(updatedGoals);
     localStorage.setItem(`demo_goals_${pdrId}`, JSON.stringify(updatedGoals));
+    
+    // Log audit trail
+    if (oldGoal) {
+      const newGoal = updatedGoals.find(g => g.id === goalId);
+      logDemoAudit({
+        action: 'UPDATE',
+        tableName: 'goals',
+        recordId: goalId,
+        oldValues: oldGoal,
+        newValues: newGoal,
+      });
+      
+      // Trigger audit update event
+      window.dispatchEvent(new CustomEvent('demo-audit-updated'));
+    }
   };
 
   const deleteGoal = (goalId: string) => {
@@ -219,14 +261,41 @@ export function useDemoBehaviors(pdrId: string) {
     const updatedBehaviors = [...behaviors, newBehavior];
     setBehaviors(updatedBehaviors);
     localStorage.setItem(`demo_behaviors_${pdrId}`, JSON.stringify(updatedBehaviors));
+    
+    // Log audit trail
+    logDemoAudit({
+      action: 'INSERT',
+      tableName: 'behaviors',
+      recordId: newBehavior.id,
+      newValues: newBehavior,
+    });
+    
+    // Trigger audit update event
+    window.dispatchEvent(new CustomEvent('demo-audit-updated'));
   };
 
   const updateBehavior = (behaviorId: string, behaviorData: Partial<BehaviorFormData>) => {
+    const oldBehavior = behaviors.find(b => b.id === behaviorId);
     const updatedBehaviors = behaviors.map(behavior =>
       behavior.id === behaviorId ? { ...behavior, ...behaviorData, updatedAt: new Date() } : behavior
     );
     setBehaviors(updatedBehaviors);
     localStorage.setItem(`demo_behaviors_${pdrId}`, JSON.stringify(updatedBehaviors));
+    
+    // Log audit trail
+    if (oldBehavior) {
+      const newBehavior = updatedBehaviors.find(b => b.id === behaviorId);
+      logDemoAudit({
+        action: 'UPDATE',
+        tableName: 'behaviors',
+        recordId: behaviorId,
+        oldValues: oldBehavior,
+        newValues: newBehavior,
+      });
+      
+      // Trigger audit update event
+      window.dispatchEvent(new CustomEvent('demo-audit-updated'));
+    }
   };
 
   const deleteBehavior = (behaviorId: string) => {
@@ -314,6 +383,17 @@ export function useDemoPDRDashboard() {
     setCurrentPDR(newPDR);
     localStorage.setItem('demo_current_pdr', JSON.stringify(newPDR));
     localStorage.setItem(`demo_pdr_${newPDR.id}`, JSON.stringify(newPDR));
+    
+    // Log audit trail
+    logDemoAudit({
+      action: 'INSERT',
+      tableName: 'pdrs',
+      recordId: newPDR.id,
+      newValues: newPDR,
+    });
+    
+    // Trigger audit update event
+    window.dispatchEvent(new CustomEvent('demo-audit-updated'));
     
     return newPDR;
   };

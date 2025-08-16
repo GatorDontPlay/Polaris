@@ -75,12 +75,14 @@ export async function GET(request: NextRequest) {
         take: 50, // Limit for performance
       }),
 
-      // Recent activity from audit logs
+      // Recent activity from audit logs - Global system-wide activity for CEO view
       prisma.auditLog.findMany({
         where: {
-          tableName: { in: ['pdrs', 'goals', 'behaviors', 'mid_year_reviews', 'end_year_reviews'] },
+          tableName: { 
+            in: ['pdrs', 'goals', 'behaviors', 'mid_year_reviews', 'end_year_reviews', 'users'] 
+          },
           changedAt: {
-            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
+            gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // Last 14 days for better global view
           },
         },
         include: {
@@ -90,11 +92,12 @@ export async function GET(request: NextRequest) {
               firstName: true,
               lastName: true,
               email: true,
+              role: true,
             },
           },
         },
         orderBy: { changedAt: 'desc' },
-        take: 20,
+        take: 50, // More activities for comprehensive CEO dashboard
       }),
     ]);
 
@@ -156,39 +159,139 @@ export async function GET(request: NextRequest) {
       percentage: allPDRs.length > 0 ? Math.round((count / allPDRs.length) * 100) : 0,
     }));
 
-    // Process recent activity
+    // Process recent activity - Global view for CEO showing ALL employee activities
     const processedActivity = recentActivity.map(log => {
       let type: string = 'general';
       let message = '';
       let priority: 'low' | 'medium' | 'high' = 'low';
 
+      const userName = log.user ? `${log.user.firstName} ${log.user.lastName}` : 'Unknown User';
+
       switch (log.tableName) {
         case 'pdrs':
-          if (log.action === 'UPDATE') {
-            const newStatus = log.newValues as any;
-            if (newStatus.status === 'SUBMITTED') {
+          if (log.action === 'INSERT') {
+            type = 'pdr_created';
+            message = `started their PDR for the current period`;
+            priority = 'low';
+          } else if (log.action === 'UPDATE') {
+            const oldValues = log.oldValues as any;
+            const newValues = log.newValues as any;
+            
+            if (newValues.status === 'SUBMITTED') {
               type = 'pdr_submitted';
-              message = `submitted their PDR for review`;
+              message = `submitted their PDR for CEO review`;
+              priority = 'high';
+            } else if (newValues.status === 'UNDER_REVIEW') {
+              type = 'under_review';
+              message = `PDR is now under CEO review`;
               priority = 'medium';
-            } else if (newStatus.status === 'COMPLETED') {
+            } else if (newValues.status === 'COMPLETED') {
               type = 'review_completed';
-              message = `completed their PDR`;
+              message = `PDR review completed by CEO`;
+              priority = 'low';
+            } else if (newValues.status === 'PLAN_LOCKED') {
+              type = 'plan_locked';
+              message = `PDR plan locked by CEO`;
+              priority = 'medium';
+            } else if (newValues.currentStep && oldValues.currentStep !== newValues.currentStep) {
+              type = 'progress_update';
+              message = `progressed to step ${newValues.currentStep} of their PDR`;
               priority = 'low';
             }
           }
           break;
+          
         case 'goals':
           if (log.action === 'INSERT') {
             type = 'goal_added';
-            message = `added a new goal`;
+            message = `added a new goal to their PDR`;
             priority = 'low';
+          } else if (log.action === 'UPDATE') {
+            const newValues = log.newValues as any;
+            if (newValues.employeeRating) {
+              type = 'goal_self_rated';
+              message = `completed self-rating for a goal`;
+              priority = 'low';
+            } else if (newValues.ceoRating) {
+              type = 'goal_ceo_rated';
+              message = `goal rated by CEO`;
+              priority = 'low';
+            }
           }
           break;
+          
         case 'behaviors':
           if (log.action === 'INSERT') {
             type = 'behavior_assessed';
             message = `completed a behavior assessment`;
             priority = 'low';
+          } else if (log.action === 'UPDATE') {
+            const newValues = log.newValues as any;
+            if (newValues.employeeRating) {
+              type = 'behavior_self_rated';
+              message = `completed self-rating for behaviors`;
+              priority = 'low';
+            } else if (newValues.ceoRating) {
+              type = 'behavior_ceo_rated';
+              message = `behaviors rated by CEO`;
+              priority = 'low';
+            }
+          }
+          break;
+          
+        case 'mid_year_reviews':
+          if (log.action === 'INSERT') {
+            type = 'mid_year_started';
+            message = `started their mid-year review`;
+            priority = 'low';
+          } else if (log.action === 'UPDATE') {
+            type = 'mid_year_updated';
+            message = `updated their mid-year review`;
+            priority = 'low';
+          }
+          break;
+          
+        case 'end_year_reviews':
+          if (log.action === 'INSERT') {
+            type = 'end_year_started';
+            message = `started their end-year review`;
+            priority = 'medium';
+          } else if (log.action === 'UPDATE') {
+            const newValues = log.newValues as any;
+            if (newValues.employeeOverallRating) {
+              type = 'end_year_self_completed';
+              message = `completed their end-year self-assessment`;
+              priority = 'medium';
+            } else if (newValues.ceoOverallRating) {
+              type = 'end_year_ceo_completed';
+              message = `end-year review completed by CEO`;
+              priority = 'low';
+            }
+          }
+          break;
+          
+        case 'users':
+          if (log.action === 'INSERT') {
+            const newValues = log.newValues as any;
+            if (newValues.role === 'EMPLOYEE') {
+              type = 'employee_created';
+              message = `new employee account created`;
+              priority = 'medium';
+            }
+          } else if (log.action === 'UPDATE') {
+            const oldValues = log.oldValues as any;
+            const newValues = log.newValues as any;
+            if (oldValues.isActive !== newValues.isActive) {
+              if (newValues.isActive) {
+                type = 'employee_activated';
+                message = `employee account activated`;
+                priority = 'low';
+              } else {
+                type = 'employee_deactivated';
+                message = `employee account deactivated`;
+                priority = 'medium';
+              }
+            }
           }
           break;
       }
@@ -203,10 +306,20 @@ export async function GET(request: NextRequest) {
       };
     }).filter(activity => activity.message); // Only include activities with messages
 
-    // Get pending reviews for quick access
+    // Get pending reviews for quick access - Global view of ALL employees needing CEO attention
     const pendingReviewPDRs = allPDRs
-      .filter(pdr => ['SUBMITTED', 'UNDER_REVIEW'].includes(pdr.status))
-      .slice(0, 10); // Top 10 pending reviews
+      .filter(pdr => {
+        // Include any PDR that needs CEO attention across the entire organization
+        return ['SUBMITTED', 'UNDER_REVIEW'].includes(pdr.status) ||
+               (pdr.status === 'OPEN_FOR_REVIEW' && !pdr.isLocked);
+      })
+      .sort((a, b) => {
+        // Sort by urgency: oldest submissions first, then by status priority
+        const aDate = new Date(a.submittedAt || a.updatedAt).getTime();
+        const bDate = new Date(b.submittedAt || b.updatedAt).getTime();
+        return aDate - bDate; // Oldest first for urgency
+      })
+      .slice(0, 15); // Show more pending reviews for comprehensive CEO view
 
     const dashboardData = {
       stats: {

@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useDemoAdminDashboard as useCEODashboard } from '@/hooks/use-demo-admin';
+import { useCEODashboard } from '@/hooks/use-admin';
+import { useDemoAdminDashboard } from '@/hooks/use-demo-admin';
+import { useDemoAuth } from '@/hooks/use-demo-auth';
 import { AdminHeader, PageHeader } from '@/components/admin/admin-header';
 import { PDRManagementDashboard } from '@/components/admin/pdr-management-dashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,34 +60,31 @@ const StatCard = ({ title, value, change, changeType, icon: Icon }: {
 export default function CEODashboard() {
   console.log('CEODashboard component mounted');
   
-  const { data: dashboardData, isLoading, error, refreshDashboard } = useCEODashboard();
+  // Check if we're in demo mode
+  const { user: demoUser } = useDemoAuth();
+  const isDemo = !!demoUser;
+  
+  // Use appropriate data source based on authentication mode
+  const realDashboard = useCEODashboard();
+  const demoDashboard = useDemoAdminDashboard();
+  
+  const { 
+    data: dashboardData, 
+    isLoading, 
+    error, 
+    refetch: realRefresh,
+    refreshDashboard: demoRefresh
+  } = isDemo 
+    ? { ...demoDashboard, refetch: demoDashboard.refreshDashboard, refreshDashboard: demoDashboard.refreshDashboard }
+    : { ...realDashboard, refetch: realDashboard.refetch, refreshDashboard: realDashboard.refetch };
+  
+  const refreshDashboard = isDemo ? demoRefresh : realRefresh;
 
-  // Auto-refresh dashboard when PDR data changes
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key && (e.key.startsWith('demo_pdr_') || e.key === 'demo_current_pdr')) {
-        console.log('💾 Dashboard: PDR data changed, refreshing:', e.key);
-        refreshDashboard();
-      }
-    };
-
-    const handleFocus = () => {
-      console.log('🎯 Dashboard: Window focused, but skipping refresh (modal fix)');
-      // Temporarily disabled to fix modal issue
-      // refreshDashboard();
-    };
-
-    // Listen for localStorage changes and window focus
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('focus', handleFocus);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [refreshDashboard]);
+  // Auto-refresh dashboard periodically (handled by React Query)
+  // No need for localStorage listeners since we're using real database data
 
   console.log('CEO Dashboard Debug:', { 
+    isDemo,
     dashboardData, 
     isLoading, 
     error: error?.message || error,
@@ -179,7 +178,10 @@ export default function CEODashboard() {
       <div className="flex-1 space-y-6 p-6 overflow-y-auto">
         <PageHeader 
           title="Welcome back!"
-          description="Here&apos;s what&apos;s happening with your team&apos;s performance reviews."
+          description={isDemo 
+            ? "Demo Mode: Organization-wide performance review overview. This shows demo data for testing purposes."
+            : "Organization-wide performance review overview. Monitor all employee activities, pending reviews, and system metrics."
+          }
         />
 
         {/* Stats Overview */}
@@ -187,29 +189,29 @@ export default function CEODashboard() {
           <StatCard
             title="Total Employees"
             value={stats?.totalEmployees?.toString() || '0'}
-            change="+2 from last month"
-            changeType="positive"
+            change={stats?.totalEmployees ? `${stats.totalEmployees} active employees` : 'No employees yet'}
+            changeType="neutral"
             icon={Users}
           />
           <StatCard
             title="Completed PDRs"
             value={stats?.completedPDRs?.toString() || '0'}
-            change="+12% from last period"
-            changeType="positive"
+            change={stats?.completedPDRs ? `${stats.completedPDRs} reviews completed` : 'No completed PDRs'}
+            changeType={stats?.completedPDRs ? "positive" : "neutral"}
             icon={FileText}
           />
           <StatCard
             title="Pending Reviews"
             value={stats?.pendingReviews?.toString() || '0'}
-            change="3 due this week"
-            changeType="neutral"
+            change={stats?.pendingReviews ? `${stats.pendingReviews} awaiting review` : 'All caught up!'}
+            changeType={stats?.pendingReviews ? "neutral" : "positive"}
             icon={Clock}
           />
           <StatCard
             title="Avg Rating"
-            value={`${stats?.averageRating?.toFixed(1) || '0.0'}`}
-            change="+0.2 from last period"
-            changeType="positive"
+            value={stats?.averageRating ? `${stats.averageRating.toFixed(1)}` : '0.0'}
+            change={stats?.averageRating ? `Based on ${stats.completedPDRs || 0} reviews` : 'No ratings yet'}
+            changeType="neutral"
             icon={TrendingUp}
           />
         </div>
@@ -226,9 +228,9 @@ export default function CEODashboard() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
               <Card className="col-span-4">
                 <CardHeader>
-                  <CardTitle>Recent PDR Activity</CardTitle>
+                  <CardTitle>Organization-wide Activity</CardTitle>
                   <CardDescription>
-                    Latest performance review submissions and updates
+                    All employee PDR activities across the organization (last 14 days)
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -249,10 +251,10 @@ export default function CEODashboard() {
                             <div className="flex items-start justify-between gap-2">
                               <div className="space-y-1">
                                 <p className="text-sm font-semibold leading-none">
-                                  {activity.employeeName || `${activity.user?.firstName} ${activity.user?.lastName}`}
+                                  {`${activity.user?.firstName || 'Unknown'} ${activity.user?.lastName || 'User'}`}
                                 </p>
                                 <p className="text-sm font-medium text-primary">
-                                  {activity.action || activity.description}
+                                  {activity.message}
                                 </p>
                               </div>
                               <div className="flex items-center space-x-2 flex-shrink-0">
@@ -277,13 +279,13 @@ export default function CEODashboard() {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-muted-foreground">
                               <div>
-                                <span className="font-medium">Performed by:</span> {activity.performedBy || `${activity.user?.firstName} ${activity.user?.lastName}`}
+                                <span className="font-medium">Activity Type:</span> {activity.type.replace('_', ' ')}
                               </div>
                               <div>
-                                <span className="font-medium">Status:</span> {activity.statusChange || 'N/A'}
+                                <span className="font-medium">Priority:</span> {activity.priority}
                               </div>
                               <div className="md:col-span-2">
-                                <span className="font-medium">Date & Time:</span> {activity.dateTime || new Date(activity.timestamp).toLocaleString('en-AU', { timeZone: 'Australia/Adelaide' })} (Adelaide)
+                                <span className="font-medium">Date & Time:</span> {new Date(activity.timestamp).toLocaleString('en-AU', { timeZone: 'Australia/Adelaide' })} (Adelaide)
                               </div>
                             </div>
                           </div>
@@ -296,9 +298,9 @@ export default function CEODashboard() {
 
               <Card className="col-span-3">
                 <CardHeader>
-                  <CardTitle>Pending Actions</CardTitle>
+                  <CardTitle>All Pending Reviews</CardTitle>
                   <CardDescription>
-                    Reviews requiring your attention
+                    All employees across the organization requiring CEO review
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -309,50 +311,55 @@ export default function CEODashboard() {
                         <p className="text-muted-foreground">All caught up! No pending reviews.</p>
                       </div>
                     ) : (
-                      pendingReviews.slice(0, 5).map((review: any) => (
-                        <div key={review.id} className="flex items-start space-x-4 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                          <Avatar className="h-9 w-9">
-                            <AvatarFallback className="text-xs">
-                              {review.user?.firstName?.[0]}{review.user?.lastName?.[0]}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0 flex-1 space-y-1">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm font-semibold leading-none">
-                                {review.employeeName || `${review.user?.firstName} ${review.user?.lastName}`}
-                              </p>
-                              <div className="flex items-center space-x-2">
-                                <Badge 
-                                  variant={
-                                    review.priority === 'HIGH' ? 'destructive' :
-                                    review.priority === 'MEDIUM' ? 'default' :
-                                    'secondary'
-                                  }
-                                  className="text-xs"
-                                >
-                                  {review.urgencyMessage || review.priority}
-                                </Badge>
+                      pendingReviews.slice(0, 5).map((review: any) => {
+                        // Calculate days since submission
+                        const submittedDate = review.submittedAt ? new Date(review.submittedAt) : new Date(review.updatedAt);
+                        const daysSince = Math.floor((Date.now() - submittedDate.getTime()) / (1000 * 60 * 60 * 24));
+                        const priority = daysSince > 7 ? 'HIGH' : daysSince > 3 ? 'MEDIUM' : 'LOW';
+                        
+                        return (
+                          <div key={review.id} className="flex items-start space-x-4 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                            <Avatar className="h-9 w-9">
+                              <AvatarFallback className="text-xs">
+                                {review.user?.firstName?.[0] || 'U'}{review.user?.lastName?.[0] || 'N'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm font-semibold leading-none">
+                                  {review.user ? `${review.user.firstName} ${review.user.lastName}` : 'Unknown Employee'}
+                                </p>
+                                <div className="flex items-center space-x-2">
+                                  <Badge 
+                                    variant={
+                                      priority === 'HIGH' ? 'destructive' :
+                                      priority === 'MEDIUM' ? 'default' :
+                                      'secondary'
+                                    }
+                                    className="text-xs"
+                                  >
+                                    {priority}
+                                  </Badge>
+                                </div>
                               </div>
+                              <p className="text-xs text-muted-foreground">
+                                <span className="font-medium">Status:</span> {review.status.replace('_', ' ')}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                <span className="font-medium">Period:</span> {review.period?.name || 'Current Period'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                <span className="font-medium">Submitted:</span> {daysSince === 0 ? 'Today' : `${daysSince} day${daysSince !== 1 ? 's' : ''} ago`}
+                              </p>
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              <span className="font-medium">Department:</span> {review.department}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              <span className="font-medium">Action Required:</span> {review.actionRequired || 'Review and provide feedback'}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              <span className="font-medium">Submitted:</span> {review.daysSinceSubmission !== undefined 
-                                ? `${review.daysSinceSubmission} day${review.daysSinceSubmission !== 1 ? 's' : ''} ago`
-                                : new Date(review.submittedAt).toLocaleDateString('en-AU')}
-                            </p>
+                            <Button variant="outline" size="sm" asChild className="flex-shrink-0">
+                              <Link href={`/admin/reviews/${review.id}`}>
+                                Review
+                              </Link>
+                            </Button>
                           </div>
-                          <Button variant="outline" size="sm" asChild className="flex-shrink-0">
-                            <Link href={`/admin/reviews/${review.id}`}>
-                              Review
-                            </Link>
-                          </Button>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </CardContent>

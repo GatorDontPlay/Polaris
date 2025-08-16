@@ -3,9 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { useDemoAuth } from '@/hooks/use-demo-auth';
 import { useDemoPDRDashboard, useDemoPDRHistory } from '@/hooks/use-demo-pdr';
+import { useDemoUserActivity } from '@/hooks/use-demo-activity';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { RecentActivity } from '@/components/admin/recent-activity';
 import { useEffect, useState } from 'react';
 import { 
   Target, 
@@ -32,6 +34,7 @@ export default function EmployeeDashboard() {
   // Get current user's PDRs using demo system
   const { data: currentPDR, createPDR, isLoading: pdrLoading } = useDemoPDRDashboard();
   const { data: pdrHistory, isLoading: historyLoading } = useDemoPDRHistory();
+  const { data: userActivity, isLoading: activityLoading } = useDemoUserActivity(5);
   const [isCreatingPDR, setIsCreatingPDR] = useState(false);
   
   console.log('EmployeeDashboard - PDR Debug:', { 
@@ -176,9 +179,11 @@ export default function EmployeeDashboard() {
           </Card>
         </div>
 
-        {        /* Current PDR */}
-        {currentPDR ? (
-          <Card className="mb-8">
+        {/* Current PDR & Recent Activity Side-by-Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Current PDR - Takes 2 columns */}
+          {currentPDR ? (
+            <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Calendar className="mr-2 h-5 w-5" />
@@ -195,25 +200,87 @@ export default function EmployeeDashboard() {
                 }
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Progress</p>
-                  <div className="flex items-center mt-1">
-                    <div className="flex-1 bg-gray-200 rounded-full h-2 mr-4">
+            <CardContent className="p-4">
+              {/* Ultra-Compact Progress and Pills */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-3 flex-1 mr-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-16 bg-gray-200 rounded-full h-1">
                       <div 
-                        className="bg-blue-600 h-2 rounded-full" 
+                        className="bg-blue-600 h-1 rounded-full transition-all duration-300" 
                         style={{ width: `${(currentPDR.currentStep / 5) * 100}%` }}
                       ></div>
                     </div>
-                    <span className="text-sm font-medium">{currentPDR.currentStep} of 5 steps</span>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">{currentPDR.currentStep}/5</span>
+                  </div>
+                  
+                  {/* Ultra-Compact Pills */}
+                  <div className="flex gap-0.5 flex-wrap">
+                    <div className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs ${
+                      currentPDR.currentStep >= 1 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {currentPDR.currentStep >= 1 ? (
+                        <CheckCircle2 className="h-2.5 w-2.5" />
+                      ) : (
+                        <Target className="h-2.5 w-2.5" />
+                      )}
+                      <span className="hidden sm:inline">Goals</span>
+                      <span className="sm:hidden">G</span>
+                    </div>
+                    <div className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs ${
+                      currentPDR.currentStep >= 2 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {currentPDR.currentStep >= 2 ? (
+                        <CheckCircle2 className="h-2.5 w-2.5" />
+                      ) : (
+                        <TrendingUp className="h-2.5 w-2.5" />
+                      )}
+                      <span className="hidden sm:inline">Behaviors</span>
+                      <span className="sm:hidden">B</span>
+                    </div>
+                    <div className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs ${
+                      currentPDR.currentStep >= 3 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {currentPDR.currentStep >= 3 ? (
+                        <CheckCircle2 className="h-2.5 w-2.5" />
+                      ) : (
+                        <FileText className="h-2.5 w-2.5" />
+                      )}
+                      <span className="hidden sm:inline">Review</span>
+                      <span className="sm:hidden">R</span>
+                    </div>
+                    <div className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs ${
+                      currentPDR.currentStep >= 4 ? 'bg-green-100 text-green-700' : 
+                      currentPDR.status === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {currentPDR.currentStep >= 4 ? (
+                        <CheckCircle2 className="h-2.5 w-2.5" />
+                      ) : currentPDR.status === 'SUBMITTED' ? (
+                        <Clock className="h-2.5 w-2.5" />
+                      ) : (
+                        <Calendar className="h-2.5 w-2.5" />
+                      )}
+                      <span className="hidden sm:inline">Mid-Year</span>
+                      <span className="sm:hidden">M</span>
+                    </div>
+                    <div className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs ${
+                      currentPDR.currentStep >= 5 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {currentPDR.currentStep >= 5 ? (
+                        <CheckCircle2 className="h-2.5 w-2.5" />
+                      ) : (
+                        <FileText className="h-2.5 w-2.5" />
+                      )}
+                      <span className="hidden sm:inline">End-Year</span>
+                      <span className="sm:hidden">E</span>
+                    </div>
                   </div>
                 </div>
                 <Badge variant={
                   currentPDR.status === 'SUBMITTED' ? 'secondary' : 
-                  currentPDR.status === 'COMPLETED' ? 'success' :
-                  'default'
-                }>
+                  currentPDR.status === 'COMPLETED' ? 'default' :
+                  'outline'
+                } className="text-xs px-1.5 py-0.5 h-5 flex-shrink-0">
                   {currentPDR.status === 'Created' && 'In Progress'}
                   {currentPDR.status === 'SUBMITTED' && 'Submitted'}
                   {currentPDR.status === 'OPEN_FOR_REVIEW' && 'Under Review'}
@@ -221,66 +288,6 @@ export default function EmployeeDashboard() {
                   {currentPDR.status === 'UNDER_REVIEW' && 'Under Review'}
                   {currentPDR.status === 'COMPLETED' && 'Completed'}
                 </Badge>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-                <div className={`text-center p-4 rounded-lg ${currentPDR.currentStep >= 1 ? 'bg-green-50' : 'bg-gray-50'}`}>
-                  {currentPDR.currentStep >= 1 ? (
-                    <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
-                  ) : (
-                    <Target className="h-6 w-6 text-gray-400 mx-auto mb-2" />
-                  )}
-                  <p className="text-sm font-medium">Goals</p>
-                  <p className="text-xs text-muted-foreground">
-                    {currentPDR.currentStep >= 2 ? 'Completed' : currentPDR.currentStep === 1 ? 'In Progress' : 'Pending'}
-                  </p>
-                </div>
-                <div className={`text-center p-4 rounded-lg ${currentPDR.currentStep >= 2 ? 'bg-green-50' : 'bg-gray-50'}`}>
-                  {currentPDR.currentStep >= 2 ? (
-                    <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
-                  ) : (
-                    <TrendingUp className="h-6 w-6 text-gray-400 mx-auto mb-2" />
-                  )}
-                  <p className="text-sm font-medium">Behaviors</p>
-                  <p className="text-xs text-muted-foreground">
-                    {currentPDR.currentStep >= 3 ? 'Completed' : currentPDR.currentStep === 2 ? 'In Progress' : 'Pending'}
-                  </p>
-                </div>
-                <div className={`text-center p-4 rounded-lg ${currentPDR.currentStep >= 3 ? 'bg-green-50' : 'bg-gray-50'}`}>
-                  {currentPDR.currentStep >= 3 ? (
-                    <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
-                  ) : (
-                    <FileText className="h-6 w-6 text-gray-400 mx-auto mb-2" />
-                  )}
-                  <p className="text-sm font-medium">Review</p>
-                  <p className="text-xs text-muted-foreground">
-                    {currentPDR.currentStep >= 4 ? 'Completed' : currentPDR.currentStep === 3 ? 'In Progress' : 'Pending'}
-                  </p>
-                </div>
-                <div className={`text-center p-4 rounded-lg ${currentPDR.status === 'SUBMITTED' ? 'bg-blue-50' : 'bg-gray-50'}`}>
-                  {currentPDR.currentStep >= 4 ? (
-                    <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
-                  ) : currentPDR.status === 'SUBMITTED' ? (
-                    <Clock className="h-6 w-6 text-blue-600 mx-auto mb-2" />
-                  ) : (
-                    <Calendar className="h-6 w-6 text-gray-400 mx-auto mb-2" />
-                  )}
-                  <p className="text-sm font-medium">Mid-Year</p>
-                  <p className="text-xs text-muted-foreground">
-                    {currentPDR.currentStep >= 5 ? 'Completed' : currentPDR.currentStep === 4 ? 'In Progress' : currentPDR.status === 'SUBMITTED' ? 'Available' : 'Pending'}
-                  </p>
-                </div>
-                <div className={`text-center p-4 rounded-lg ${currentPDR.currentStep >= 5 ? 'bg-green-50' : 'bg-gray-50'}`}>
-                  {currentPDR.currentStep >= 5 ? (
-                    <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
-                  ) : (
-                    <FileText className="h-6 w-6 text-gray-400 mx-auto mb-2" />
-                  )}
-                  <p className="text-sm font-medium">End-Year</p>
-                  <p className="text-xs text-muted-foreground">
-                    {currentPDR.currentStep >= 5 ? 'Completed' : 'Pending'}
-                  </p>
-                </div>
               </div>
 
               <div className="flex space-x-3">
@@ -304,8 +311,8 @@ export default function EmployeeDashboard() {
               </div>
             </CardContent>
           </Card>
-        ) : (
-          <Card className="mb-8">
+          ) : (
+            <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Create New PDR</CardTitle>
               <CardDescription>
@@ -334,89 +341,80 @@ export default function EmployeeDashboard() {
               </div>
             </CardContent>
           </Card>
-        )}
+          )}
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>
-                Common tasks and shortcuts
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
+          {/* Recent Activity - Takes 1 column */}
+          <RecentActivity 
+            activities={userActivity || []}
+            isLoading={activityLoading}
+            isUserActivity={true}
+          />
+        </div>
+
+        {/* Quick Actions - Full Width */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+            <CardDescription>
+              Common tasks and shortcuts
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
               <Button 
                 variant="outline" 
-                className="w-full justify-start"
+                className="h-8 text-sm px-3 justify-start"
                 onClick={() => router.push(`/pdr/${currentPDR?.id}/goals`)}
                 disabled={!currentPDR}
               >
-                <Target className="mr-2 h-4 w-4" />
-                Update Goals
+                <Target className="mr-2 h-3 w-3" />
+                <span className="hidden sm:inline">Update Goals</span>
+                <span className="sm:hidden">Goals</span>
               </Button>
               <Button 
                 variant="outline" 
-                className="w-full justify-start"
+                className="h-8 text-sm px-3 justify-start"
                 onClick={() => router.push(`/pdr/${currentPDR?.id}/behaviors`)}
                 disabled={!currentPDR}
               >
-                <TrendingUp className="mr-2 h-4 w-4" />
-                Rate Behaviors
+                <TrendingUp className="mr-2 h-3 w-3" />
+                <span className="hidden sm:inline">Rate Behaviors</span>
+                <span className="sm:hidden">Behaviors</span>
               </Button>
               <Button 
                 variant="outline" 
-                className="w-full justify-start"
+                className="h-8 text-sm px-3 justify-start"
                 onClick={() => router.push(`/pdr/${currentPDR?.id}/mid-year`)}
                 disabled={!currentPDR || currentPDR.status !== 'SUBMITTED'}
                 title={currentPDR?.status !== 'SUBMITTED' ? 'Complete and submit your PDR first' : 'Available during mid-year period'}
               >
-                <Calendar className="mr-2 h-4 w-4" />
-                Mid-Year Check-in
+                <Calendar className="mr-2 h-3 w-3" />
+                <span className="hidden sm:inline">Mid-Year Check-in</span>
+                <span className="sm:hidden">Mid-Year</span>
               </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>
-                Your latest PDR actions
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center space-x-3">
-                <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Completed behavior assessments</p>
-                  <p className="text-xs text-muted-foreground">2 hours ago</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <Target className="h-4 w-4 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Updated performance goals</p>
-                  <p className="text-xs text-muted-foreground">1 day ago</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <div className="h-8 w-8 bg-purple-100 rounded-full flex items-center justify-center">
-                  <FileText className="h-4 w-4 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Started annual review</p>
-                  <p className="text-xs text-muted-foreground">3 days ago</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              <Button 
+                variant="ghost" 
+                className="h-8 text-sm px-3 justify-start text-muted-foreground hover:text-foreground"
+                onClick={() => router.push(`/pdr/${currentPDR?.id}/review`)}
+                disabled={!currentPDR}
+              >
+                <FileText className="mr-2 h-3 w-3" />
+                <span className="hidden sm:inline">Review Progress</span>
+                <span className="sm:hidden">Review</span>
+              </Button>
+              <Button 
+                variant="ghost" 
+                className="h-8 text-sm px-3 justify-start text-muted-foreground hover:text-foreground"
+                onClick={() => router.push(`/pdr/${currentPDR?.id}`)}
+                disabled={!currentPDR}
+              >
+                <ArrowRight className="mr-2 h-3 w-3" />
+                <span className="hidden sm:inline">Continue PDR</span>
+                <span className="sm:hidden">Continue</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* PDR History */}
         <Card>

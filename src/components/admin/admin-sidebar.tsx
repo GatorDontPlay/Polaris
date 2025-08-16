@@ -83,7 +83,7 @@ export function AdminSidebar() {
     <Sidebar className="border-r">
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-4 py-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/25">
             <Crown className="h-4 w-4" />
           </div>
           <div className="flex flex-col">

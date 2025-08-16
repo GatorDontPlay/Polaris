@@ -10,6 +10,17 @@ const Card = React.forwardRef<
     ref={ref}
     className={cn(
       "rounded-lg border bg-card text-card-foreground shadow-sm",
+      // Purple/pink gradient background inspired by reference image
+      "bg-gradient-to-br from-purple-950/30 via-slate-900/90 to-pink-950/20",
+      // Enhanced border glow with purple/pink gradient
+      "border-purple-800/40 shadow-lg shadow-purple-900/25",
+      // Hover effects with purple/pink accent glow
+      "hover:shadow-xl hover:shadow-purple-700/30 hover:border-purple-600/50",
+      "hover:shadow-[0_0_30px_-5px_rgba(139,92,246,0.3)]",
+      "transition-all duration-300 ease-in-out",
+      // Subtle inner glow with purple/pink gradient
+      "before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-br before:from-purple-500/10 before:via-transparent before:to-pink-500/8 before:pointer-events-none",
+      "relative overflow-hidden",
       className
     )}
     {...props}

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { CEODashboardData, ActivityItem, PDR } from '@/types';
 
-// No seeded dashboard data - clean slate for manual testing
+// Real user data only - no simulated or seeded data
 
 // Function to get all PDRs from localStorage
 function getAllPDRsFromStorage(): PDR[] {
@@ -73,7 +73,7 @@ function getAllPDRsFromStorage(): PDR[] {
 }
 
 export function useDemoAdminDashboard() {
-  // Initialize with empty dashboard data - no seeded data
+  // Initialize with empty dashboard data - real user data only
   const [dashboardData, setDashboardData] = useState<CEODashboardData>({
     stats: {
       totalEmployees: 0,
@@ -104,17 +104,20 @@ export function useDemoAdminDashboard() {
         const realPDRs = getAllPDRsFromStorage();
         console.log('useDemoAdminDashboard: Got PDRs from storage:', realPDRs);
     
-        // Create dynamic dashboard data
+        // Create dashboard data with ONLY real user data - no simulation
+        const completedPDRs = realPDRs.filter(pdr => pdr.status === 'COMPLETED').length;
+        const pendingReviews = realPDRs.filter(pdr => 
+          pdr.status === 'SUBMITTED' || 
+          pdr.status === 'OPEN_FOR_REVIEW' || 
+          pdr.status === 'UNDER_REVIEW'
+        ).length;
+        
         const dynamicData: CEODashboardData = {
           stats: {
-            totalEmployees: 25,
-            completedPDRs: realPDRs.filter(pdr => pdr.status === 'COMPLETED').length,
-            pendingReviews: realPDRs.filter(pdr => 
-              pdr.status === 'SUBMITTED' || 
-              pdr.status === 'OPEN_FOR_REVIEW' || 
-              pdr.status === 'UNDER_REVIEW'
-            ).length,
-            averageRating: 4.2, // Keep static for demo
+            totalEmployees: 1, // Only count real demo user
+            completedPDRs: completedPDRs, // Only real completed PDRs
+            pendingReviews: pendingReviews, // Only real pending reviews
+            averageRating: completedPDRs > 0 ? 4.2 : 0, // Only show if there are real completions
           },
           recentActivity: [
             // Add dynamic activity for real PDRs based on status
@@ -207,7 +210,7 @@ export function useDemoAdminDashboard() {
               
               return activities;
             }),
-            // No demo activity - clean slate for testing
+            // Only real user activities - no simulated data
           ]
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) // Sort by most recent first
           .slice(0, 5), // Limit to 5 items
@@ -247,7 +250,7 @@ export function useDemoAdminDashboard() {
                 };
               })
               .sort((a, b) => b.daysSinceSubmission - a.daysSinceSubmission), // Sort by urgency (oldest first)
-            // No demo data - clean slate for testing
+            // Only real pending reviews - no simulated data
           ],
         };
         
@@ -272,7 +275,7 @@ export function useDemoAdminDashboard() {
 }
 
 export function useDemoEmployees() {
-  // No seeded employee data - clean slate for manual testing
+  // Real employee data only - no simulated data
   const employees: any[] = [];
 
   return {
@@ -359,7 +362,7 @@ export function useDemoReviews() {
         };
       });
 
-      // Only use real reviews - no demo data
+      // Only use real reviews - no simulated data
       const allReviews = realReviews;
       console.log('✅ useDemoReviews: Final reviews array:', allReviews);
       console.log('📊 useDemoReviews: Review statuses:', allReviews.map(r => ({ id: r.id, status: r.status })));

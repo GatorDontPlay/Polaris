@@ -18,7 +18,7 @@ interface AdminHeaderProps {
 
 export function AdminHeader({ breadcrumbs, actions }: AdminHeaderProps) {
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 border-b px-6">
+    <header className="flex h-16 shrink-0 items-center gap-2 border-b px-6 bg-gradient-to-r from-slate-900/50 via-purple-950/30 to-slate-900/50 border-purple-800/30">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-4" />
