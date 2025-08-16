@@ -1704,54 +1704,54 @@ export default function CEOPDRReviewPage() {
                         {/* Three Column Layout */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-border/20">
                           {/* Column 1: Original Plan */}
-                          <div className="p-6 bg-card">
-                            <h5 className="font-semibold text-sm text-foreground mb-4 flex items-center gap-2">
+                          <div className="p-4 bg-card">
+                            <h5 className="font-semibold text-sm text-foreground mb-3 flex items-center gap-2">
                               <FileText className="h-4 w-4 text-blue-600" />
                               Original Plan
                             </h5>
-                            <div className="space-y-4">
+                            <div className="space-y-2">
                               <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Goal Description</p>
-                                <p className="text-sm text-foreground leading-relaxed">{goal.description}</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Goal Description</p>
+                                <p className="text-sm text-foreground">{goal.description}</p>
                               </div>
                               <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Success Criteria</p>
-                                <p className="text-sm text-foreground leading-relaxed">{goal.successCriteria || 'No criteria specified'}</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Success Criteria</p>
+                                <p className="text-sm text-foreground">{goal.successCriteria || 'No criteria specified'}</p>
                               </div>
                             </div>
                           </div>
                           
                           {/* Column 2: Mid-Year Check-in */}
-                          <div className="p-6 bg-muted/30">
-                            <h5 className="font-semibold text-sm text-foreground mb-4 flex items-center gap-2">
+                          <div className="p-4 bg-muted/30">
+                            <h5 className="font-semibold text-sm text-foreground mb-3 flex items-center gap-2">
                               <Calendar className="h-4 w-4 text-amber-600" />
                               Mid-Year Check-in
                             </h5>
-                            <div className="space-y-4">
+                            <div className="space-y-2">
                               <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Employee Progress</p>
-                                <p className="text-sm text-foreground leading-relaxed">{goal.employeeProgress || 'No progress notes provided'}</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Employee Progress</p>
+                                <p className="text-sm text-foreground">{goal.employeeProgress || 'No progress notes provided'}</p>
                               </div>
                               <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">CEO Check-in Notes</p>
-                                <p className="text-sm text-foreground leading-relaxed">{midYearGoalComments[goal.id] || 'No check-in notes'}</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">CEO Check-in Notes</p>
+                                <p className="text-sm text-foreground">{midYearGoalComments[goal.id] || 'No check-in notes'}</p>
                               </div>
                             </div>
                           </div>
                           
                           {/* Column 3: Final Review */}
-                          <div className="p-6 bg-card">
-                            <h5 className="font-semibold text-sm text-foreground mb-4 flex items-center gap-2">
+                          <div className="p-4 bg-card">
+                            <h5 className="font-semibold text-sm text-foreground mb-3 flex items-center gap-2">
                               <CheckCircle className="h-4 w-4 text-green-600" />
                               Final Review
                             </h5>
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                               {/* Employee Self-Assessment */}
                               <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Employee Final Self-Assessment</p>
-                                <div className="bg-muted/50 p-3 rounded-md border border-border/50">
-                                  <p className="text-sm text-foreground leading-relaxed">{goal.employeeFinalComments || 'No final comments provided'}</p>
-                                  <div className="flex items-center gap-2 mt-2">
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Employee Final Self-Assessment</p>
+                                <div className="bg-muted/50 p-2 rounded-md border border-border/50">
+                                  <p className="text-sm text-foreground">{goal.employeeFinalComments || 'No final comments provided'}</p>
+                                  <div className="flex items-center gap-2 mt-1">
                                     <span className="text-xs font-medium text-muted-foreground">Employee Rating:</span>
                                     <span className="font-semibold text-sm text-foreground">{goal.employeeFinalRating || goal.employeeRating || 0}/5</span>
                                   </div>
@@ -1760,13 +1760,13 @@ export default function CEOPDRReviewPage() {
                               
                               {/* CEO Final Assessment */}
                               <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">CEO Final Rating</p>
-                                <div className="flex items-center gap-2 mb-3">
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">CEO Final Rating</p>
+                                <div className="flex items-center gap-1.5 mb-2">
                                   {[1, 2, 3, 4, 5].map((rating) => (
                                     <button
                                       key={rating}
                                       onClick={() => saveFinalGoalReview(goal.id, 'rating', rating)}
-                                      className={`w-8 h-8 rounded-full border-2 text-xs font-medium transition-colors ${
+                                      className={`w-7 h-7 rounded-full border-2 text-xs font-medium transition-colors ${
                                         finalReview.rating >= rating
                                           ? 'bg-primary border-primary text-primary-foreground shadow-sm'
                                           : 'border-border hover:border-primary/50 hover:bg-accent text-muted-foreground'
@@ -1775,17 +1775,17 @@ export default function CEOPDRReviewPage() {
                                       {rating}
                                     </button>
                                   ))}
-                                  <span className="ml-2 text-sm font-medium text-foreground">
+                                  <span className="ml-1 text-sm font-medium text-foreground">
                                     {finalReview.rating}/5
                                   </span>
                                 </div>
                                 
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">CEO Final Comments</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">CEO Final Comments</p>
                                 <Textarea
                                   placeholder="Final assessment and comments..."
                                   value={finalReview.comments}
                                   onChange={(e) => saveFinalGoalReview(goal.id, 'comments', e.target.value)}
-                                  className="min-h-[80px] text-sm"
+                                  className="min-h-[60px] text-sm"
                                 />
                               </div>
                             </div>
@@ -1846,54 +1846,54 @@ export default function CEOPDRReviewPage() {
                         {/* Three Column Layout */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-border/20">
                           {/* Column 1: Original Plan */}
-                          <div className="p-6 bg-card">
-                            <h5 className="font-semibold text-sm text-foreground mb-4 flex items-center gap-2">
+                          <div className="p-4 bg-card">
+                            <h5 className="font-semibold text-sm text-foreground mb-3 flex items-center gap-2">
                               <FileText className="h-4 w-4 text-blue-600" />
                               Original Plan
                             </h5>
-                            <div className="space-y-4">
+                            <div className="space-y-2">
                               <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Company Value</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Company Value</p>
                                 <p className="text-sm font-semibold text-foreground">{behavior.value?.name}</p>
                               </div>
                               <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Behavior Description</p>
-                                <p className="text-sm text-foreground leading-relaxed">{behavior.description}</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Behavior Description</p>
+                                <p className="text-sm text-foreground">{behavior.description}</p>
                               </div>
                             </div>
                           </div>
                           
                           {/* Column 2: Mid-Year Check-in */}
-                          <div className="p-6 bg-muted/30">
-                            <h5 className="font-semibold text-sm text-foreground mb-4 flex items-center gap-2">
+                          <div className="p-4 bg-muted/30">
+                            <h5 className="font-semibold text-sm text-foreground mb-3 flex items-center gap-2">
                               <Calendar className="h-4 w-4 text-amber-600" />
                               Mid-Year Check-in
                             </h5>
-                            <div className="space-y-4">
+                            <div className="space-y-2">
                               <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Employee Examples</p>
-                                <p className="text-sm text-foreground leading-relaxed">{behavior.employeeExamples || 'No examples provided'}</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Employee Examples</p>
+                                <p className="text-sm text-foreground">{behavior.employeeExamples || 'No examples provided'}</p>
                               </div>
                               <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">CEO Check-in Notes</p>
-                                <p className="text-sm text-foreground leading-relaxed">{midYearBehaviorComments[behavior.id] || 'No check-in notes'}</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">CEO Check-in Notes</p>
+                                <p className="text-sm text-foreground">{midYearBehaviorComments[behavior.id] || 'No check-in notes'}</p>
                               </div>
                             </div>
                           </div>
                           
                           {/* Column 3: Final Review */}
-                          <div className="p-6 bg-card">
-                            <h5 className="font-semibold text-sm text-foreground mb-4 flex items-center gap-2">
+                          <div className="p-4 bg-card">
+                            <h5 className="font-semibold text-sm text-foreground mb-3 flex items-center gap-2">
                               <CheckCircle className="h-4 w-4 text-green-600" />
                               Final Review
                             </h5>
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                               {/* Employee Self-Assessment */}
                               <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Employee Final Self-Assessment</p>
-                                <div className="bg-muted/50 p-3 rounded-md border border-border/50">
-                                  <p className="text-sm text-foreground leading-relaxed">{behavior.employeeFinalComments || 'No final comments provided'}</p>
-                                  <div className="flex items-center gap-2 mt-2">
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Employee Final Self-Assessment</p>
+                                <div className="bg-muted/50 p-2 rounded-md border border-border/50">
+                                  <p className="text-sm text-foreground">{behavior.employeeFinalComments || 'No final comments provided'}</p>
+                                  <div className="flex items-center gap-2 mt-1">
                                     <span className="text-xs font-medium text-muted-foreground">Employee Rating:</span>
                                     <span className="font-semibold text-sm text-foreground">{behavior.employeeFinalRating || behavior.employeeRating || 0}/5</span>
                                   </div>
@@ -1902,13 +1902,13 @@ export default function CEOPDRReviewPage() {
                               
                               {/* CEO Final Assessment */}
                               <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">CEO Final Rating</p>
-                                <div className="flex items-center gap-2 mb-3">
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">CEO Final Rating</p>
+                                <div className="flex items-center gap-1.5 mb-2">
                                   {[1, 2, 3, 4, 5].map((rating) => (
                                     <button
                                       key={rating}
                                       onClick={() => saveFinalBehaviorReview(behavior.id, 'rating', rating)}
-                                      className={`w-8 h-8 rounded-full border-2 text-xs font-medium transition-colors ${
+                                      className={`w-7 h-7 rounded-full border-2 text-xs font-medium transition-colors ${
                                         finalReview.rating >= rating
                                           ? 'bg-primary border-primary text-primary-foreground shadow-sm'
                                           : 'border-border hover:border-primary/50 hover:bg-accent text-muted-foreground'
@@ -1917,17 +1917,17 @@ export default function CEOPDRReviewPage() {
                                       {rating}
                                     </button>
                                   ))}
-                                  <span className="ml-2 text-sm font-medium text-foreground">
+                                  <span className="ml-1 text-sm font-medium text-foreground">
                                     {finalReview.rating}/5
                                   </span>
                                 </div>
                                 
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">CEO Final Comments</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">CEO Final Comments</p>
                                 <Textarea
                                   placeholder="Final assessment and comments..."
                                   value={finalReview.comments}
                                   onChange={(e) => saveFinalBehaviorReview(behavior.id, 'comments', e.target.value)}
-                                  className="min-h-[80px] text-sm"
+                                  className="min-h-[60px] text-sm"
                                 />
                               </div>
                             </div>
