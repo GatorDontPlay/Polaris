@@ -125,6 +125,10 @@ export default function CEOPDRReviewPage() {
   const [isCommentsDialogOpen, setIsCommentsDialogOpen] = useState(false);
   const [ceoComments, setCeoComments] = useState('');
   
+  // Mid-year check-in comments state
+  const [midYearGoalComments, setMidYearGoalComments] = useState<Record<string, string>>({});
+  const [midYearBehaviorComments, setMidYearBehaviorComments] = useState<Record<string, string>>({});
+  
   // Save & Lock confirmation dialog state
   const [isLockConfirmDialogOpen, setIsLockConfirmDialogOpen] = useState(false);
   
@@ -209,6 +213,19 @@ export default function CEOPDRReviewPage() {
 
   const handleOpenCommentsDialog = () => {
     setIsCommentsDialogOpen(true);
+  };
+
+  // Save mid-year check-in comment
+  const saveMidYearComment = (itemId: string, comment: string, type: 'goal' | 'behavior') => {
+    if (type === 'goal') {
+      const updatedComments = { ...midYearGoalComments, [itemId]: comment };
+      setMidYearGoalComments(updatedComments);
+      localStorage.setItem(`mid_year_goal_comments_${pdrId}`, JSON.stringify(updatedComments));
+    } else {
+      const updatedComments = { ...midYearBehaviorComments, [itemId]: comment };
+      setMidYearBehaviorComments(updatedComments);
+      localStorage.setItem(`mid_year_behavior_comments_${pdrId}`, JSON.stringify(updatedComments));
+    }
   };
 
   // Validate that CEO has provided comprehensive feedback
@@ -434,6 +451,29 @@ export default function CEOPDRReviewPage() {
         if (savedComments) {
           setCeoComments(savedComments);
           console.log('✅ CEO Review: Loaded comments');
+        }
+
+        // Load mid-year check-in comments
+        const midYearGoalCommentsKey = `mid_year_goal_comments_${pdrId}`;
+        const savedMidYearGoalComments = localStorage.getItem(midYearGoalCommentsKey);
+        if (savedMidYearGoalComments) {
+          try {
+            setMidYearGoalComments(JSON.parse(savedMidYearGoalComments));
+            console.log('✅ CEO Review: Loaded mid-year goal comments');
+          } catch (error) {
+            console.error('Error parsing mid-year goal comments:', error);
+          }
+        }
+
+        const midYearBehaviorCommentsKey = `mid_year_behavior_comments_${pdrId}`;
+        const savedMidYearBehaviorComments = localStorage.getItem(midYearBehaviorCommentsKey);
+        if (savedMidYearBehaviorComments) {
+          try {
+            setMidYearBehaviorComments(JSON.parse(savedMidYearBehaviorComments));
+            console.log('✅ CEO Review: Loaded mid-year behavior comments');
+          } catch (error) {
+            console.error('Error parsing mid-year behavior comments:', error);
+          }
         }
 
         setIsLoading(false);
@@ -1299,29 +1339,70 @@ export default function CEOPDRReviewPage() {
                         <Target className="h-4 w-4" />
                         Goals Progress ({goals.length} goals)
                       </h4>
-                      <div className="space-y-3">
+                      <div className="space-y-6">
                         {goals.map((goal, index) => {
                           const employeeRating = goal.employeeRating || 0;
                           const ceoRating = ceoGoalFeedback[goal.id]?.ceoRating || 0;
-                          const hasProgress = employeeRating > 0 || ceoRating > 0;
+                          const employeeComments = goal.employeeProgress || '';
+                          const ceoComments = ceoGoalFeedback[goal.id]?.ceoDescription || '';
+                          const checkinComments = midYearGoalComments[goal.id] || '';
                           
                           return (
-                            <div key={goal.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-md">
-                              <div className="flex-1">
-                                <p className="font-medium text-sm">{goal.title}</p>
-                                <p className="text-xs text-muted-foreground line-clamp-1">{goal.description}</p>
+                            <div key={goal.id} className="border border-border/30 rounded-lg p-4 bg-background/50">
+                              {/* Goal Header */}
+                              <div className="mb-4">
+                                <h5 className="font-medium text-sm mb-1">{goal.title}</h5>
+                                <p className="text-xs text-muted-foreground">{goal.description}</p>
                               </div>
-                              <div className="flex items-center gap-3 text-sm">
-                                <div className="text-center">
-                                  <div className="font-medium">{employeeRating}/5</div>
-                                  <div className="text-xs text-muted-foreground">Employee</div>
+                              
+                              {/* Comments Grid */}
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {/* Employee Comments */}
+                                <div className="space-y-2">
+                                  <h6 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Employee Comments</h6>
+                                  <div className="min-h-[80px] p-3 bg-muted/30 rounded-md text-sm">
+                                    {employeeComments || (
+                                      <span className="text-muted-foreground italic">No employee comments provided</span>
+                                    )}
+                                  </div>
                                 </div>
-                                <div className="text-center">
-                                  <div className="font-medium">{ceoRating}/5</div>
-                                  <div className="text-xs text-muted-foreground">CEO</div>
+                                
+                                {/* CEO Comments */}
+                                <div className="space-y-2">
+                                  <h6 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">CEO Comments</h6>
+                                  <div className="min-h-[80px] p-3 bg-muted/30 rounded-md text-sm">
+                                    {ceoComments || (
+                                      <span className="text-muted-foreground italic">No CEO comments provided</span>
+                                    )}
+                                  </div>
                                 </div>
-                                <Badge variant={hasProgress ? 'default' : 'secondary'} className="text-xs">
-                                  {hasProgress ? 'In Progress' : 'Not Started'}
+                                
+                                {/* Check-in Comments */}
+                                <div className="space-y-2">
+                                  <h6 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Check-in Comments</h6>
+                                  <Textarea
+                                    placeholder="Add mid-year check-in notes..."
+                                    value={checkinComments}
+                                    onChange={(e) => saveMidYearComment(goal.id, e.target.value, 'goal')}
+                                    className="min-h-[80px] text-sm"
+                                  />
+                                </div>
+                              </div>
+                              
+                              {/* Ratings Display */}
+                              <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/30">
+                                <div className="flex items-center gap-4 text-sm">
+                                  <div className="text-center">
+                                    <div className="font-medium">{employeeRating}/5</div>
+                                    <div className="text-xs text-muted-foreground">Employee Rating</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="font-medium">{ceoRating}/5</div>
+                                    <div className="text-xs text-muted-foreground">CEO Rating</div>
+                                  </div>
+                                </div>
+                                <Badge variant="outline" className="text-xs">
+                                  Mid-Year Review
                                 </Badge>
                               </div>
                             </div>
@@ -1336,29 +1417,70 @@ export default function CEOPDRReviewPage() {
                         <TrendingUp className="h-4 w-4" />
                         Behaviors Assessment ({behaviors.length} behaviors)
                       </h4>
-                      <div className="space-y-3">
+                      <div className="space-y-6">
                         {behaviors.map((behavior, index) => {
                           const employeeRating = behavior.employeeRating || 0;
                           const ceoRating = ceoBehaviorFeedback[behavior.id]?.ceoRating || 0;
-                          const hasProgress = employeeRating > 0 || ceoRating > 0;
+                          const employeeComments = behavior.employeeExamples || '';
+                          const ceoComments = ceoBehaviorFeedback[behavior.id]?.ceoComments || '';
+                          const checkinComments = midYearBehaviorComments[behavior.id] || '';
                           
                           return (
-                            <div key={behavior.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-md">
-                              <div className="flex-1">
-                                <p className="font-medium text-sm">{behavior.value?.name}</p>
-                                <p className="text-xs text-muted-foreground line-clamp-1">{behavior.description}</p>
+                            <div key={behavior.id} className="border border-border/30 rounded-lg p-4 bg-background/50">
+                              {/* Behavior Header */}
+                              <div className="mb-4">
+                                <h5 className="font-medium text-sm mb-1">{behavior.value?.name}</h5>
+                                <p className="text-xs text-muted-foreground">{behavior.description}</p>
                               </div>
-                              <div className="flex items-center gap-3 text-sm">
-                                <div className="text-center">
-                                  <div className="font-medium">{employeeRating}/5</div>
-                                  <div className="text-xs text-muted-foreground">Employee</div>
+                              
+                              {/* Comments Grid */}
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {/* Employee Comments */}
+                                <div className="space-y-2">
+                                  <h6 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Employee Comments</h6>
+                                  <div className="min-h-[80px] p-3 bg-muted/30 rounded-md text-sm">
+                                    {employeeComments || (
+                                      <span className="text-muted-foreground italic">No employee comments provided</span>
+                                    )}
+                                  </div>
                                 </div>
-                                <div className="text-center">
-                                  <div className="font-medium">{ceoRating}/5</div>
-                                  <div className="text-xs text-muted-foreground">CEO</div>
+                                
+                                {/* CEO Comments */}
+                                <div className="space-y-2">
+                                  <h6 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">CEO Comments</h6>
+                                  <div className="min-h-[80px] p-3 bg-muted/30 rounded-md text-sm">
+                                    {ceoComments || (
+                                      <span className="text-muted-foreground italic">No CEO comments provided</span>
+                                    )}
+                                  </div>
                                 </div>
-                                <Badge variant={hasProgress ? 'default' : 'secondary'} className="text-xs">
-                                  {hasProgress ? 'Assessed' : 'Pending'}
+                                
+                                {/* Check-in Comments */}
+                                <div className="space-y-2">
+                                  <h6 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Check-in Comments</h6>
+                                  <Textarea
+                                    placeholder="Add mid-year check-in notes..."
+                                    value={checkinComments}
+                                    onChange={(e) => saveMidYearComment(behavior.id, e.target.value, 'behavior')}
+                                    className="min-h-[80px] text-sm"
+                                  />
+                                </div>
+                              </div>
+                              
+                              {/* Ratings Display */}
+                              <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/30">
+                                <div className="flex items-center gap-4 text-sm">
+                                  <div className="text-center">
+                                    <div className="font-medium">{employeeRating}/5</div>
+                                    <div className="text-xs text-muted-foreground">Employee Rating</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="font-medium">{ceoRating}/5</div>
+                                    <div className="text-xs text-muted-foreground">CEO Rating</div>
+                                  </div>
+                                </div>
+                                <Badge variant="outline" className="text-xs">
+                                  Mid-Year Review
                                 </Badge>
                               </div>
                             </div>
