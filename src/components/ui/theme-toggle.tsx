@@ -94,6 +94,9 @@ export function ThemeToggle({
   }
 
   // Dropdown variant with all options
+  const currentConfig = themeConfig[theme];
+  const CurrentIcon = currentConfig.icon;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -109,7 +112,14 @@ export function ThemeToggle({
           )}
           aria-label="Theme options"
         >
-          <Palette className="h-4 w-4" />
+          <CurrentIcon 
+            className={cn(
+              'h-4 w-4 transition-all duration-300',
+              theme === 'light' && 'rotate-0 scale-100',
+              theme === 'dark' && 'rotate-90 scale-100',
+              theme === 'system' && 'scale-110'
+            )} 
+          />
           <span className="sr-only">
             Theme options - Current: {themeConfig[theme].label}
           </span>
