@@ -71,48 +71,52 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
     }
   }, [behaviors, hasCleanedDuplicates, deleteBehavior, addBehavior]);
 
-  const handleBulkCreateBehaviors = async (behaviorsData: Array<{
-    valueId: string;
-    valueName: string;
-    description: string;
-    examples: string;
-    employeeSelfAssessment: string;
-    employeeRating: number;
-  }>) => {
+  const handleBulkCreateBehaviors = async (data: {
+    behaviors: Array<{
+      valueId: string;
+      valueName: string;
+      description: string;
+    }>;
+    selfReflection?: string;
+    deepDiveDevelopment?: string;
+  }) => {
     // Remove existing behaviors for values that are being updated
     const existingBehaviorIds = behaviors?.filter(b => 
-      behaviorsData.some(newB => newB.valueId === b.valueId)
+      data.behaviors.some(newB => newB.valueId === b.valueId)
     ).map(b => b.id) || [];
     
     existingBehaviorIds.forEach(id => deleteBehavior(id));
     
     // Add all new behaviors
-    behaviorsData.forEach(behaviorData => {
+    data.behaviors.forEach(behaviorData => {
       const formData: BehaviorFormData = {
         valueId: behaviorData.valueId,
         description: behaviorData.description,
-        examples: behaviorData.examples,
-        employeeSelfAssessment: behaviorData.employeeSelfAssessment,
-        employeeRating: behaviorData.employeeRating,
+        examples: '', // No longer used
+        employeeSelfAssessment: '', // No longer used
+        employeeRating: undefined, // No longer used
       };
       addBehavior(formData);
     });
+    
+    // TODO: Handle selfReflection and deepDiveDevelopment data
+    // These might need to be stored in a different way or combined with PDR data
+    console.log('Self Reflection:', data.selfReflection);
+    console.log('Deep Dive Development:', data.deepDiveDevelopment);
   };
 
-  const handleAutoSave = async (behaviorsData: Array<{
-    valueId: string;
-    valueName: string;
-    description: string;
-    examples: string;
-    employeeSelfAssessment: string;
-    employeeRating: number;
-  }>) => {
+  const handleAutoSave = async (data: {
+    behaviors: Array<{
+      valueId: string;
+      valueName: string;
+      description: string;
+    }>;
+    selfReflection?: string;
+    deepDiveDevelopment?: string;
+  }) => {
     // Only save behaviors with meaningful content
-    const behaviorsToSave = behaviorsData.filter(b => 
-      (b.description && b.description.trim().length > 3) || 
-      (b.examples && b.examples.trim().length > 3) || 
-      (b.employeeSelfAssessment && b.employeeSelfAssessment.trim().length > 3) ||
-      b.employeeRating > 0
+    const behaviorsToSave = data.behaviors.filter(b => 
+      (b.description && b.description.trim().length > 3)
     );
     
     if (behaviorsToSave.length > 0) {
@@ -126,21 +130,30 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
           updateBehavior(existingBehavior.id, {
             valueId: behaviorData.valueId,
             description: behaviorData.description,
-            examples: behaviorData.examples,
-            employeeSelfAssessment: behaviorData.employeeSelfAssessment,
-            employeeRating: behaviorData.employeeRating,
+            examples: '', // No longer used
+            employeeSelfAssessment: '', // No longer used
+            employeeRating: undefined, // No longer used
           });
         } else {
           // Create new behavior only if it doesn't exist
           const formData: BehaviorFormData = {
             valueId: behaviorData.valueId,
             description: behaviorData.description,
-            examples: behaviorData.examples,
-            employeeSelfAssessment: behaviorData.employeeSelfAssessment,
-            employeeRating: behaviorData.employeeRating,
+            examples: '', // No longer used
+            employeeSelfAssessment: '', // No longer used
+            employeeRating: undefined, // No longer used
           };
           addBehavior(formData);
         }
+      });
+    }
+    
+    // TODO: Handle selfReflection and deepDiveDevelopment auto-save
+    // These might need to be stored separately or as part of the PDR
+    if (data.selfReflection || data.deepDiveDevelopment) {
+      console.log('Auto-saving development data:', {
+        selfReflection: data.selfReflection,
+        deepDiveDevelopment: data.deepDiveDevelopment
       });
     }
   };
@@ -164,9 +177,20 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
     );
   }
 
-  const isAssessmentComplete = behaviors && behaviors.length >= (companyValues?.length || 0);
-  const completedValues = behaviors?.length || 0;
+  // Check if each company value has a behavior with meaningful description
+  const completedValues = companyValues?.filter(value => {
+    const behavior = behaviors?.find(b => b.valueId === value.id);
+    const isCompleted = behavior && behavior.description && behavior.description.trim().length > 3;
+    // Temporarily remove debug logging for cleaner console
+    // console.log(`🔍 Value ${value.name}:`, ...);
+    return isCompleted;
+  }).length || 0;
+  
   const totalValues = companyValues?.length || 0;
+  const isAssessmentComplete = completedValues >= totalValues;
+  
+  // Temporarily remove debug logging
+  // console.log('🔍 Completion Summary:', ...);
 
   return (
     <div className="space-y-6">

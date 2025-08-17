@@ -153,7 +153,7 @@ export function BehaviorForm({
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h4 className="font-medium text-foreground mb-2">How I Demonstrate This Value</h4>
+            <h4 className="font-medium text-foreground mb-2">How I Can Meet The Values</h4>
             <p className="text-muted-foreground">{behavior.description}</p>
           </div>
           
@@ -278,14 +278,14 @@ export function BehaviorForm({
           {/* Description */}
           <div>
             <label htmlFor="description" className="block text-sm font-medium text-foreground mb-1">
-              How I Demonstrate This Value *
+              How I Can Meet The Values *
             </label>
             <textarea
               id="description"
               {...register('description')}
               rows={4}
               className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-              placeholder="Describe how you consistently demonstrate this company value in your work and interactions..."
+              placeholder="Describe how you can consistently meet this company value in your work and interactions..."
             />
             {errors.description && (
               <p className="mt-1 text-sm text-status-error">{errors.description.message}</p>
@@ -302,7 +302,7 @@ export function BehaviorForm({
               {...register('examples')}
               rows={3}
               className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-              placeholder="Provide specific examples, situations, or projects where you demonstrated this value..."
+              placeholder="Provide specific examples, situations, or projects where you can meet this value..."
             />
             {errors.examples && (
               <p className="mt-1 text-sm text-status-error">{errors.examples.message}</p>
@@ -344,7 +344,7 @@ export function BehaviorForm({
               )}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Rate how well you feel you demonstrate this value (1 = Needs Improvement, 5 = Exceeds Expectations)
+              Rate how well you feel you can meet these values (1 = Needs Improvement, 5 = Exceeds Expectations)
             </p>
           </div>
 

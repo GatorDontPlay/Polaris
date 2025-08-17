@@ -349,7 +349,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                 No Behaviors Assessed Yet
               </h3>
               <p className="text-muted-foreground mb-4">
-                Assess how you demonstrate our company values in your daily work.
+                Assess how you can meet our company values in your daily work.
               </p>
               {canEdit && (
                 <Button onClick={handleEditBehaviors}>
