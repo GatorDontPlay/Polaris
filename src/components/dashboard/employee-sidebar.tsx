@@ -12,6 +12,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import {
   DropdownMenu,
@@ -33,6 +35,7 @@ import {
   ChevronDown,
   History,
   Bell,
+  HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -41,6 +44,12 @@ const navigation = [
     name: 'Dashboard',
     href: '/dashboard',
     icon: LayoutDashboard,
+    badge: null,
+  },
+  {
+    name: 'How To',
+    href: '/dashboard/how-to',
+    icon: HelpCircle,
     badge: null,
   },
   {
@@ -72,6 +81,8 @@ const navigation = [
 export function EmployeeSidebar() {
   const pathname = usePathname();
   const { user, logout } = useDemoAuth();
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
 
   const handleLogout = async () => {
     await logout();
@@ -83,17 +94,22 @@ export function EmployeeSidebar() {
   };
 
   return (
-    <Sidebar className="border-r">
+    <Sidebar collapsible="icon" className="border-r">
       <SidebarHeader className="border-b">
         <div className="flex flex-col items-center gap-2 px-4 py-3">
-          <Image
-            src="/company-logo.svg"
-            alt="Company Logo"
-            width={160}
-            height={48}
-            className="h-10 w-auto"
-          />
-          <span className="text-sm font-black text-white" style={{ fontWeight: 900, letterSpacing: '-0.025em' }}>Employee PDR Portal</span>
+          <div className="group-data-[collapsible=icon]:hidden">
+            <Image
+              src="/company-logo.svg"
+              alt="Company Logo"
+              width={160}
+              height={48}
+              className="h-10 w-auto"
+            />
+            <span className="text-white font-black text-lg tracking-wide block text-center mt-2">
+              POLARIS
+            </span>
+          </div>
+          <SidebarTrigger className="text-white hover:bg-white/10" />
         </div>
       </SidebarHeader>
 
@@ -103,43 +119,31 @@ export function EmployeeSidebar() {
             const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <SidebarMenuItem key={item.name}>
-                <Link 
-                  href={item.href} 
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive}
+                  tooltip={item.name}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative",
-                    "hover:bg-accent/60 hover:shadow-sm",
-                    isActive 
-                      ? "bg-primary/10 text-primary shadow-sm border border-primary/20" 
-                      : "text-muted-foreground hover:text-foreground"
+                    "text-white/70 hover:text-white hover:bg-white/10",
+                    isActive && "bg-primary/20 text-white border border-primary/30"
                   )}
                 >
-                  <div className={cn(
-                    "flex items-center justify-center w-5 h-5 transition-colors",
-                    isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-                  )}>
+                  <Link href={item.href}>
                     <item.icon className="h-5 w-5" />
-                  </div>
-                  <span className={cn(
-                    "font-medium text-sm transition-colors",
-                    isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-                  )}>
-                    {item.name}
-                  </span>
-                  {item.badge && (
-                    <Badge 
-                      variant={isActive ? "default" : "secondary"} 
-                      className={cn(
-                        "ml-auto text-xs h-5 px-2",
-                        isActive ? "bg-primary text-primary-foreground" : "bg-muted"
-                      )}
-                    >
-                      {item.badge}
-                    </Badge>
-                  )}
-                  {isActive && (
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-l-full" />
-                  )}
-                </Link>
+                    <span className="group-data-[collapsible=icon]:sr-only">{item.name}</span>
+                    {item.badge && (
+                      <Badge 
+                        variant={isActive ? "default" : "secondary"} 
+                        className={cn(
+                          "ml-auto text-xs h-5 px-2 group-data-[collapsible=icon]:hidden",
+                          isActive ? "bg-primary text-primary-foreground" : "bg-white/20 text-white"
+                        )}
+                      >
+                        {item.badge}
+                      </Badge>
+                    )}
+                  </Link>
+                </SidebarMenuButton>
               </SidebarMenuItem>
             );
           })}
@@ -151,21 +155,24 @@ export function EmployeeSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton className="h-12 justify-start">
+                <SidebarMenuButton 
+                  size="lg"
+                  className="text-white hover:bg-white/10"
+                >
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="text-xs">
+                    <AvatarFallback className="text-xs bg-primary text-primary-foreground">
                       {getUserInitials(user?.firstName, user?.lastName)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex flex-col items-start text-sm">
-                    <span className="font-medium">
+                  <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+                    <span className="truncate font-semibold text-white">
                       {user?.firstName} {user?.lastName}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="truncate text-xs text-white/70">
                       {user?.email}
                     </span>
                   </div>
-                  <ChevronDown className="ml-auto h-4 w-4" />
+                  <ChevronDown className="ml-auto size-4 text-white/70 group-data-[collapsible=icon]:hidden" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent

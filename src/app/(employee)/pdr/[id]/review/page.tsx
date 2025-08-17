@@ -19,6 +19,7 @@ import {
   Heart,
   FileText
 } from 'lucide-react';
+import { formatFYForDisplay } from '@/lib/financial-year';
 
 interface ReviewPageProps {
   params: { id: string };
@@ -225,7 +226,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
         </CardHeader>
         <CardContent>
           {goals && goals.length > 0 ? (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {goals.map((goal) => (
                 <div key={goal.id} className="border border-border rounded-lg p-4">
                   <div className="flex items-start justify-between mb-2">
@@ -253,9 +254,18 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                     <p className="text-muted-foreground text-sm mb-2">{goal.description}</p>
                   )}
                   {goal.targetOutcome && (
-                    <div className="text-sm">
+                    <div className="text-sm mb-2">
                       <span className="font-medium text-foreground/80">Target: </span>
                       <span className="text-muted-foreground">{goal.targetOutcome}</span>
+                    </div>
+                  )}
+                  
+                  {/* FY Label - Bottom right display */}
+                  {pdr?.fyLabel && (
+                    <div className="flex justify-end mt-2">
+                      <span className="text-xs text-muted-foreground/60 font-mono">
+                        {formatFYForDisplay(pdr.fyLabel)}
+                      </span>
                     </div>
                   )}
                 </div>

@@ -9,26 +9,34 @@ import { logDemoAudit } from '@/lib/demo-audit';
 const DEMO_COMPANY_VALUES: CompanyValue[] = [
   {
     id: '550e8400-e29b-41d4-a716-446655440001',
-    name: 'Innovation',
-    description: 'We embrace change and drive creative solutions',
+    name: 'Lean Thinking',
+    description: 'We embrace a lean mindset, always seeking ways to eliminate waste and improve productivity. This ensures we deliver optimal results with minimal resources and maximum impact.',
     isActive: true,
     sortOrder: 1,
     createdAt: new Date(),
   },
   {
     id: '550e8400-e29b-41d4-a716-446655440002',
-    name: 'Collaboration',
-    description: 'We work together to achieve common goals',
+    name: 'Craftsmanship',
+    description: 'We take pride in creating high-quality products and services. While we use AI to enhance our capabilities and streamline delivery, it\'s our team\'s creativity, expertise, and attention to detail that shape our solutions.',
     isActive: true,
     sortOrder: 2,
     createdAt: new Date(),
   },
   {
     id: '550e8400-e29b-41d4-a716-446655440003',
-    name: 'Excellence',
-    description: 'We strive for the highest quality in everything we do',
+    name: 'Value-Centric Innovation',
+    description: 'We focus on creating products and services that add significant value to our customers\' lives. Innovation isn\'t just about new ideas, it\'s about delivering meaningful, efficient solutions that solve real-world challenges.',
     isActive: true,
     sortOrder: 3,
+    createdAt: new Date(),
+  },
+  {
+    id: '550e8400-e29b-41d4-a716-446655440004',
+    name: 'Blameless Problem-Solving',
+    description: 'We approach every challenge with a forward-looking, solution-driven mindset. Instead of assigning blame, we focus on learning, improvement, and taking ownership to move the business forward.',
+    isActive: true,
+    sortOrder: 4,
     createdAt: new Date(),
   },
 ];
@@ -383,7 +391,14 @@ export function useDemoPDRDashboard() {
     };
   }, []);
 
-  const createPDR = () => {
+  const createPDR = (financialYear?: { label: string; startDate: Date; endDate: Date }) => {
+    // Use provided financial year or default to current one
+    const fyData = financialYear || {
+      label: '2024-2025',
+      startDate: new Date('2024-07-01'),
+      endDate: new Date('2025-06-30')
+    };
+
     const newPDR: PDR = {
       id: `demo-pdr-${Date.now()}`,
       userId: 'demo-employee-1',
@@ -392,9 +407,9 @@ export function useDemoPDRDashboard() {
       currentStep: 1,
       isLocked: false,
       meetingBooked: false,
-      fyLabel: '2024',
-      fyStartDate: new Date('2024-07-01'),
-      fyEndDate: new Date('2025-06-30'),
+      fyLabel: fyData.label,
+      fyStartDate: fyData.startDate,
+      fyEndDate: fyData.endDate,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

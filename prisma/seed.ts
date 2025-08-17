@@ -10,52 +10,42 @@ async function main() {
   console.log('📋 Creating company values...');
   const values = await Promise.all([
     prisma.companyValue.upsert({
-      where: { name: 'Innovation' },
+      where: { name: 'Lean Thinking' },
       update: {},
       create: {
-        name: 'Innovation',
-        description: 'We embrace creativity and continuous improvement to drive forward-thinking solutions.',
+        name: 'Lean Thinking',
+        description: 'We embrace a lean mindset, always seeking ways to eliminate waste and improve productivity. This ensures we deliver optimal results with minimal resources and maximum impact.',
         sortOrder: 1,
         isActive: true,
       },
     }),
     prisma.companyValue.upsert({
-      where: { name: 'Integrity' },
+      where: { name: 'Craftsmanship' },
       update: {},
       create: {
-        name: 'Integrity',
-        description: 'We act with honesty, transparency, and ethical standards in all our dealings.',
+        name: 'Craftsmanship',
+        description: 'We take pride in creating high-quality products and services. While we use AI to enhance our capabilities and streamline delivery, it\'s our team\'s creativity, expertise, and attention to detail that shape our solutions.',
         sortOrder: 2,
         isActive: true,
       },
     }),
     prisma.companyValue.upsert({
-      where: { name: 'Collaboration' },
+      where: { name: 'Value-Centric Innovation' },
       update: {},
       create: {
-        name: 'Collaboration',
-        description: 'We work together across teams and departments to achieve common goals.',
+        name: 'Value-Centric Innovation',
+        description: 'We focus on creating products and services that add significant value to our customers\' lives. Innovation isn\'t just about new ideas, it\'s about delivering meaningful, efficient solutions that solve real-world challenges.',
         sortOrder: 3,
         isActive: true,
       },
     }),
     prisma.companyValue.upsert({
-      where: { name: 'Excellence' },
+      where: { name: 'Blameless Problem-Solving' },
       update: {},
       create: {
-        name: 'Excellence',
-        description: 'We strive for the highest quality and continuous improvement in everything we do.',
+        name: 'Blameless Problem-Solving',
+        description: 'We approach every challenge with a forward-looking, solution-driven mindset. Instead of assigning blame, we focus on learning, improvement, and taking ownership to move the business forward.',
         sortOrder: 4,
-        isActive: true,
-      },
-    }),
-    prisma.companyValue.upsert({
-      where: { name: 'Customer Focus' },
-      update: {},
-      create: {
-        name: 'Customer Focus',
-        description: 'We put our customers at the center of our decisions and deliver exceptional value.',
-        sortOrder: 5,
         isActive: true,
       },
     }),

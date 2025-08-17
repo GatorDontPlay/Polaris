@@ -6,6 +6,7 @@ import { PDRStatusBadge } from '@/components/pdr/pdr-status-badge';
 import { StepperIndicator } from '@/components/pdr/stepper-indicator';
 import { PDR } from '@/types';
 import { ArrowRight, Plus } from 'lucide-react';
+import { getPDRDisplayName } from '@/lib/financial-year';
 
 interface CurrentPDRCardProps {
   pdr: PDR | null;
@@ -95,7 +96,7 @@ export function CurrentPDRCard({
         {/* PDR Info */}
         <div>
           <h3 className="font-semibold text-foreground text-lg">
-            {pdr.period?.name || '2024 Annual Review'}
+            {pdr.fyLabel ? getPDRDisplayName(pdr.fyLabel) : (pdr.period?.name || 'Annual Review')}
           </h3>
           <p className="text-sm text-muted-foreground/80 mt-1">
             {pdr.status === 'SUBMITTED' 

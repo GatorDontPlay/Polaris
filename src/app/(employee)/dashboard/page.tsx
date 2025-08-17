@@ -19,6 +19,8 @@ import {
   FileText,
   CheckCircle2
 } from 'lucide-react';
+import { getPDRDisplayName } from '@/lib/financial-year';
+import { FinancialYearSelectionDialog, FinancialYearOption } from '@/components/pdr/financial-year-selection-dialog';
 
 export default function EmployeeDashboard() {
   const router = useRouter();
@@ -36,6 +38,7 @@ export default function EmployeeDashboard() {
   const { data: pdrHistory, isLoading: historyLoading } = useDemoPDRHistory();
   const { data: userActivity, isLoading: activityLoading } = useDemoUserActivity(5);
   const [isCreatingPDR, setIsCreatingPDR] = useState(false);
+  const [showFYDialog, setShowFYDialog] = useState(false);
   
   console.log('EmployeeDashboard - PDR Debug:', { 
     currentPDR, 
@@ -128,10 +131,18 @@ export default function EmployeeDashboard() {
 
   // Handle PDR creation
   const handleCreatePDR = async () => {
+    // Show financial year selection dialog
+    setShowFYDialog(true);
+  };
+
+  // Handle financial year confirmation
+  const handleFYConfirm = async (selectedFY: FinancialYearOption) => {
     setIsCreatingPDR(true);
+    setShowFYDialog(false);
+    
     try {
-      // Create a new PDR using demo system
-      const newPDR = createPDR();
+      // Create a new PDR using demo system with selected financial year
+      const newPDR = createPDR(selectedFY);
       if (newPDR) {
         router.push(`/pdr/${newPDR.id}/goals`);
       } else {
@@ -142,6 +153,11 @@ export default function EmployeeDashboard() {
     } finally {
       setIsCreatingPDR(false);
     }
+  };
+
+  // Handle financial year selection cancellation
+  const handleFYCancel = () => {
+    setShowFYDialog(false);
   };
 
   // Handle continue PDR
@@ -538,7 +554,7 @@ export default function EmployeeDashboard() {
                   <div key={pdr.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
                       <h4 className="font-medium">
-                        {pdr.fyLabel ? `${pdr.fyLabel} Annual Review` : 'Annual Review'}
+                        {pdr.fyLabel ? getPDRDisplayName(pdr.fyLabel) : 'Annual Review'}
                       </h4>
                       <p className="text-sm text-muted-foreground">
                         {pdr.status === 'COMPLETED' ? 'Completed' : 
@@ -577,6 +593,15 @@ export default function EmployeeDashboard() {
         </Card>
         </div>
       </div>
+
+      {/* Financial Year Selection Dialog */}
+      <FinancialYearSelectionDialog
+        open={showFYDialog}
+        onOpenChange={setShowFYDialog}
+        onConfirm={handleFYConfirm}
+        onCancel={handleFYCancel}
+        isCreating={isCreatingPDR}
+      />
     </div>
   );
 }

@@ -100,7 +100,7 @@ export default function GoalsPage({ params }: GoalsPageProps) {
             <Target className="h-7 w-7 mr-3 text-blue-400" />
             Goals & Objectives
           </h1>
-          <p className="text-muted-foreground mt-2 text-lg">
+          <p className="text-muted-foreground mt-2">
             Define what you want to achieve this review period
           </p>
         </div>
@@ -114,8 +114,42 @@ export default function GoalsPage({ params }: GoalsPageProps) {
               Add Goal
             </Button>
           )}
+          {goals && goals.length > 0 && canEdit && (
+            <Button onClick={handleNext} variant="outline">
+              Continue to Behaviors
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Goals Summary - Fixed bottom right */}
+      {goals && goals.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <Card className="bg-background border shadow-lg">
+            <CardContent className="px-3 py-2">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-3 w-3 text-green-600" />
+                  <span className="text-xs font-medium">Goals Summary</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-blue-400">{goals.length}</div>
+                    <div className="text-xs text-muted-foreground">Goals</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-emerald-400">
+                      {goals.reduce((sum, goal) => sum + (goal.weighting || 0), 0)}%
+                    </div>
+                    <div className="text-xs text-muted-foreground">Weighting</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Instructions */}
       {(!goals || goals.length === 0) && !showAddForm && (
@@ -146,81 +180,29 @@ export default function GoalsPage({ params }: GoalsPageProps) {
           onCancel={() => setShowAddForm(false)}
           isSubmitting={isSubmitting}
           existingGoals={goals || []}
+          fyLabel={pdr?.fyLabel}
         />
       )}
 
       {/* Goals List */}
       {goals && goals.length > 0 && (
         <div className="space-y-4">
-          {goals.map((goal) => (
-            <GoalForm
-              key={goal.id}
-              goal={goal}
-              onSubmit={(data) => handleUpdateGoal(goal.id, data)}
-              {...(canEdit && { onDelete: () => handleDeleteGoal(goal.id) })}
-              isSubmitting={isSubmitting}
-              isReadOnly={!canEdit}
-              existingGoals={goals || []}
-            />
-          ))}
-          
-          {/* Add Another Goal Button */}
-          {canEdit && !showAddForm && (
-            <Card className="border-dashed border-2 border-gray-300">
-              <CardContent className="text-center py-8">
-                <Button onClick={handleAddGoal} variant="outline" size="lg">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Another Goal
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+          {/* Goals Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {goals.map((goal) => (
+              <GoalForm
+                key={goal.id}
+                goal={goal}
+                onSubmit={(data) => handleUpdateGoal(goal.id, data)}
+                {...(canEdit && { onDelete: () => handleDeleteGoal(goal.id) })}
+                isSubmitting={isSubmitting}
+                isReadOnly={!canEdit}
+                existingGoals={goals || []}
+                fyLabel={pdr?.fyLabel}
+              />
+            ))}
+          </div>
         </div>
-      )}
-
-      {/* Completion Summary */}
-      {goals && goals.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <CheckCircle className="h-5 w-5 mr-2 text-green-600" />
-              Goals Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-400">{goals.length}</div>
-                <div className="text-sm text-muted-foreground font-medium">Total Goals</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-red-400">
-                  {goals.filter(g => g.priority === 'HIGH').length}
-                </div>
-                <div className="text-sm text-muted-foreground font-medium">High Priority</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-400">
-                  {goals.filter(g => g.employeeRating && g.employeeRating >= 4).length}
-                </div>
-                <div className="text-sm text-muted-foreground font-medium">Self-Rated 4+</div>
-              </div>
-            </div>
-            
-            {goals.length > 0 && canEdit && (
-              <div className="mt-6 text-center">
-                <p className="text-foreground/80 mb-4 font-medium">
-                  Great! You've defined {goals.length} goal{goals.length !== 1 ? 's' : ''}. 
-                  Next, let's assess how you demonstrate our company values.
-                </p>
-                <Button onClick={handleNext} size="lg">
-                  Continue to Behaviors
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
       )}
 
       {/* Navigation */}
@@ -235,3 +217,4 @@ export default function GoalsPage({ params }: GoalsPageProps) {
     </div>
   );
 }
+

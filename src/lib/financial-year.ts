@@ -122,3 +122,70 @@ export function createFYFromLabel(label: string): FinancialYear {
     endDate,
   };
 }
+
+/**
+ * Converts FY label to display format
+ * @param label - The FY label (e.g., "2025-2026")
+ * @returns Display format (e.g., "25/26")
+ */
+export function formatFYForDisplay(label: string): string {
+  if (!isValidFYLabel(label)) {
+    return label;
+  }
+
+  const [startYear, endYear] = label.split('-').map(Number);
+  return `${startYear.toString().slice(-2)}/${endYear.toString().slice(-2)}`;
+}
+
+/**
+ * Gets the display name for a PDR based on financial year
+ * @param fyLabel - The financial year label
+ * @returns Display name for the PDR
+ */
+export function getPDRDisplayName(fyLabel: string): string {
+  const displayFormat = formatFYForDisplay(fyLabel);
+  return `${displayFormat} Annual Review`;
+}
+
+/**
+ * Generates available financial year options
+ * @param startYear - Starting year (defaults to 2025)
+ * @param count - Number of years to generate (defaults to 5)
+ * @returns Array of financial year options
+ */
+export function generateFinancialYearOptions(startYear: number = 2025, count: number = 5): Array<{
+  label: string;
+  displayName: string;
+  startDate: Date;
+  endDate: Date;
+}> {
+  const options = [];
+  
+  for (let i = 0; i < count; i++) {
+    const fyStartYear = startYear + i;
+    const fyEndYear = fyStartYear + 1;
+    const label = `${fyStartYear}-${fyEndYear}`;
+    const displayName = formatFYForDisplay(label);
+    
+    const fy = createFYFromLabel(label);
+    
+    options.push({
+      label,
+      displayName,
+      startDate: fy.startDate,
+      endDate: fy.endDate,
+    });
+  }
+  
+  return options;
+}
+
+/**
+ * Checks if a financial year is currently active
+ * @param fy - The financial year to check
+ * @param currentDate - The date to check against (defaults to current date)
+ * @returns true if the FY is currently active
+ */
+export function isFYActive(fy: FinancialYear, currentDate: Date = new Date()): boolean {
+  return isDateInFY(currentDate, fy);
+}

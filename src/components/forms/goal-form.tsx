@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Trash2, Save, X, Edit2, Plus, HelpCircle } from 'lucide-react';
 import { useState } from 'react';
+import { formatFYForDisplay } from '@/lib/financial-year';
 
 interface GoalFormProps {
   goal?: Goal;
@@ -19,6 +20,7 @@ interface GoalFormProps {
   isSubmitting?: boolean;
   isReadOnly?: boolean;
   existingGoals?: Goal[]; // For weighting validation
+  fyLabel?: string; // Financial year label for display
 }
 
 // Priority colors are no longer used - replaced with weighting
@@ -30,10 +32,12 @@ export function GoalForm({
   onCancel,
   isSubmitting = false,
   isReadOnly = false,
-  existingGoals = []
+  existingGoals = [],
+  fyLabel
 }: GoalFormProps) {
   const [isEditing, setIsEditing] = useState(!goal);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showFullDetails, setShowFullDetails] = useState(false);
 
   const {
     register,
@@ -111,73 +115,185 @@ export function GoalForm({
     }
   };
 
-  // Read-only view
+  // Compact read-only view
   if (goal && !isEditing) {
+    const truncateText = (text: string, maxLength: number = 80) => {
+      if (text.length <= maxLength) return text;
+      return text.slice(0, maxLength) + '...';
+    };
+
+    const getGoalMappingLabel = (mapping: string) => {
+      switch (mapping) {
+        case 'PEOPLE_CULTURE': return 'People & Culture';
+        case 'VALUE_DRIVEN_INNOVATION': return 'Value-Driven Innovation';
+        case 'OPERATING_EFFICIENCY': return 'Operating Efficiency';
+        case 'CUSTOMER_EXPERIENCE': return 'Customer Experience';
+        default: return mapping;
+      }
+    };
+
     return (
-      <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <CardTitle className="text-lg">{goal.title}</CardTitle>
-              <div className="flex items-center space-x-2 mt-2">
-                <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20">
-                  {goal.weighting || 0}%
-                </Badge>
+      <>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow duration-200 border border-border/50 hover:border-border relative"
+          onClick={() => setShowFullDetails(true)}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-base text-foreground truncate pr-2">{goal.title}</h4>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs">
+                    {goal.weighting || 0}%
+                  </Badge>
+                  {goal.goalMapping && (
+                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-xs">
+                      {getGoalMappingLabel(goal.goalMapping)}
+                    </Badge>
+                  )}
+                </div>
               </div>
+              {!isReadOnly && (
+                <div className="flex items-center space-x-1 ml-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEdit();
+                    }}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDeleteConfirm(true);
+                    }}
+                    className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
             </div>
-            {!isReadOnly && (
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleEdit}
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+            
+            {goal.description && (
+              <div className="mb-2">
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium">Description: </span>
+                  {truncateText(goal.description)}
+                </p>
               </div>
             )}
+            
+            {goal.targetOutcome && (
+              <div className="mb-2">
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium">Target: </span>
+                  {truncateText(goal.targetOutcome)}
+                </p>
+              </div>
+            )}
+            
+            <div className="flex items-center justify-between mt-2">
+              <div className="text-xs text-muted-foreground">
+                Click to view full details
+              </div>
+              {/* FY Label - Bottom right display */}
+              {fyLabel && (
+                <span className="text-xs text-muted-foreground/60 font-mono">
+                  {formatFYForDisplay(fyLabel)}
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Full Details Modal */}
+        {showFullDetails && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto relative">
+              <CardHeader>
+                {/* FY Label in modal */}
+                {fyLabel && (
+                  <div className="absolute top-4 right-4">
+                    <span className="text-xs text-muted-foreground/60 font-mono bg-muted/30 px-2 py-1 rounded">
+                      {formatFYForDisplay(fyLabel)}
+                    </span>
+                  </div>
+                )}
+                
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 pr-16">
+                    <CardTitle className="text-xl">{goal.title}</CardTitle>
+                    <div className="flex items-center space-x-2 mt-2">
+                      <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20">
+                        {goal.weighting || 0}%
+                      </Badge>
+                      {goal.goalMapping && (
+                        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                          {getGoalMappingLabel(goal.goalMapping)}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowFullDetails(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {goal.description && (
+                  <div>
+                    <h4 className="font-semibold text-foreground mb-3 text-base">Description</h4>
+                    <p className="text-foreground/90 leading-relaxed">{goal.description}</p>
+                  </div>
+                )}
+                {goal.targetOutcome && (
+                  <div>
+                    <h4 className="font-semibold text-foreground mb-3 text-base">Target Outcome</h4>
+                    <p className="text-foreground/90 leading-relaxed">{goal.targetOutcome}</p>
+                  </div>
+                )}
+                {goal.successCriteria && (
+                  <div>
+                    <h4 className="font-semibold text-foreground mb-3 text-base">Success Criteria</h4>
+                    <p className="text-foreground/90 leading-relaxed">{goal.successCriteria}</p>
+                  </div>
+                )}
+                <div className="flex justify-end space-x-2">
+                  {!isReadOnly && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowFullDetails(false);
+                        handleEdit();
+                      }}
+                    >
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Edit Goal
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowFullDetails(false)}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {goal.description && (
-            <div>
-              <h4 className="font-semibold text-foreground mb-3 text-base">Description</h4>
-              <p className="text-foreground/90 leading-relaxed">{goal.description}</p>
-            </div>
-          )}
-          {goal.targetOutcome && (
-            <div>
-              <h4 className="font-semibold text-foreground mb-3 text-base">Target Outcome</h4>
-              <p className="text-foreground/90 leading-relaxed">{goal.targetOutcome}</p>
-            </div>
-          )}
-          {goal.goalMapping && (
-            <div>
-              <h4 className="font-semibold text-foreground mb-3 text-base">Goal Mapping</h4>
-              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                {goal.goalMapping === 'PEOPLE_CULTURE' ? 'People & Culture' :
-                 goal.goalMapping === 'VALUE_DRIVEN_INNOVATION' ? 'Value-Driven Innovation' :
-                 goal.goalMapping === 'OPERATING_EFFICIENCY' ? 'Operating Efficiency' :
-                 goal.goalMapping === 'CUSTOMER_EXPERIENCE' ? 'Customer Experience' : goal.goalMapping}
-              </Badge>
-            </div>
-          )}
-          {goal.successCriteria && (
-            <div>
-              <h4 className="font-semibold text-foreground mb-3 text-base">Success Criteria (Legacy)</h4>
-              <p className="text-foreground/90 leading-relaxed">{goal.successCriteria}</p>
-            </div>
-          )}
-        </CardContent>
-        
+        )}
+
         {/* Delete Confirmation Modal */}
         {showDeleteConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -207,13 +323,13 @@ export function GoalForm({
             </Card>
           </div>
         )}
-      </Card>
+      </>
     );
   }
 
   // Form view (editing or creating)
   return (
-    <Card>
+    <Card className={goal ? "col-span-full max-w-4xl mx-auto" : ""}>
       <CardHeader>
         <CardTitle className="flex items-center">
           {goal ? (
@@ -397,7 +513,7 @@ export function GoalForm({
               <textarea
                 id="description"
                 {...register('description')}
-                rows={3}
+                rows={4}
                 maxLength={500}
                 className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground transition-colors resize-none"
                 placeholder="Describe the goal/objective you are aiming to achieve"
@@ -439,7 +555,7 @@ export function GoalForm({
               <textarea
                 id="targetOutcome"
                 {...register('targetOutcome')}
-                rows={3}
+                rows={4}
                 maxLength={250}
                 className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground transition-colors resize-none"
                 placeholder="Describe expected outcomes from achieving this goal"

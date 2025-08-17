@@ -138,12 +138,9 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
                 Dashboard
               </Button>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  {pdr.period?.name || 'PDR Review'}
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  {pdr.user?.firstName} {pdr.user?.lastName} - Performance & Development Review
-                </p>
+                                       <h1 className="text-2xl font-bold text-foreground">
+                         {pdr.period?.name || 'PDR Review'}
+                       </h1>
               </div>
             </div>
             <div className="flex items-center space-x-4">

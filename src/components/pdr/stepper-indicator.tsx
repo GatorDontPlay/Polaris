@@ -32,7 +32,7 @@ export function StepperIndicator({
         </div>
         <div className="w-full bg-muted/50 rounded-full h-3 overflow-hidden">
           <div
-            className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500 ease-out shadow-sm"
+            className="bg-gradient-to-r from-status-success to-status-success/80 h-3 rounded-full transition-all duration-500 ease-out shadow-sm"
             style={{ width: `${progressPercentage}%` }}
           />
         </div>
@@ -52,11 +52,11 @@ export function StepperIndicator({
                 className={cn(
                   'flex items-center justify-center w-12 h-12 rounded-full border-2 text-sm font-bold transition-all duration-300 shadow-lg',
                   {
-                    'bg-gradient-to-br from-blue-500 to-blue-600 text-white border-blue-500 shadow-blue-500/25': isActive,
-                    'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-emerald-500 shadow-emerald-500/25': isCompleted,
+                    'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-primary shadow-primary/25': isActive,
+                    'bg-gradient-to-br from-status-success to-status-success/80 text-status-success-foreground border-status-success shadow-status-success/25': isCompleted,
                     'bg-background text-muted-foreground border-border hover:border-border/80': !isActive && !isCompleted,
                     'cursor-pointer hover:scale-105 hover:shadow-xl': isClickable,
-                    'ring-4 ring-blue-500/20': isActive,
+                    'ring-4 ring-primary/20': isActive,
                   }
                 )}
                 onClick={() => isClickable && onStepClick(step.number)}
@@ -75,7 +75,7 @@ export function StepperIndicator({
                     'text-base font-semibold leading-tight',
                     {
                       'text-foreground': isActive,
-                      'text-emerald-600 dark:text-emerald-400': isCompleted,
+                      'text-status-success': isCompleted,
                       'text-muted-foreground': !isActive && !isCompleted,
                     }
                   )}
@@ -103,7 +103,7 @@ export function StepperIndicator({
                     className={cn(
                       'h-1 w-16 rounded-full transition-all duration-300',
                       {
-                        'bg-gradient-to-r from-emerald-500 to-blue-500': step.number < currentStep,
+                        'bg-gradient-to-r from-status-success to-primary': step.number < currentStep,
                         'bg-border/50': step.number >= currentStep,
                       }
                     )}

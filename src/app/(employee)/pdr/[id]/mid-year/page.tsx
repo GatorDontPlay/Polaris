@@ -190,7 +190,7 @@ export default function MidYearPage({ params }: MidYearPageProps) {
             <Calendar className="h-7 w-7 mr-3 text-green-400" />
             Mid-Year Check-In
           </h1>
-          <p className="text-muted-foreground mt-2 text-lg">
+          <p className="text-muted-foreground mt-2">
             Reflect on your progress and identify areas for support
           </p>
         </div>

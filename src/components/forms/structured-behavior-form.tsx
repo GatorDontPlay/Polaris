@@ -7,8 +7,9 @@ import { Behavior, CompanyValue } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RatingInput } from '@/components/pdr/rating-input';
-import { Heart, CheckCircle2, AlertCircle, Save, Sparkles } from 'lucide-react';
+import { Heart, CheckCircle2, AlertCircle, Save, Sparkles, HelpCircle } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 
@@ -45,7 +46,6 @@ export function StructuredBehaviorForm({
   isSubmitting = false,
   isReadOnly = false,
 }: StructuredBehaviorFormProps) {
-  const [currentValueIndex, setCurrentValueIndex] = useState(0);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [allCompleted, setAllCompleted] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
@@ -89,8 +89,7 @@ export function StructuredBehaviorForm({
   const completedCount = watchedBehaviors.filter(behavior => 
     behavior.description && 
     behavior.examples && 
-    behavior.employeeSelfAssessment && 
-    behavior.employeeRating > 0
+    behavior.employeeSelfAssessment
   ).length;
   
   const progressPercentage = (completedCount / companyValues.length) * 100;
@@ -152,8 +151,7 @@ export function StructuredBehaviorForm({
         const behaviorsWithContent = watchedBehaviors.filter(b => 
           (b.description && b.description.trim().length > 3) || 
           (b.examples && b.examples.trim().length > 3) || 
-          (b.employeeSelfAssessment && b.employeeSelfAssessment.trim().length > 3) ||
-          b.employeeRating > 0
+          (b.employeeSelfAssessment && b.employeeSelfAssessment.trim().length > 3)
         );
         
         if (behaviorsWithContent.length > 0) {
@@ -175,307 +173,193 @@ export function StructuredBehaviorForm({
     }
   };
 
-  const handleRatingChange = (index: number, rating: number) => {
-    setValue(`behaviors.${index}.employeeRating`, rating, { shouldValidate: true });
-  };
 
-  const nextValue = () => {
-    if (currentValueIndex < companyValues.length - 1) {
-      // Auto-save current progress before moving if there's substantial content
-      if (onAutoSave && watchedBehaviors[currentValueIndex]) {
-        const currentBehaviorData = watchedBehaviors[currentValueIndex];
-        if ((currentBehaviorData.description && currentBehaviorData.description.trim().length > 3) || 
-            (currentBehaviorData.examples && currentBehaviorData.examples.trim().length > 3) || 
-            (currentBehaviorData.employeeSelfAssessment && currentBehaviorData.employeeSelfAssessment.trim().length > 3) ||
-            currentBehaviorData.employeeRating > 0) {
-          debouncedAutoSave([currentBehaviorData]);
-        }
-      }
-      // Transition to next value
-      setCurrentValueIndex(currentValueIndex + 1);
-    }
-  };
 
-  const previousValue = () => {
-    if (currentValueIndex > 0) {
-      setCurrentValueIndex(currentValueIndex - 1);
-    }
-  };
 
-  const goToValue = (index: number) => {
-    setCurrentValueIndex(index);
-  };
-
-  const currentBehavior = watchedBehaviors[currentValueIndex];
-  const currentValue = companyValues[currentValueIndex];
-  const currentErrors = errors.behaviors?.[currentValueIndex];
-
-  const isCurrentValueComplete = currentBehavior && 
-    currentBehavior.description && 
-    currentBehavior.examples && 
-    currentBehavior.employeeSelfAssessment && 
-    currentBehavior.employeeRating > 0;
 
   return (
     <div className="space-y-6">
       {/* Header with Progress */}
       <Card className={`transition-all duration-500 ${showCelebration ? 'ring-2 ring-status-success shadow-lg' : ''}`}>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center justify-between text-base">
             <div className="flex items-center">
-              <Heart className="h-5 w-5 mr-2 text-activity-behavior" />
+              <Heart className="h-4 w-4 mr-2 text-activity-behavior" />
               Company Values & Behaviors Assessment
               {showCelebration && (
-                <Sparkles className="h-5 w-5 ml-2 text-status-success animate-pulse" />
+                <Sparkles className="h-4 w-4 ml-2 text-status-success animate-pulse" />
               )}
             </div>
             <div className="flex items-center space-x-3">
               {isAutoSaving && (
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <Save className="h-4 w-4 mr-1 animate-pulse" />
+                <div className="flex items-center text-xs text-muted-foreground">
+                  <Save className="h-3 w-3 mr-1 animate-pulse" />
                   <span>Saving...</span>
                 </div>
               )}
-              <div className="text-sm text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 {completedCount} of {companyValues.length} completed
               </div>
             </div>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="pt-0">
+          <div className="space-y-3">
             <div>
-              <div className="flex justify-between text-sm text-muted-foreground mb-2">
+              <div className="flex justify-between text-xs text-muted-foreground mb-1">
                 <span>Overall Progress</span>
                 <span>{Math.round(progressPercentage)}%</span>
               </div>
-              <Progress value={progressPercentage} className="h-2" />
+              <Progress value={progressPercentage} className="h-1.5" />
             </div>
             
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Complete your assessment for each company value. Provide specific examples and reflect on your alignment with our values.
             </p>
 
-            {/* Value Navigation */}
-            <div className="grid grid-cols-3 gap-2">
-              {companyValues.map((value, index) => {
-                const isCompleted = watchedBehaviors[index] && 
-                  watchedBehaviors[index].description && 
-                  watchedBehaviors[index].examples && 
-                  watchedBehaviors[index].employeeSelfAssessment && 
-                  watchedBehaviors[index].employeeRating > 0;
-                
-                return (
-                  <button
-                    key={value.id}
-                    type="button"
-                    onClick={() => goToValue(index)}
-                    className={`p-2 text-left rounded-md transition-colors ${
-                      currentValueIndex === index
-                        ? 'bg-primary text-primary-foreground'
-                        : isCompleted
-                        ? 'bg-status-success/10 text-status-success hover:bg-status-success/20'
-                        : 'bg-muted hover:bg-muted/80'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium truncate">{value.name}</span>
-                      {isCompleted && (
-                        <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+
           </div>
         </CardContent>
       </Card>
 
-      {/* Current Value Form */}
-      <div key={currentValueIndex} className="animate-in fade-in-50 duration-300">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div>
-                <span className="text-primary">
-                  {currentValueIndex + 1}. {currentValue.name}
-                </span>
-                {isCurrentValueComplete && (
-                  <CheckCircle2 className="h-5 w-5 text-status-success ml-2 inline" />
-                )}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {currentValueIndex + 1} of {companyValues.length}
-              </div>
-            </CardTitle>
-            <div className="mt-2 p-3 bg-muted/50 rounded-md">
-              <p className="text-sm text-muted-foreground">
-                <strong>{currentValue.name}:</strong> {currentValue.description}
-              </p>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Description */}
-            <div className="transition-all duration-300">
-              <label 
-                htmlFor={`description-${currentValueIndex}`}
-                className="block text-sm font-medium text-foreground mb-1"
-              >
-                How I Demonstrate This Value *
-              </label>
-              <textarea
-                id={`description-${currentValueIndex}`}
-                {...register(`behaviors.${currentValueIndex}.description`)}
-                placeholder="Describe how you embody this value in your daily work..."
-                className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring resize-none transition-all duration-200"
-                rows={3}
-                disabled={isReadOnly}
-              />
-              {currentErrors?.description && (
-                <p className="mt-1 text-sm text-status-error animate-in slide-in-from-top-1 duration-200">
-                  {currentErrors.description.message}
-                </p>
-              )}
-            </div>
+      {/* All Values Form - 4 Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+        {companyValues.map((value, index) => {
+          const behavior = watchedBehaviors[index] || {};
+          const isCompleted = behavior.description && 
+            behavior.examples && 
+            behavior.employeeSelfAssessment;
+          const fieldErrors = errors?.behaviors?.[index];
 
-            {/* Examples */}
-            <div className="transition-all duration-300">
-              <label 
-                htmlFor={`examples-${currentValueIndex}`}
-                className="block text-sm font-medium text-foreground mb-1"
-              >
-                Specific Examples *
-              </label>
-              <textarea
-                id={`examples-${currentValueIndex}`}
-                {...register(`behaviors.${currentValueIndex}.examples`)}
-                placeholder="Provide concrete examples of when you demonstrated this value..."
-                className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring resize-none transition-all duration-200"
-                rows={3}
-                disabled={isReadOnly}
-              />
-              {currentErrors?.examples && (
-                <p className="mt-1 text-sm text-status-error animate-in slide-in-from-top-1 duration-200">
-                  {currentErrors.examples.message}
-                </p>
-              )}
-            </div>
-
-            {/* Self Assessment */}
-            <div className="transition-all duration-300">
-              <label 
-                htmlFor={`selfAssessment-${currentValueIndex}`}
-                className="block text-sm font-medium text-foreground mb-1"
-              >
-                Self Assessment & Growth Areas *
-              </label>
-              <textarea
-                id={`selfAssessment-${currentValueIndex}`}
-                {...register(`behaviors.${currentValueIndex}.employeeSelfAssessment`)}
-                placeholder="Reflect on your strengths and areas for improvement regarding this value..."
-                className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring resize-none transition-all duration-200"
-                rows={3}
-                disabled={isReadOnly}
-              />
-              {currentErrors?.employeeSelfAssessment && (
-                <p className="mt-1 text-sm text-status-error animate-in slide-in-from-top-1 duration-200">
-                  {currentErrors.employeeSelfAssessment.message}
-                </p>
-              )}
-            </div>
-
-            {/* Rating */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Self Rating *
-              </label>
-              <p className="text-xs text-muted-foreground mb-3">
-                Rate how well you feel you demonstrate this value (1 = Needs Improvement, 5 = Exceptional)
-              </p>
-              <RatingInput
-                value={currentBehavior?.employeeRating || 0}
-                onChange={(rating) => handleRatingChange(currentValueIndex, rating)}
-                disabled={isReadOnly}
-              />
-              {currentErrors?.employeeRating && (
-                <p className="mt-1 text-sm text-status-error">
-                  {currentErrors.employeeRating.message}
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Navigation */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              {/* Previous Button */}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={previousValue}
-                disabled={currentValueIndex === 0}
-              >
-                Previous Value
-              </Button>
-
-              {/* Completion Status */}
-              <div className="flex items-center space-x-2">
-                {completedCount < companyValues.length && (
-                  <div className="flex items-center text-amber-600">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    <span className="text-sm">
-                      {companyValues.length - completedCount} values remaining
-                    </span>
+          return (
+            <Card key={value.id} className={`h-fit ${isCompleted ? 'ring-1 ring-status-success/30' : ''}`}>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-start justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-primary font-semibold">{value.name}</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-4 w-4 p-0">
+                          <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80">
+                        <div className="space-y-2">
+                          <h4 className="font-medium">{value.name}</h4>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {value.description}
+                          </p>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
-                )}
-                {completedCount === companyValues.length && (
-                  <div className="flex items-center text-status-success">
-                    <CheckCircle2 className="h-4 w-4 mr-1" />
-                    <span className="text-sm font-medium">All values completed!</span>
-                  </div>
-                )}
-                {isAutoSaving && (
-                  <div className="flex items-center text-muted-foreground">
-                    <Save className="h-4 w-4 mr-1 animate-pulse" />
-                    <span className="text-sm">Auto-saving...</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Next Button (No Submit) */}
-              <div className="flex space-x-2">
-                {currentValueIndex < companyValues.length - 1 ? (
-                  <Button
-                    type="button"
-                    onClick={nextValue}
+                  {isCompleted && (
+                    <CheckCircle2 className="h-4 w-4 text-status-success flex-shrink-0 mt-0.5" />
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Description */}
+                <div className="space-y-1">
+                  <label 
+                    htmlFor={`description-${index}`}
+                    className="block text-xs font-medium text-foreground"
                   >
-                    Next Value
-                  </Button>
-                ) : (
-                  <div className="flex items-center text-status-success">
-                    <CheckCircle2 className="h-5 w-5 mr-2" />
-                    <span className="text-sm font-medium">Assessment Complete</span>
-                  </div>
-                )}
-                
-                {onCancel && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={onCancel}
-                    disabled={isSubmitting}
+                    How I Demonstrate This Value *
+                  </label>
+                  <textarea
+                    id={`description-${index}`}
+                    {...register(`behaviors.${index}.description`)}
+                    placeholder="Describe how you embody this value..."
+                    className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring resize-none text-xs leading-relaxed"
+                    rows={3}
+                    disabled={isReadOnly}
+                  />
+                  {fieldErrors?.description && (
+                    <p className="text-xs text-status-error">
+                      {fieldErrors.description.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Examples */}
+                <div className="space-y-1">
+                  <label 
+                    htmlFor={`examples-${index}`}
+                    className="block text-xs font-medium text-foreground"
                   >
-                    Cancel
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                    Specific Examples *
+                  </label>
+                  <textarea
+                    id={`examples-${index}`}
+                    {...register(`behaviors.${index}.examples`)}
+                    placeholder="Provide concrete examples..."
+                    className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring resize-none text-xs leading-relaxed"
+                    rows={3}
+                    disabled={isReadOnly}
+                  />
+                  {fieldErrors?.examples && (
+                    <p className="text-xs text-status-error">
+                      {fieldErrors.examples.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Self Assessment */}
+                <div className="space-y-1">
+                  <label 
+                    htmlFor={`selfAssessment-${index}`}
+                    className="block text-xs font-medium text-foreground"
+                  >
+                    Self Assessment & Growth *
+                  </label>
+                  <textarea
+                    id={`selfAssessment-${index}`}
+                    {...register(`behaviors.${index}.employeeSelfAssessment`)}
+                    placeholder="Reflect on strengths and improvements..."
+                    className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring resize-none text-xs leading-relaxed"
+                    rows={3}
+                    disabled={isReadOnly}
+                  />
+                  {fieldErrors?.employeeSelfAssessment && (
+                    <p className="text-xs text-status-error">
+                      {fieldErrors.employeeSelfAssessment.message}
+                    </p>
+                  )}
+                </div>
+
+
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
+
+      {/* Behaviors Summary - Fixed bottom right */}
+      {companyValues && companyValues.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <Card className="bg-background border shadow-lg">
+            <CardContent className="px-3 py-2">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Heart className="h-3 w-3 text-activity-behavior" />
+                  <span className="text-xs font-medium">Values Summary</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-blue-400">{completedCount}</div>
+                    <div className="text-xs text-muted-foreground">Completed</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-emerald-400">{Math.round(progressPercentage)}%</div>
+                    <div className="text-xs text-muted-foreground">Progress</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
