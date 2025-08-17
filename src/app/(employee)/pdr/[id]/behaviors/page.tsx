@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDemoPDR, useDemoBehaviors, useDemoCompanyValues } from '@/hooks/use-demo-pdr';
 import { StructuredBehaviorForm } from '@/components/forms/structured-behavior-form';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Heart } from 'lucide-react';
 import { BehaviorFormData } from '@/types';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -16,6 +16,14 @@ interface BehaviorsPageProps {
 export default function BehaviorsPage({ params }: BehaviorsPageProps) {
   const router = useRouter();
   const [hasCleanedDuplicates, setHasCleanedDuplicates] = useState(false);
+  const [formCompletedCount, setFormCompletedCount] = useState(0);
+  const [formTotalCount, setFormTotalCount] = useState(6);
+  
+  // Temporary: Clear localStorage on page load to test fresh state
+  useEffect(() => {
+    console.log('🧹 Clearing localStorage for fresh test...');
+    localStorage.removeItem('demo_behaviors_pdr-1');
+  }, []);
   
   const { data: pdr, isLoading: pdrLoading } = useDemoPDR(params.id);
   const { data: behaviors, isLoading: behaviorsLoading, addBehavior, updateBehavior, deleteBehavior } = useDemoBehaviors(params.id);
@@ -177,17 +185,17 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
     );
   }
 
-  // Check if each company value has a behavior with meaningful description
-  const completedValues = companyValues?.filter(value => {
-    const behavior = behaviors?.find(b => b.valueId === value.id);
-    const isCompleted = behavior && behavior.description && behavior.description.trim().length > 3;
-    // Temporarily remove debug logging for cleaner console
-    // console.log(`🔍 Value ${value.name}:`, ...);
-    return isCompleted;
-  }).length || 0;
-  
-  const totalValues = companyValues?.length || 0;
+  // Use form completion state instead of checking saved behaviors
+  const completedValues = formCompletedCount;
+  const totalValues = formTotalCount;
   const isAssessmentComplete = completedValues >= totalValues;
+
+  // Callback to receive completion updates from the form
+  const handleCompletionChange = useCallback((completed: number, total: number) => {
+    console.log('📊 Form completion update:', completed, '/', total);
+    setFormCompletedCount(completed);
+    setFormTotalCount(total);
+  }, []);
   
   // Temporarily remove debug logging
   // console.log('🔍 Completion Summary:', ...);
@@ -197,6 +205,39 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
       {/* Toast Container */}
       <Toaster />
       
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground flex items-center">
+            <Heart className="h-7 w-7 mr-3 text-blue-400" />
+            Company Values & Behaviors Assessment
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Assess how you can meet our company values in your daily work.
+          </p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <Button onClick={handlePrevious} variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Goals
+          </Button>
+          
+          <Button 
+            onClick={handleNext}
+            disabled={!isAssessmentComplete}
+            className={`flex items-center transition-all duration-300 ${
+              isAssessmentComplete 
+                ? 'bg-status-success hover:bg-status-success/90 text-white shadow-lg' 
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
+            }`}
+            title={!isAssessmentComplete ? `Complete all ${totalValues} values to continue (${completedValues}/${totalValues} done)` : 'Continue to review your PDR'}
+          >
+            {isAssessmentComplete ? 'Continue to Review' : `Complete Assessment (${completedValues}/${totalValues})`}
+            <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+        </div>
+      </div>
+      
       {/* Structured Behavior Assessment Form */}
       {companyValues && companyValues.length > 0 && (
         <StructuredBehaviorForm
@@ -205,30 +246,9 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
           onSubmit={handleBulkCreateBehaviors}
           onAutoSave={handleAutoSave}
           isReadOnly={!canEdit}
+          onCompletionChange={handleCompletionChange}
         />
       )}
-
-      {/* Navigation */}
-      <div className="flex justify-between">
-        <Button onClick={handlePrevious} variant="outline">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Goals
-        </Button>
-        
-        <Button 
-          onClick={handleNext}
-          disabled={!isAssessmentComplete}
-          className={`flex items-center transition-all duration-300 ${
-            isAssessmentComplete 
-              ? 'bg-status-success hover:bg-status-success/90 text-white shadow-lg' 
-              : 'bg-muted text-muted-foreground cursor-not-allowed'
-          }`}
-          title={!isAssessmentComplete ? `Complete all ${totalValues} values to continue (${completedValues}/${totalValues} done)` : 'Continue to review your PDR'}
-        >
-          {isAssessmentComplete ? 'Continue to Review' : `Complete Assessment (${completedValues}/${totalValues})`}
-          <ArrowRight className="h-4 w-4 ml-2" />
-        </Button>
-      </div>
     </div>
   );
 }

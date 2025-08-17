@@ -35,6 +35,7 @@ interface StructuredBehaviorFormProps {
   onCancel?: () => void;
   isSubmitting?: boolean;
   isReadOnly?: boolean;
+  onCompletionChange?: (completed: number, total: number) => void;
 }
 
 export function StructuredBehaviorForm({
@@ -45,6 +46,7 @@ export function StructuredBehaviorForm({
   onCancel,
   isSubmitting = false,
   isReadOnly = false,
+  onCompletionChange,
 }: StructuredBehaviorFormProps) {
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [allCompleted, setAllCompleted] = useState(false);
@@ -84,7 +86,8 @@ export function StructuredBehaviorForm({
 
   // Ensure field array is synced with all company values
   useEffect(() => {
-    if (fields.length !== companyValues.length) {
+    if (fields.length !== companyValues.length || fields.length === 0) {
+      console.log('🔧 Force syncing field array - Current fields:', fields.length, 'Expected:', companyValues.length);
       const syncedValues = companyValues.map(value => {
         const existingBehavior = existingBehaviors.find(b => b.valueId === value.id);
         return {
@@ -114,12 +117,30 @@ export function StructuredBehaviorForm({
     }, null, 2));
   }, [fields.length, watchedBehaviors, companyValues.length]);
 
-  // Calculate completion progress
-  const completedCount = watchedBehaviors.filter(behavior => 
-    behavior.description
+  // Calculate completion progress for all 6 fields (4 behaviors + 2 development fields)
+  const completedBehaviors = watchedBehaviors.filter(behavior => 
+    behavior.description && behavior.description.trim().length > 3
   ).length;
   
-  const progressPercentage = (completedCount / companyValues.length) * 100;
+  const selfReflection = watch('selfReflection');
+  const deepDiveDevelopment = watch('deepDiveDevelopment');
+  
+  const completedDevelopmentFields = [
+    selfReflection && selfReflection.trim().length > 3,
+    deepDiveDevelopment && deepDiveDevelopment.trim().length > 3
+  ].filter(Boolean).length;
+  
+  const totalCompletedCount = completedBehaviors + completedDevelopmentFields;
+  const totalFieldCount = companyValues.length + 2; // 4 behaviors + 2 development fields = 6 total
+  
+  const progressPercentage = (totalCompletedCount / totalFieldCount) * 100;
+
+  // Notify parent of completion changes (now includes all 6 fields)
+  useEffect(() => {
+    if (onCompletionChange) {
+      onCompletionChange(totalCompletedCount, totalFieldCount);
+    }
+  }, [totalCompletedCount, totalFieldCount, onCompletionChange]);
 
   // Auto-save functionality with debouncing
   const debouncedAutoSave = useCallback(
@@ -147,7 +168,7 @@ export function StructuredBehaviorForm({
   // Check for completion and trigger celebration
   useEffect(() => {
     const wasCompleted = allCompleted;
-    const isNowCompleted = completedCount === companyValues.length && completedCount > 0;
+    const isNowCompleted = totalCompletedCount === totalFieldCount && totalCompletedCount > 0;
     
     setAllCompleted(isNowCompleted);
     
@@ -172,7 +193,7 @@ export function StructuredBehaviorForm({
       // Hide celebration after animation
       setTimeout(() => setShowCelebration(false), 3000);
     }
-  }, [completedCount, companyValues.length, allCompleted, debouncedAutoSave, onAutoSave, watchedBehaviors]);
+  }, [totalCompletedCount, totalFieldCount, allCompleted, debouncedAutoSave, onAutoSave, watchedBehaviors, selfReflection, deepDiveDevelopment]);
 
   // Track previous values to prevent unnecessary saves
   const previousValuesRef = useRef<string>('');
@@ -251,7 +272,7 @@ export function StructuredBehaviorForm({
                 </div>
               )}
               <div className="text-xs text-muted-foreground">
-                {completedCount} of {companyValues.length} completed
+                {totalCompletedCount} of {totalFieldCount} completed
               </div>
             </div>
           </CardTitle>
