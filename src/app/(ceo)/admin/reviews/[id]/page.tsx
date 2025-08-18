@@ -905,34 +905,49 @@ export default function CEOPDRReviewPage() {
                             
                             <div>
                               <Label className="text-sm font-medium">Title</Label>
-                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm">
+                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm h-9 flex items-center">
                                 {goal.title || 'Untitled Goal'}
                               </div>
                             </div>
                             
                             <div>
                               <Label className="text-sm font-medium">Description</Label>
-                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm min-h-[60px]">
+                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm min-h-[104px]">
                                 {goal.description || 'No description provided'}
                               </div>
                             </div>
                             
                             <div>
-                              <Label className="text-sm font-medium">Employee Progress</Label>
-                              <div className="mt-1 space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm">
-                                    {goal.employeeProgress ? goal.employeeProgress : 'No progress reported'}
-                                  </span>
-                                  <span className="text-sm text-muted-foreground">
-                                    Rating: {goal.employeeRating || 'Not rated'}
-                                  </span>
+                              <Label className="text-sm font-medium">Goal Weighting</Label>
+                              <div className="mt-1 flex items-center h-9">
+                                <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-sm font-semibold transition-colors bg-blue-500/10 text-blue-400 border-blue-500/20">
+                                  {goal.weighting || 0}%
                                 </div>
-                                {goal.employeeRating && (
-                                  <Progress value={(goal.employeeRating / 5) * 100} className="h-2" />
-                                )}
+                                <span className="ml-2 text-xs text-muted-foreground">
+                                  (Employee suggested weighting)
+                                </span>
                               </div>
                             </div>
+                            
+                            {/* Employee Progress section - only show if not in plan submission stage */}
+                            {pdr.status !== 'SUBMITTED' && (
+                              <div>
+                                <Label className="text-sm font-medium">Employee Progress</Label>
+                                <div className="mt-1 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm">
+                                      {goal.employeeProgress ? goal.employeeProgress : 'No progress reported'}
+                                    </span>
+                                    <span className="text-sm text-muted-foreground">
+                                      Rating: {goal.employeeRating || 'Not rated'}
+                                    </span>
+                                  </div>
+                                  {goal.employeeRating && (
+                                    <Progress value={(goal.employeeRating / 5) * 100} className="h-2" />
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           {/* CEO Side */}
@@ -941,74 +956,55 @@ export default function CEOPDRReviewPage() {
                             
                             <div>
                               <Label htmlFor={`ceo-title-${goal.id}`} className="text-sm font-medium">
-                                Your Title/Assessment
+                                Goal Name
                               </Label>
                               <Input
                                 id={`ceo-title-${goal.id}`}
-                                placeholder="CEO's assessment of this goal..."
+                                placeholder="Rename the employees goal (If Required)"
                                 value={ceoGoalFeedback[goal.id]?.ceoTitle || ''}
                                 onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoTitle', e.target.value)}
-                                className="mt-1"
+                                className="mt-1 h-9"
                                 disabled={pdr.isLocked}
                               />
                             </div>
                             
                             <div>
                               <Label htmlFor={`ceo-desc-${goal.id}`} className="text-sm font-medium">
-                                Your Comments
+                                Goal Description
                               </Label>
                               <Textarea
                                 id={`ceo-desc-${goal.id}`}
-                                placeholder="Your thoughts on this goal, its relevance, achievability, etc..."
+                                placeholder="Enter new goal description (If applicable)"
                                 value={ceoGoalFeedback[goal.id]?.ceoDescription || ''}
                                 onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoDescription', e.target.value)}
-                                className="mt-1 min-h-[60px]"
-                                rows={3}
+                                className="mt-1 min-h-[104px]"
+                                rows={4}
                                 disabled={pdr.isLocked}
                               />
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <Label htmlFor={`ceo-progress-${goal.id}`} className="text-sm font-medium">
-                                  Your Progress Assessment (%)
-                                </Label>
-                                <Input
-                                  id={`ceo-progress-${goal.id}`}
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  placeholder="0-100"
-                                  value={ceoGoalFeedback[goal.id]?.ceoProgress || ''}
-                                  onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoProgress', parseInt(e.target.value) || 0)}
-                                  className="mt-1"
-                                  disabled={pdr.isLocked}
-                                />
-                              </div>
-                              
-                              <div>
-                                <Label htmlFor={`ceo-rating-${goal.id}`} className="text-sm font-medium">
-                                  Rating (1-5)
-                                </Label>
-                                <Input
-                                  id={`ceo-rating-${goal.id}`}
-                                  type="number"
-                                  min="1"
-                                  max="5"
-                                  placeholder="1-5"
-                                  value={ceoGoalFeedback[goal.id]?.ceoRating || ''}
-                                  onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoRating', parseInt(e.target.value) || 0)}
-                                  className="mt-1"
-                                  disabled={pdr.isLocked}
-                                />
-                              </div>
+                            <div>
+                              <Label htmlFor={`ceo-progress-${goal.id}`} className="text-sm font-medium">
+                                Goal Weighting
+                              </Label>
+                              <Input
+                                id={`ceo-progress-${goal.id}`}
+                                type="number"
+                                min="0"
+                                max="100"
+                                placeholder="Suggest weighting for the employee"
+                                value={ceoGoalFeedback[goal.id]?.ceoProgress || ''}
+                                onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoProgress', parseInt(e.target.value) || 0)}
+                                className="mt-1 h-9"
+                                disabled={pdr.isLocked}
+                              />
                             </div>
                             
                             {ceoGoalFeedback[goal.id]?.ceoProgress && (
                               <div>
-                                <Label className="text-sm font-medium">CEO Progress Assessment</Label>
-                                <div className="mt-1">
-                                  <Progress value={ceoGoalFeedback[goal.id]?.ceoProgress || 0} className="h-2" />
+                                <Label className="text-sm font-medium">CEO Suggested Weighting</Label>
+                                <div className="mt-1 h-9 flex items-center">
+                                  <Progress value={ceoGoalFeedback[goal.id]?.ceoProgress || 0} className="h-2 w-full" />
                                 </div>
                               </div>
                             )}
