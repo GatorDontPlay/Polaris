@@ -26,7 +26,7 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
   //   localStorage.removeItem('demo_behaviors_pdr-1');
   // }, []);
   
-  const { data: pdr, isLoading: pdrLoading } = useDemoPDR(params.id);
+  const { data: pdr, isLoading: pdrLoading, updatePdr } = useDemoPDR(params.id);
   const { data: behaviors, isLoading: behaviorsLoading, addBehavior, updateBehavior, deleteBehavior } = useDemoBehaviors(params.id);
   const { data: companyValues, isLoading: valuesLoading } = useDemoCompanyValues();
 
@@ -240,6 +240,17 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
       if (formRef.current) {
         await formRef.current.forceSave();
         console.log('✅ Force save completed');
+      }
+      
+      // Update PDR status to mark behaviors step as completed
+      if (pdr) {
+        // Set currentStep to 3 (Review) if it's currently at 2 (Behaviors) or lower
+        if (pdr.currentStep <= 2) {
+          await updatePdr({
+            currentStep: 3, // Move to step 3 (Review)
+          });
+          console.log('✅ Updated PDR step to 3 (Review)');
+        }
       }
       
       // Small delay to ensure localStorage is updated
