@@ -59,7 +59,18 @@ export default function ReviewPage({ params }: ReviewPageProps) {
   useEffect(() => {
     const devData = getDevelopmentData(params.id);
     setDevelopmentData(devData);
-  }, [params.id]);
+    
+      // Debug: Check what behavior data exists in localStorage
+  const storedBehaviors = localStorage.getItem(`demo_behaviors_${params.id}`);
+  console.log('🔍 SIMPLE DEBUG - Review page loading:', {
+    pdrId: params.id,
+    localStorageKey: `demo_behaviors_${params.id}`,
+    storedBehaviorsRaw: storedBehaviors,
+    storedBehaviorsParsed: storedBehaviors ? JSON.parse(storedBehaviors) : null,
+    hookBehaviorsData: behaviors,
+    totalBehaviorsCount: behaviors?.length || 0
+  });
+  }, [params.id, behaviors]);
 
   console.log('Review page debug:', {
     pdrId: params.id,
@@ -71,6 +82,16 @@ export default function ReviewPage({ params }: ReviewPageProps) {
     submittedAt: pdr?.submittedAt
   });
 
+  // Debug: Check what behaviors are loaded and what company values exist
+  console.log('🔍 Behaviors vs Company Values Debug:', {
+    behaviors: behaviors,
+    companyValues: companyValues,
+    behaviorsCount: behaviors?.length || 0,
+    companyValuesCount: companyValues?.length || 0,
+    behaviorValueIds: behaviors?.map(b => ({ id: b.valueId, name: 'unknown' })) || [],
+    companyValueIds: companyValues?.map(v => ({ id: v.id, name: v.name })) || []
+  });
+
   // Helper function to get company value name
   const getValueName = (valueId: string) => {
     return companyValues?.find(value => value.id === valueId)?.name || 'Unknown Value';
@@ -80,10 +101,14 @@ export default function ReviewPage({ params }: ReviewPageProps) {
   const developmentFieldsCount = developmentData ? 
     (developmentData.selfReflection ? 1 : 0) + (developmentData.deepDiveDevelopment ? 1 : 0) : 0;
     
+  // Count total behaviors as all 4 company values + development fields, regardless of what's saved
+  const totalCompanyValues = companyValues?.length || 4; // Always 4 company values
+  const totalBehaviorsForDisplay = totalCompanyValues + developmentFieldsCount;
+    
   const stats = {
     totalGoals: goals?.length || 0,
     goalsWithRating: goals?.filter(g => g.employeeRating).length || 0,
-    totalBehaviors: (behaviors?.length || 0) + developmentFieldsCount, // Include development fields
+    totalBehaviors: totalBehaviorsForDisplay, // Show all 6 fields (4 company values + 2 development)
     behaviorsWithRating: behaviors?.filter(b => b.employeeRating).length || 0,
     averageGoalRating: goals && goals.length > 0 
       ? goals.reduce((sum, g) => sum + (g.employeeRating || 0), 0) / goals.filter(g => g.employeeRating).length
@@ -158,6 +183,10 @@ export default function ReviewPage({ params }: ReviewPageProps) {
           </p>
         </div>
         <div className="flex items-center space-x-4">
+          <Button onClick={handlePrevious} variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Behaviors
+          </Button>
           <PDRStatusBadge status={pdr?.status || 'DRAFT'} />
           {canSubmit && isComplete && (
             <Button 
@@ -330,71 +359,84 @@ export default function ReviewPage({ params }: ReviewPageProps) {
           </div>
         </CardHeader>
         <CardContent>
-          {behaviors && behaviors.length > 0 ? (
-            <div className="space-y-4">
-              {behaviors.map((behavior) => (
-                <div key={behavior.id} className="border border-border rounded-lg p-4">
+          {companyValues && companyValues.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {companyValues.map((value) => {
+                // Find the saved behavior for this company value
+                const savedBehavior = behaviors?.find(b => b.valueId === value.id);
+                
+
+                
+                return (
+                  <div key={value.id} className="border border-border rounded-lg p-4 h-32 flex flex-col">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 rounded-full bg-activity-behavior mr-3 flex-shrink-0"></div>
+                        <h4 className="font-medium text-foreground text-sm leading-tight">
+                          {value.name}
+                        </h4>
+                      </div>
+                      {savedBehavior?.employeeRating && (
+                        <div className="flex items-center flex-shrink-0">
+                          <RatingInput
+                            value={savedBehavior.employeeRating}
+                            onChange={() => {}}
+                            disabled
+                            size="sm"
+                          />
+                          <span className="ml-1 text-xs text-muted-foreground">
+                            {savedBehavior.employeeRating}/5
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <p className="text-muted-foreground text-xs leading-relaxed line-clamp-4">
+                        {savedBehavior?.description || 'No response provided'}
+                      </p>
+                    </div>
+                    {savedBehavior?.examples && (
+                      <div className="text-xs mt-2 pt-2 border-t border-border/50">
+                        <span className="font-medium text-foreground/80">Examples: </span>
+                        <span className="text-muted-foreground">{savedBehavior.examples}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              
+              {/* Self Reflection Field */}
+              {developmentData?.selfReflection && (
+                <div className="border border-border rounded-lg p-4 h-32 flex flex-col">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-activity-behavior mr-3"></div>
-                      <h4 className="font-medium text-foreground">
-                        {getValueName(behavior.valueId)}
-                      </h4>
+                      <div className="w-3 h-3 rounded-full bg-purple-500 mr-3 flex-shrink-0"></div>
+                      <h4 className="font-medium text-foreground text-sm leading-tight">Self Reflection</h4>
                     </div>
-                    {behavior.employeeRating && (
-                      <div className="flex items-center">
-                        <RatingInput
-                          value={behavior.employeeRating}
-                          onChange={() => {}}
-                          disabled
-                          size="sm"
-                        />
-                        <span className="ml-1 text-sm text-muted-foreground">
-                          {behavior.employeeRating}/5
-                        </span>
-                      </div>
-                    )}
                   </div>
-                  <p className="text-muted-foreground text-sm mb-2">{behavior.description}</p>
-                  {behavior.examples && (
-                    <div className="text-sm">
-                      <span className="font-medium text-foreground/80">Examples: </span>
-                      <span className="text-muted-foreground">{behavior.examples}</span>
-                    </div>
-                  )}
+                  <div className="flex-1 overflow-hidden">
+                    <p className="text-muted-foreground text-xs leading-relaxed line-clamp-4">
+                      {developmentData.selfReflection}
+                    </p>
+                  </div>
                 </div>
-              ))}
+              )}
               
-              {/* Development Fields Section */}
-              {developmentData && (developmentData.selfReflection || developmentData.deepDiveDevelopment) && (
-                <>
-                  <div className="border-t pt-4 mt-6">
-                    <h4 className="font-medium text-foreground mb-4 flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-purple-500 mr-3"></div>
-                      Self Reflection / Development
-                    </h4>
-                    
-                    {developmentData.selfReflection && (
-                      <div className="border border-border rounded-lg p-4 mb-4">
-                        <div className="flex items-center mb-2">
-                          <div className="w-2 h-2 rounded-full bg-purple-500 mr-2"></div>
-                          <h5 className="font-medium text-foreground">Self Reflection</h5>
-                        </div>
-                        <p className="text-muted-foreground text-sm">{developmentData.selfReflection}</p>
-                      </div>
-                    )}
-                    
-                    {developmentData.deepDiveDevelopment && (
-                      <div className="border border-border rounded-lg p-4">
-                        <div className="flex items-center mb-2">
-                          <div className="w-2 h-2 rounded-full bg-purple-500 mr-2"></div>
-                          <h5 className="font-medium text-foreground">CodeFish 3D - Deep Dive Development</h5>
-                        </div>
-                        <p className="text-muted-foreground text-sm">{developmentData.deepDiveDevelopment}</p>
-                      </div>
-                    )}
+              {/* CodeFish 3D Development Field */}
+              {developmentData?.deepDiveDevelopment && (
+                <div className="border border-border rounded-lg p-4 h-32 flex flex-col">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center">
+                      <div className="w-3 h-3 rounded-full bg-purple-500 mr-3 flex-shrink-0"></div>
+                      <h4 className="font-medium text-foreground text-sm leading-tight">CodeFish 3D - Deep Dive Development</h4>
+                    </div>
                   </div>
-                </>
+                  <div className="flex-1 overflow-hidden">
+                    <p className="text-muted-foreground text-xs leading-relaxed line-clamp-4">
+                      {developmentData.deepDiveDevelopment}
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
           ) : (
@@ -417,15 +459,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
         </CardContent>
       </Card>
 
-      {/* Navigation */}
-      <div className="flex justify-between">
-        <Button onClick={handlePrevious} variant="outline">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Behaviors
-        </Button>
 
-
-      </div>
 
       {/* Submit Confirmation Modal */}
       {showSubmitConfirm && (

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDemoPDR, useDemoBehaviors, useDemoCompanyValues } from '@/hooks/use-demo-pdr';
-import { StructuredBehaviorForm } from '@/components/forms/structured-behavior-form';
+import { StructuredBehaviorForm, StructuredBehaviorFormHandle } from '@/components/forms/structured-behavior-form';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Heart } from 'lucide-react';
 import { BehaviorFormData } from '@/types';
@@ -15,6 +15,7 @@ interface BehaviorsPageProps {
 
 export default function BehaviorsPage({ params }: BehaviorsPageProps) {
   const router = useRouter();
+  const formRef = useRef<StructuredBehaviorFormHandle>(null);
   const [hasCleanedDuplicates, setHasCleanedDuplicates] = useState(false);
   const [formCompletedCount, setFormCompletedCount] = useState(0);
   const [formTotalCount, setFormTotalCount] = useState(6);
@@ -98,24 +99,42 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
     selfReflection?: string;
     deepDiveDevelopment?: string;
   }) => {
-    // Remove existing behaviors for values that are being updated
-    const existingBehaviorIds = behaviors?.filter(b => 
-      data.behaviors.some(newB => newB.valueId === b.valueId)
-    ).map(b => b.id) || [];
+    // BATCH CREATE: Build complete behaviors array and save once
+    const currentBehaviors = behaviors || [];
+    let updatedBehaviors = [...currentBehaviors];
     
-    existingBehaviorIds.forEach(id => deleteBehavior(id));
-    
-    // Add all new behaviors
     data.behaviors.forEach(behaviorData => {
-      const formData: BehaviorFormData = {
-        valueId: behaviorData.valueId,
-        description: behaviorData.description,
-        examples: '', // No longer used
-        employeeSelfAssessment: '', // No longer used
-        employeeRating: undefined, // No longer used
-      };
-      addBehavior(formData);
+      const existingIndex = updatedBehaviors.findIndex(b => b.valueId === behaviorData.valueId);
+      
+      if (existingIndex !== -1) {
+        // Update existing behavior
+        updatedBehaviors[existingIndex] = {
+          ...updatedBehaviors[existingIndex],
+          description: behaviorData.description,
+          updatedAt: new Date(),
+        };
+      } else {
+        // Add new behavior
+        const newBehavior = {
+          id: `550e8400-e29b-41d4-a716-${Date.now().toString().slice(-12)}`,
+          pdrId: params.id,
+          valueId: behaviorData.valueId,
+          description: behaviorData.description,
+          examples: '',
+          employeeSelfAssessment: '',
+          employeeRating: null,
+          ceoComments: null,
+          ceoRating: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        updatedBehaviors.push(newBehavior);
+      }
     });
+    
+    // Single localStorage write for all behaviors
+    localStorage.setItem(`demo_behaviors_${params.id}`, JSON.stringify(updatedBehaviors));
+    console.log('🔧 BULK CREATE - Saved all behaviors to localStorage:', updatedBehaviors.length);
     
     // Save selfReflection and deepDiveDevelopment to localStorage as part of PDR data
     if (data.selfReflection || data.deepDiveDevelopment) {
@@ -138,39 +157,67 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
     selfReflection?: string;
     deepDiveDevelopment?: string;
   }) => {
-    // Only save behaviors with meaningful content
+    // Debug: Log what data is being auto-saved
+    console.log('🔧 SIMPLE DEBUG - Auto-save called with data:', {
+      pdrId: params.id,
+      localStorageKey: `demo_behaviors_${params.id}`,
+      allBehaviors: data.behaviors,
+      behaviorsWithAnyContent: data.behaviors.filter(b => (b.description && b.description.trim().length > 0))
+    });
+    
+    // Save behaviors with any content (even short descriptions)
     const behaviorsToSave = data.behaviors.filter(b => 
-      (b.description && b.description.trim().length > 3)
+      (b.description && b.description.trim().length > 0)
     );
     
     if (behaviorsToSave.length > 0) {
-      // For auto-save, we want to update existing or create new, not delete and recreate
+      // BATCH SAVE: Build the complete behaviors array and save once
+      const currentBehaviors = behaviors || [];
+      let updatedBehaviors = [...currentBehaviors];
+      
       behaviorsToSave.forEach(behaviorData => {
-        // Check if behavior already exists for this value
-        const existingBehavior = behaviors?.find(b => b.valueId === behaviorData.valueId);
+        const existingIndex = updatedBehaviors.findIndex(b => b.valueId === behaviorData.valueId);
         
-        if (existingBehavior) {
+        if (existingIndex !== -1) {
           // Update existing behavior
-          updateBehavior(existingBehavior.id, {
-            valueId: behaviorData.valueId,
+          updatedBehaviors[existingIndex] = {
+            ...updatedBehaviors[existingIndex],
             description: behaviorData.description,
-            examples: '', // No longer used
-            employeeSelfAssessment: '', // No longer used
-            employeeRating: undefined, // No longer used
-          });
-        } else {
-          // Create new behavior only if it doesn't exist
-          const formData: BehaviorFormData = {
-            valueId: behaviorData.valueId,
-            description: behaviorData.description,
-            examples: '', // No longer used
-            employeeSelfAssessment: '', // No longer used
-            employeeRating: undefined, // No longer used
+            updatedAt: new Date(),
           };
-          addBehavior(formData);
+        } else {
+          // Add new behavior
+          const newBehavior = {
+            id: `550e8400-e29b-41d4-a716-${Date.now().toString().slice(-12)}`,
+            pdrId: params.id,
+            valueId: behaviorData.valueId,
+            description: behaviorData.description,
+            examples: '',
+            employeeSelfAssessment: '',
+            employeeRating: null,
+            ceoComments: null,
+            ceoRating: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          updatedBehaviors.push(newBehavior);
         }
       });
+      
+      // Single localStorage write for all behaviors
+      localStorage.setItem(`demo_behaviors_${params.id}`, JSON.stringify(updatedBehaviors));
+      console.log('🔧 BATCH SAVED all behaviors to localStorage:', updatedBehaviors.length);
     }
+    
+    // Debug: Check what's actually in localStorage after save
+    setTimeout(() => {
+      const stored = localStorage.getItem(`demo_behaviors_${params.id}`);
+      console.log('🔧 SIMPLE DEBUG - After auto-save, localStorage contains:', {
+        key: `demo_behaviors_${params.id}`,
+        rawData: stored,
+        parsedData: stored ? JSON.parse(stored) : null
+      });
+    }, 100);
     
     // Auto-save selfReflection and deepDiveDevelopment
     if (data.selfReflection || data.deepDiveDevelopment) {
@@ -184,8 +231,26 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
     }
   };
 
-  const handleNext = () => {
-    router.push(`/pdr/${params.id}/review`);
+  const handleNext = async () => {
+    // Force save all current form values before navigating
+    console.log('🔧 Force saving all form data before navigation');
+    
+    try {
+      // Call the form's forceSave method to ensure all data is saved
+      if (formRef.current) {
+        await formRef.current.forceSave();
+        console.log('✅ Force save completed');
+      }
+      
+      // Small delay to ensure localStorage is updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      router.push(`/pdr/${params.id}/review`);
+    } catch (error) {
+      console.error('Error during force save:', error);
+      // Navigate anyway - auto-save should have captured most data
+      router.push(`/pdr/${params.id}/review`);
+    }
   };
 
   const handlePrevious = () => {
@@ -241,7 +306,10 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
           </Button>
           
           <Button 
-            onClick={handleNext}
+            onClick={() => {
+              console.log('🔧 Complete Assessment button clicked!');
+              handleNext();
+            }}
             disabled={!isAssessmentComplete}
             className={`flex items-center transition-all duration-300 ${
               isAssessmentComplete 
@@ -266,6 +334,7 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
             behaviorsData: behaviors
           })}
           <StructuredBehaviorForm
+            ref={formRef}
             companyValues={companyValues}
             existingBehaviors={behaviors || []}
             onSubmit={handleBulkCreateBehaviors}

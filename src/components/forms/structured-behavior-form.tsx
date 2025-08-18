@@ -10,7 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RatingInput } from '@/components/pdr/rating-input';
 import { Heart, CheckCircle2, AlertCircle, Save, Sparkles, HelpCircle } from 'lucide-react';
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useImperativeHandle, forwardRef } from 'react';
 import toast from 'react-hot-toast';
 
 // Schema for the structured form that handles all company values at once
@@ -27,6 +27,10 @@ const structuredBehaviorSchema = z.object({
 
 type StructuredBehaviorFormData = z.infer<typeof structuredBehaviorSchema>;
 
+export interface StructuredBehaviorFormHandle {
+  forceSave: () => Promise<void>;
+}
+
 interface StructuredBehaviorFormProps {
   companyValues: CompanyValue[];
   existingBehaviors?: Behavior[];
@@ -36,9 +40,10 @@ interface StructuredBehaviorFormProps {
   isSubmitting?: boolean;
   isReadOnly?: boolean;
   onCompletionChange?: (completed: number, total: number) => void;
+  onForceSave?: () => Promise<void>;
 }
 
-export function StructuredBehaviorForm({
+export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, StructuredBehaviorFormProps>(({
   companyValues,
   existingBehaviors = [],
   onSubmit,
@@ -47,8 +52,10 @@ export function StructuredBehaviorForm({
   isSubmitting = false,
   isReadOnly = false,
   onCompletionChange,
-}: StructuredBehaviorFormProps) {
+  onForceSave,
+}, ref) => {
   const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [isCurrentlySaving, setIsCurrentlySaving] = useState(false);
   const [allCompleted, setAllCompleted] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
 
@@ -90,6 +97,7 @@ export function StructuredBehaviorForm({
     watch,
     setValue,
     control,
+    getValues,
   } = useForm<StructuredBehaviorFormData>({
     resolver: zodResolver(structuredBehaviorSchema),
     defaultValues: {
@@ -108,6 +116,59 @@ export function StructuredBehaviorForm({
   // Ensure field array is synced with all company values and loads existing data
   useEffect(() => {
     console.log('🔧 Sync Check - Fields:', fields.length, 'CompanyValues:', companyValues.length, 'ExistingBehaviors:', existingBehaviors.length);
+    
+              // Don't sync during save operations to prevent field clearing
+          if (isCurrentlySaving) {
+            console.log('🔧 SKIPPING sync - currently saving');
+            return;
+          }
+          
+          // Don't sync if all fields are already populated with user data
+          const allFieldsHaveContent = companyValues.every((value, index) => {
+            const fieldValue = watch(`behaviors.${index}.description`);
+            return fieldValue && fieldValue.trim().length > 0;
+          });
+          
+          if (allFieldsHaveContent) {
+            console.log('🔧 SKIPPING sync - all fields already have content');
+            return;
+          }
+    
+          // Skip sync entirely if user is actively typing (any field has focus)
+          const activeElement = document.activeElement;
+          const isUserTyping = activeElement && (
+            activeElement.tagName === 'TEXTAREA' || 
+            (activeElement.tagName === 'INPUT' && activeElement.type === 'text')
+          );
+          
+          if (isUserTyping) {
+            console.log('🔧 SKIPPING sync - user is actively typing');
+            return;
+          }
+    
+              // Only skip sync if user has typed NEW content in fields that already have existing data
+          const currentFormValues = watch('behaviors') || [];
+          const hasConflictingContent = currentFormValues.some((behavior, index) => {
+            if (!behavior?.description || behavior.description.trim().length === 0) {
+              return false; // Empty fields can always be synced
+            }
+            
+            // Check if this field already has existing data that would conflict
+            const correspondingValue = companyValues[index];
+            const existingBehavior = existingBehaviors.find(b => b.valueId === correspondingValue?.id);
+            
+            // If there's existing data and user typed something different, that's a conflict
+            if (existingBehavior && behavior.description !== existingBehavior.description) {
+              return true;
+            }
+            
+            return false;
+          });
+          
+          if (hasConflictingContent) {
+            console.log('🔧 SKIPPING sync - user has conflicting content that would be lost');
+            return;
+          }
     
     // Always sync if we have company values, regardless of field count
     if (companyValues.length > 0) {
@@ -130,7 +191,7 @@ export function StructuredBehaviorForm({
     } else {
       console.log('🔧 No company values yet');
     }
-  }, [companyValues, existingBehaviors, replace]); // Removed fields.length dependency
+  }, [companyValues, existingBehaviors, replace, isCurrentlySaving]); // Prevent sync during saves
 
   const watchedBehaviors = watch('behaviors');
 
@@ -144,22 +205,31 @@ export function StructuredBehaviorForm({
         valueId: b.valueId,
         valueName: b.valueName,
         hasDescription: !!b.description,
-        descriptionLength: b.description?.length || 0
+        descriptionLength: b.description?.length || 0,
+        actualDescription: b.description || 'EMPTY'
       }))
     }, null, 2));
-  }, [fields.length, watchedBehaviors, companyValues.length]);
+
+    // DEBUG: Also check individual field values directly
+    console.log('🔍 Direct field check:', {
+      behavior0: watch('behaviors.0.description') || 'EMPTY',
+      behavior1: watch('behaviors.1.description') || 'EMPTY', 
+      behavior2: watch('behaviors.2.description') || 'EMPTY',
+      behavior3: watch('behaviors.3.description') || 'EMPTY'
+    });
+  }, [fields.length, watchedBehaviors, companyValues.length, watch]);
 
   // Calculate completion progress for all 6 fields (4 behaviors + 2 development fields)
   const completedBehaviors = watchedBehaviors.filter(behavior => 
-    behavior.description && behavior.description.trim().length > 3
+    behavior.description && behavior.description.trim().length > 0
   ).length;
   
   const selfReflection = watch('selfReflection');
   const deepDiveDevelopment = watch('deepDiveDevelopment');
   
   const completedDevelopmentFields = [
-    selfReflection && selfReflection.trim().length > 3,
-    deepDiveDevelopment && deepDiveDevelopment.trim().length > 3
+    selfReflection && selfReflection.trim().length > 0,
+    deepDiveDevelopment && deepDiveDevelopment.trim().length > 0
   ].filter(Boolean).length;
   
   const totalCompletedCount = completedBehaviors + completedDevelopmentFields;
@@ -180,18 +250,21 @@ export function StructuredBehaviorForm({
       if (!onAutoSave || isReadOnly) return;
       
       setIsAutoSaving(true);
+      setIsCurrentlySaving(true);
       try {
         await onAutoSave(data);
-        toast.success('Progress saved', { 
-          duration: 2000,
-          position: 'bottom-right',
-          icon: <Save className="h-4 w-4" />
-        });
+        // TEMPORARILY DISABLE SUCCESS TOAST - it was causing form field clearing
+        // toast.success('Progress saved', { 
+        //   duration: 2000,
+        //   position: 'bottom-right',
+        //   icon: <Save className="h-4 w-4" />
+        // });
       } catch (error) {
         console.error('Auto-save failed:', error);
         toast.error('Failed to save progress');
       } finally {
         setIsAutoSaving(false);
+        setIsCurrentlySaving(false);
       }
     },
     [onAutoSave, isReadOnly]
@@ -237,26 +310,58 @@ export function StructuredBehaviorForm({
     if (!onAutoSave || currentDataKey === previousValuesRef.current) return;
     
     const timer = setTimeout(() => {
-      // Only save behaviors that have meaningful content (not just single characters or empty)
+      // Only save behaviors that have any content (including short descriptions)
       const behaviorsWithContent = watchedBehaviors.filter(b => 
-        (b.description && b.description.trim().length > 3)
+        (b.description && b.description.trim().length > 0)
       );
+      
+      console.log('🔧 Auto-save triggered:', {
+        allBehaviors: watchedBehaviors,
+        behaviorsWithContent: behaviorsWithContent,
+        currentDataKey: currentDataKey,
+        previousKey: previousValuesRef.current
+      });
+      
+      // ADDITIONAL DEBUG: Check what getValues() sees vs watch()
+      const formValues = getValues();
+      console.log('🔧 getValues() vs watch() comparison:', {
+        getValuesResult: formValues.behaviors,
+        watchResult: watchedBehaviors,
+        directFieldAccess: {
+          behavior0: getValues('behaviors.0.description'),
+          behavior1: getValues('behaviors.1.description'),
+          behavior2: getValues('behaviors.2.description'),
+          behavior3: getValues('behaviors.3.description')
+        }
+      });
       
       const selfReflection = watch('selfReflection');
       const deepDiveDevelopment = watch('deepDiveDevelopment');
       
       // Only auto-save if there's actually meaningful content to save
+      // OR if any behavior field has been touched (including partially typed)
+      const hasAnyTyping = watchedBehaviors.some(behavior => 
+        behavior.description && behavior.description.trim().length > 0
+      );
       const hasContentToSave = behaviorsWithContent.length > 0 || 
-        (selfReflection && selfReflection.trim().length > 3) ||
-        (deepDiveDevelopment && deepDiveDevelopment.trim().length > 3);
+        hasAnyTyping ||
+        (selfReflection && selfReflection.trim().length > 0) ||
+        (deepDiveDevelopment && deepDiveDevelopment.trim().length > 0);
       
       if (hasContentToSave) {
-        previousValuesRef.current = currentDataKey;
-        debouncedAutoSave({
-          behaviors: behaviorsWithContent,
+        console.log('🔧 Auto-saving with data:', {
+          behaviors: watchedBehaviors, // Save ALL behaviors, not just ones with content
           selfReflection,
           deepDiveDevelopment
         });
+        previousValuesRef.current = currentDataKey;
+        debouncedAutoSave({
+          behaviors: watchedBehaviors, // Save ALL behaviors, including empty ones
+          selfReflection,
+          deepDiveDevelopment
+        });
+      } else {
+        console.log('🔧 No meaningful content to save');
       }
     }, 3000); // 3 second debounce to reduce frequency
 
@@ -272,6 +377,40 @@ export function StructuredBehaviorForm({
       toast.error('Failed to save assessment');
     }
   };
+
+  // Create a force save function that can be called by parent components
+  const forceSave = useCallback(async () => {
+    if (!onAutoSave) {
+      console.log('❌ No onAutoSave function provided');
+      return;
+    }
+    
+    console.log('🔧 Force saving current form data');
+    
+    const currentData = getValues();
+    const currentBehaviors = currentData.behaviors || [];
+    
+    console.log('🔧 Current form data captured:', {
+      behaviors: currentBehaviors,
+      selfReflection: currentData.selfReflection,
+      deepDiveDevelopment: currentData.deepDiveDevelopment,
+      behaviorCount: currentBehaviors.length
+    });
+    
+    // Save all behaviors (including empty ones) and development data
+    await onAutoSave({
+      behaviors: currentBehaviors,
+      selfReflection: currentData.selfReflection || '',
+      deepDiveDevelopment: currentData.deepDiveDevelopment || '',
+    });
+    
+    console.log('✅ Force save onAutoSave call completed');
+  }, [onAutoSave, getValues]);
+
+  // Expose forceSave method to parent components via ref
+  useImperativeHandle(ref, () => ({
+    forceSave,
+  }), [forceSave]);
 
 
 
@@ -329,7 +468,7 @@ export function StructuredBehaviorForm({
           if (!value) return null;
           
           const behavior = watchedBehaviors[index] || {};
-          const isCompleted = behavior.description && behavior.description.trim().length > 3;
+          const isCompleted = behavior.description && behavior.description.trim().length > 0;
           const fieldErrors = errors?.behaviors?.[index];
 
           return (
@@ -475,4 +614,6 @@ export function StructuredBehaviorForm({
 
     </div>
   );
-}
+});
+
+StructuredBehaviorForm.displayName = 'StructuredBehaviorForm';
