@@ -45,7 +45,7 @@ export function StepperIndicator({
           // This ensures previous steps are shown as completed
           const isCompleted = step.number < currentStep || 
             // Special case: Force step 2 (behaviors) to be completed when on step 3 (review)
-            (currentStep === 3 && step.number === 2);
+            (currentStep >= 3 && step.number === 2);
           const isActive = step.number === currentStep;
           const isClickable = onStepClick && step.number <= currentStep;
 

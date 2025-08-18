@@ -300,10 +300,12 @@ export default function EmployeeDashboard() {
                     <div className="w-20 bg-muted/50 rounded-full h-1.5 overflow-hidden">
                       <div 
                         className="bg-gradient-to-r from-blue-500 to-blue-600 h-1.5 rounded-full transition-all duration-500 ease-out" 
-                        style={{ width: `${(currentPDR.currentStep / 5) * 100}%` }}
+                        style={{ width: `${(currentPDR.status === 'SUBMITTED' ? 3 : currentPDR.currentStep) / 5 * 100}%` }}
                       ></div>
                     </div>
-                    <span className="text-xs text-foreground/80 font-medium whitespace-nowrap">{currentPDR.currentStep}/5</span>
+                    <span className="text-xs text-foreground/80 font-medium whitespace-nowrap">
+                      {currentPDR.status === 'SUBMITTED' ? '3' : currentPDR.currentStep}/5
+                    </span>
                   </div>
                   
                   {/* Modern Minimal Pills - Symmetrical */}
@@ -348,13 +350,13 @@ export default function EmployeeDashboard() {
                       <span className="sm:hidden">R</span>
                     </div>
                     <div className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 min-w-[4.5rem] sm:min-w-[5.5rem] ${
-                      currentPDR.currentStep >= 4 
+                      currentPDR.currentStep >= 4 && currentPDR.status !== 'SUBMITTED'
                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                        : currentPDR.status === 'SUBMITTED' 
-                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
+                        : currentPDR.status === 'SUBMITTED'
+                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                         : 'bg-muted/50 text-muted-foreground border border-border/50 hover:bg-muted/70'
                     }`}>
-                      {currentPDR.currentStep >= 4 ? (
+                      {currentPDR.currentStep >= 4 && currentPDR.status !== 'SUBMITTED' ? (
                         <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
                       ) : currentPDR.status === 'SUBMITTED' ? (
                         <Clock className="h-3 w-3 flex-shrink-0" />

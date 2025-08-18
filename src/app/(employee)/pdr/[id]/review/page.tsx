@@ -483,15 +483,15 @@ export default function ReviewPage({ params }: ReviewPageProps) {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground mb-4">
-                Are you sure you want to submit your PDR for manager review? 
-                You will still be able to make changes during the review process.
+                You are about to submit your plan for review
               </p>
               <div className="bg-status-info/10 border border-status-info/20 p-3 rounded-lg mb-4">
                 <h4 className="font-medium text-status-info mb-1">What happens next:</h4>
                 <ul className="text-sm text-status-info/80 space-y-1">
-                  <li>• Your manager will review your goals and behaviors</li>
-                  <li>• You'll receive feedback and ratings</li>
-                  <li>• You can continue to mid-year check-in</li>
+                  <li>• Your manager will review your goals and behaviours</li>
+                  <li>• Your manager will book a discussion time with you</li>
+                  <li>• You will agree on the plan with your manager</li>
+                  <li>• Your manager will lock in the plan (no more editing)</li>
                 </ul>
               </div>
               <div className="flex justify-end space-x-2">
