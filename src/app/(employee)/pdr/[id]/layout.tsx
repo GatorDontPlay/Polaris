@@ -10,6 +10,7 @@ import { PDRErrorBoundary } from '@/components/ui/error-boundary';
 import { ArrowLeft, Lock, Trash2, MoreVertical } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { getPDRDisplayName } from '@/lib/financial-year';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -102,6 +103,13 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
   const handleStepClick = (step: number) => {
     // Only allow navigation to completed steps or current step
     if (step <= pdr.currentStep && !pdr.isLocked) {
+      // Prevent navigation to mid-year when in SUBMITTED state
+      if (step === 4 && pdr.status === 'SUBMITTED') {
+        // Show a message or toast that mid-year is not accessible yet
+        console.log('Mid-year review is not accessible until CEO has reviewed the PDR');
+        return;
+      }
+      
       const stepPaths = {
         1: `/pdr/${pdr.id}/goals`,
         2: `/pdr/${pdr.id}/behaviors`,
@@ -139,7 +147,7 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
               </Button>
               <div>
                                        <h1 className="text-2xl font-bold text-foreground">
-                         {pdr.period?.name || 'PDR Review'}
+                         {pdr.fyLabel ? getPDRDisplayName(pdr.fyLabel) : (pdr.period?.name || 'PDR Review')}
                        </h1>
               </div>
             </div>

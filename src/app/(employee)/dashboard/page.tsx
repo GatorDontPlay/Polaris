@@ -172,6 +172,12 @@ export default function EmployeeDashboard() {
         5: `/pdr/${currentPDR.id}/end-year`,
       };
       
+      // If current step is mid-year (4) but PDR is in SUBMITTED state, redirect to review instead
+      if (currentPDR.currentStep === 4 && currentPDR.status === 'SUBMITTED') {
+        router.push(`/pdr/${currentPDR.id}/review`);
+        return;
+      }
+      
       const currentPath = stepPaths[currentPDR.currentStep as keyof typeof stepPaths] || `/pdr/${currentPDR.id}/goals`;
       router.push(currentPath);
     }
@@ -279,7 +285,7 @@ export default function EmployeeDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Calendar className="mr-2 h-5 w-5" />
-                Current PDR - 2024 Annual Review
+                Current PDR - {currentPDR.fyLabel ? getPDRDisplayName(currentPDR.fyLabel) : 'Annual Review'}
               </CardTitle>
               <CardDescription>
                 {currentPDR.status === 'SUBMITTED' 

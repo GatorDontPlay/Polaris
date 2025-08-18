@@ -33,8 +33,14 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   const { data: pdr, isLoading: pdrLoading, updatePdr } = useDemoPDR(params.id);
 
   const isLoading = pdrLoading;
-  const canEdit = pdr && !pdr.isLocked && pdr.status === 'SUBMITTED';
+  const canEdit = pdr && !pdr.isLocked && pdr.status !== 'SUBMITTED' && pdr.status !== 'Created';
   const canUpdate = pdr && !pdr.isLocked;
+  
+  // Redirect if PDR is in SUBMITTED state - employee cannot access mid-year until CEO has reviewed
+  if (pdr && pdr.status === 'SUBMITTED') {
+    router.push(`/pdr/${params.id}/review`);
+    return null;
+  }
 
   const {
     register,
