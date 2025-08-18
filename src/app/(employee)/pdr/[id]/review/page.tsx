@@ -60,17 +60,30 @@ export default function ReviewPage({ params }: ReviewPageProps) {
     const devData = getDevelopmentData(params.id);
     setDevelopmentData(devData);
     
-      // Debug: Check what behavior data exists in localStorage
-  const storedBehaviors = localStorage.getItem(`demo_behaviors_${params.id}`);
-  console.log('🔍 SIMPLE DEBUG - Review page loading:', {
-    pdrId: params.id,
-    localStorageKey: `demo_behaviors_${params.id}`,
-    storedBehaviorsRaw: storedBehaviors,
-    storedBehaviorsParsed: storedBehaviors ? JSON.parse(storedBehaviors) : null,
-    hookBehaviorsData: behaviors,
-    totalBehaviorsCount: behaviors?.length || 0
-  });
+    // Debug: Check what behavior data exists in localStorage
+    const storedBehaviors = localStorage.getItem(`demo_behaviors_${params.id}`);
+    console.log('🔍 SIMPLE DEBUG - Review page loading:', {
+      pdrId: params.id,
+      localStorageKey: `demo_behaviors_${params.id}`,
+      storedBehaviorsRaw: storedBehaviors,
+      storedBehaviorsParsed: storedBehaviors ? JSON.parse(storedBehaviors) : null,
+      hookBehaviorsData: behaviors,
+      totalBehaviorsCount: behaviors?.length || 0
+    });
   }, [params.id, behaviors]);
+  
+  // Ensure the PDR currentStep is updated to at least 3 (Review) when on the review page
+  useEffect(() => {
+    if (pdr && pdr.currentStep < 3) {
+      console.log('🔧 Review page - PDR step needs update:', pdr.currentStep);
+      updatePdr({
+        currentStep: 3, // Ensure we're at least at step 3 (Review)
+      });
+      console.log('✅ Review page - Updated PDR step to 3');
+    } else if (pdr) {
+      console.log('🔧 Review page - PDR step already correct:', pdr.currentStep);
+    }
+  }, [pdr, updatePdr]);
 
   console.log('Review page debug:', {
     pdrId: params.id,

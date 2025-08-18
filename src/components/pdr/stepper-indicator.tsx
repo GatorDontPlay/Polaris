@@ -41,7 +41,11 @@ export function StepperIndicator({
       {/* Steps Container - Responsive design */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-0">
         {steps.map((step, index) => {
-          const isCompleted = step.number < currentStep;
+          // Mark a step as completed if it's less than the current step
+          // This ensures previous steps are shown as completed
+          const isCompleted = step.number < currentStep || 
+            // Special case: Force step 2 (behaviors) to be completed when on step 3 (review)
+            (currentStep === 3 && step.number === 2);
           const isActive = step.number === currentStep;
           const isClickable = onStepClick && step.number <= currentStep;
 

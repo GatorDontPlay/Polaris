@@ -244,12 +244,23 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
       
       // Update PDR status to mark behaviors step as completed
       if (pdr) {
+        console.log('🔧 Current PDR step before update:', pdr.currentStep);
+        
         // Set currentStep to 3 (Review) if it's currently at 2 (Behaviors) or lower
         if (pdr.currentStep <= 2) {
           await updatePdr({
             currentStep: 3, // Move to step 3 (Review)
           });
           console.log('✅ Updated PDR step to 3 (Review)');
+          
+          // Verify the update was applied by re-fetching the PDR
+          const updatedPdr = localStorage.getItem(`demo_pdr_${params.id}`);
+          if (updatedPdr) {
+            const parsedPdr = JSON.parse(updatedPdr);
+            console.log('🔧 Updated PDR step verification:', parsedPdr.currentStep);
+          }
+        } else {
+          console.log('⚠️ PDR step not updated, already at step:', pdr.currentStep);
         }
       }
       
