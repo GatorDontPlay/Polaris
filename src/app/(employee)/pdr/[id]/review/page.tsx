@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDemoPDR, useDemoGoals, useDemoBehaviors, useDemoCompanyValues } from '@/hooks/use-demo-pdr';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,12 +25,26 @@ interface ReviewPageProps {
   params: { id: string };
 }
 
+// Helper function to get development data from localStorage
+const getDevelopmentData = (pdrId: string) => {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    const data = localStorage.getItem(`demo_development_${pdrId}`);
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    console.error('Error retrieving development data:', error);
+    return null;
+  }
+};
+
 // Priority colors are no longer needed - using weighting instead
 
 export default function ReviewPage({ params }: ReviewPageProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [developmentData, setDevelopmentData] = useState<any>(null);
   
   const { data: pdr, isLoading: pdrLoading, updatePdr } = useDemoPDR(params.id);
   const { data: goals, isLoading: goalsLoading } = useDemoGoals(params.id);
@@ -40,6 +54,12 @@ export default function ReviewPage({ params }: ReviewPageProps) {
   const isLoading = pdrLoading || goalsLoading || behaviorsLoading || valuesLoading;
   const canSubmit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'Created');
   const canEdit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'Created');
+
+  // Load development data
+  useEffect(() => {
+    const devData = getDevelopmentData(params.id);
+    setDevelopmentData(devData);
+  }, [params.id]);
 
   console.log('Review page debug:', {
     pdrId: params.id,
@@ -56,11 +76,14 @@ export default function ReviewPage({ params }: ReviewPageProps) {
     return companyValues?.find(value => value.id === valueId)?.name || 'Unknown Value';
   };
 
-  // Calculate completion statistics
+  // Calculate completion statistics including development fields
+  const developmentFieldsCount = developmentData ? 
+    (developmentData.selfReflection ? 1 : 0) + (developmentData.deepDiveDevelopment ? 1 : 0) : 0;
+    
   const stats = {
     totalGoals: goals?.length || 0,
     goalsWithRating: goals?.filter(g => g.employeeRating).length || 0,
-    totalBehaviors: behaviors?.length || 0,
+    totalBehaviors: (behaviors?.length || 0) + developmentFieldsCount, // Include development fields
     behaviorsWithRating: behaviors?.filter(b => b.employeeRating).length || 0,
     averageGoalRating: goals && goals.length > 0 
       ? goals.reduce((sum, g) => sum + (g.employeeRating || 0), 0) / goals.filter(g => g.employeeRating).length
@@ -341,6 +364,38 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                   )}
                 </div>
               ))}
+              
+              {/* Development Fields Section */}
+              {developmentData && (developmentData.selfReflection || developmentData.deepDiveDevelopment) && (
+                <>
+                  <div className="border-t pt-4 mt-6">
+                    <h4 className="font-medium text-foreground mb-4 flex items-center">
+                      <div className="w-3 h-3 rounded-full bg-purple-500 mr-3"></div>
+                      Self Reflection / Development
+                    </h4>
+                    
+                    {developmentData.selfReflection && (
+                      <div className="border border-border rounded-lg p-4 mb-4">
+                        <div className="flex items-center mb-2">
+                          <div className="w-2 h-2 rounded-full bg-purple-500 mr-2"></div>
+                          <h5 className="font-medium text-foreground">Self Reflection</h5>
+                        </div>
+                        <p className="text-muted-foreground text-sm">{developmentData.selfReflection}</p>
+                      </div>
+                    )}
+                    
+                    {developmentData.deepDiveDevelopment && (
+                      <div className="border border-border rounded-lg p-4">
+                        <div className="flex items-center mb-2">
+                          <div className="w-2 h-2 rounded-full bg-purple-500 mr-2"></div>
+                          <h5 className="font-medium text-foreground">CodeFish 3D - Deep Dive Development</h5>
+                        </div>
+                        <p className="text-muted-foreground text-sm">{developmentData.deepDiveDevelopment}</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="text-center py-8">

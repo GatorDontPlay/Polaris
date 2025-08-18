@@ -19,11 +19,11 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
   const [formCompletedCount, setFormCompletedCount] = useState(0);
   const [formTotalCount, setFormTotalCount] = useState(6);
   
-  // Temporary: Clear localStorage on page load to test fresh state
-  useEffect(() => {
-    console.log('🧹 Clearing localStorage for fresh test...');
-    localStorage.removeItem('demo_behaviors_pdr-1');
-  }, []);
+  // Remove localStorage clearing to preserve existing data
+  // useEffect(() => {
+  //   console.log('🧹 Clearing localStorage for fresh test...');
+  //   localStorage.removeItem('demo_behaviors_pdr-1');
+  // }, []);
   
   const { data: pdr, isLoading: pdrLoading } = useDemoPDR(params.id);
   const { data: behaviors, isLoading: behaviorsLoading, addBehavior, updateBehavior, deleteBehavior } = useDemoBehaviors(params.id);
@@ -32,6 +32,16 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
   const isLoading = pdrLoading || behaviorsLoading || valuesLoading;
   const isReadOnly = pdr?.isLocked || false;
   const canEdit = pdr && !isReadOnly && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'Created');
+
+  // Debug PDR permissions
+  console.log('🔧 PDR Permissions Debug:', {
+    pdr: pdr,
+    pdrStatus: pdr?.status,
+    isLocked: pdr?.isLocked,
+    isReadOnly: isReadOnly,
+    canEdit: canEdit,
+    isFormReadOnly: !canEdit
+  });
 
   // Clean up duplicates on first load only
   useEffect(() => {
@@ -107,10 +117,16 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
       addBehavior(formData);
     });
     
-    // TODO: Handle selfReflection and deepDiveDevelopment data
-    // These might need to be stored in a different way or combined with PDR data
-    console.log('Self Reflection:', data.selfReflection);
-    console.log('Deep Dive Development:', data.deepDiveDevelopment);
+    // Save selfReflection and deepDiveDevelopment to localStorage as part of PDR data
+    if (data.selfReflection || data.deepDiveDevelopment) {
+      const developmentData = {
+        selfReflection: data.selfReflection || '',
+        deepDiveDevelopment: data.deepDiveDevelopment || '',
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem(`demo_development_${params.id}`, JSON.stringify(developmentData));
+      console.log('Saved development data:', developmentData);
+    }
   };
 
   const handleAutoSave = async (data: {
@@ -156,13 +172,15 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
       });
     }
     
-    // TODO: Handle selfReflection and deepDiveDevelopment auto-save
-    // These might need to be stored separately or as part of the PDR
+    // Auto-save selfReflection and deepDiveDevelopment
     if (data.selfReflection || data.deepDiveDevelopment) {
-      console.log('Auto-saving development data:', {
-        selfReflection: data.selfReflection,
-        deepDiveDevelopment: data.deepDiveDevelopment
-      });
+      const developmentData = {
+        selfReflection: data.selfReflection || '',
+        deepDiveDevelopment: data.deepDiveDevelopment || '',
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem(`demo_development_${params.id}`, JSON.stringify(developmentData));
+      console.log('Auto-saving development data:', developmentData);
     }
   };
 
@@ -240,14 +258,22 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
       
       {/* Structured Behavior Assessment Form */}
       {companyValues && companyValues.length > 0 && (
-        <StructuredBehaviorForm
-          companyValues={companyValues}
-          existingBehaviors={behaviors || []}
-          onSubmit={handleBulkCreateBehaviors}
-          onAutoSave={handleAutoSave}
-          isReadOnly={!canEdit}
-          onCompletionChange={handleCompletionChange}
-        />
+        <>
+          {/* Debug existing behaviors being passed to form */}
+          {console.log('🔧 Behaviors page - passing to form:', {
+            companyValuesCount: companyValues.length,
+            behaviorsCount: behaviors?.length || 0,
+            behaviorsData: behaviors
+          })}
+          <StructuredBehaviorForm
+            companyValues={companyValues}
+            existingBehaviors={behaviors || []}
+            onSubmit={handleBulkCreateBehaviors}
+            onAutoSave={handleAutoSave}
+            isReadOnly={!canEdit}
+            onCompletionChange={handleCompletionChange}
+          />
+        </>
       )}
     </div>
   );

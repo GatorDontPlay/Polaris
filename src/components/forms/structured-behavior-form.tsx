@@ -62,6 +62,27 @@ export function StructuredBehaviorForm({
     };
   });
 
+  // Load existing development data
+  const getExistingDevelopmentData = () => {
+    if (typeof window === 'undefined') return { selfReflection: '', deepDiveDevelopment: '' };
+    
+    try {
+      // This should match the behaviors page's PDR ID pattern
+      const pdrId = window.location.pathname.split('/')[2]; // Extract PDR ID from URL
+      const data = localStorage.getItem(`demo_development_${pdrId}`);
+      const parsed = data ? JSON.parse(data) : null;
+      return {
+        selfReflection: parsed?.selfReflection || '',
+        deepDiveDevelopment: parsed?.deepDiveDevelopment || ''
+      };
+    } catch (error) {
+      console.error('Error loading existing development data:', error);
+      return { selfReflection: '', deepDiveDevelopment: '' };
+    }
+  };
+
+  const existingDevData = getExistingDevelopmentData();
+
   const {
     register,
     handleSubmit,
@@ -73,8 +94,8 @@ export function StructuredBehaviorForm({
     resolver: zodResolver(structuredBehaviorSchema),
     defaultValues: {
       behaviors: defaultValues,
-      selfReflection: '',
-      deepDiveDevelopment: '',
+      selfReflection: existingDevData.selfReflection,
+      deepDiveDevelopment: existingDevData.deepDiveDevelopment,
     },
     mode: 'onChange',
   });
@@ -84,21 +105,32 @@ export function StructuredBehaviorForm({
     name: 'behaviors',
   });
 
-  // Ensure field array is synced with all company values
+  // Ensure field array is synced with all company values and loads existing data
   useEffect(() => {
-    if (fields.length !== companyValues.length || fields.length === 0) {
-      console.log('🔧 Force syncing field array - Current fields:', fields.length, 'Expected:', companyValues.length);
+    console.log('🔧 Sync Check - Fields:', fields.length, 'CompanyValues:', companyValues.length, 'ExistingBehaviors:', existingBehaviors.length);
+    
+    // Always sync if we have company values, regardless of field count
+    if (companyValues.length > 0) {
+      console.log('🔧 SYNCING field array - Current fields:', fields.length, 'Expected:', companyValues.length);
+      console.log('🔧 Full Existing behaviors data:', JSON.stringify(existingBehaviors, null, 2));
+      
       const syncedValues = companyValues.map(value => {
         const existingBehavior = existingBehaviors.find(b => b.valueId === value.id);
+        console.log(`🔧 Value ${value.name} (${value.id}): found behavior =`, existingBehavior);
+        console.log(`🔧 Setting description to: "${existingBehavior?.description || 'EMPTY'}"`);
         return {
           valueId: value.id,
           valueName: value.name,
           description: existingBehavior?.description || '',
         };
       });
+      
+      console.log('🔧 Final synced values:', syncedValues);
       replace(syncedValues);
+    } else {
+      console.log('🔧 No company values yet');
     }
-  }, [companyValues, existingBehaviors, fields.length, replace]);
+  }, [companyValues, existingBehaviors, replace]); // Removed fields.length dependency
 
   const watchedBehaviors = watch('behaviors');
 
@@ -181,19 +213,13 @@ export function StructuredBehaviorForm({
         icon: <Sparkles className="h-4 w-4" />
       });
       
-      // Auto-save when completed
-      if (onAutoSave) {
-        debouncedAutoSave({
-          behaviors: watchedBehaviors,
-          selfReflection: watch('selfReflection'),
-          deepDiveDevelopment: watch('deepDiveDevelopment')
-        });
-      }
+      // Remove auto-save from celebration to prevent data loss
+      // The regular auto-save logic will handle saving the data
       
       // Hide celebration after animation
       setTimeout(() => setShowCelebration(false), 3000);
     }
-  }, [totalCompletedCount, totalFieldCount, allCompleted, debouncedAutoSave, onAutoSave, watchedBehaviors, selfReflection, deepDiveDevelopment]);
+  }, [totalCompletedCount, totalFieldCount, allCompleted]);
 
   // Track previous values to prevent unnecessary saves
   const previousValuesRef = useRef<string>('');
