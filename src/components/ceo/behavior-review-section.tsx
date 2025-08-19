@@ -65,9 +65,9 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
     const feedback = ceoFeedback[valueData.companyValue.id] || {};
     
     // Check if CEO already has a review for this employee entry
-    if (employeeEntry.ceoReviews.length > 0) {
+    if (employeeEntry.ceoEntries && employeeEntry.ceoEntries.length > 0) {
       // Update existing CEO review
-      const ceoReview = employeeEntry.ceoReviews[0];
+      const ceoReview = employeeEntry.ceoEntries[0];
       await updateBehaviorEntry(ceoReview.id, {
         description: feedback.description,
         comments: feedback.comments,
@@ -221,9 +221,9 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
                     </div>
                     
                     {/* Show existing CEO review if available */}
-                    {valueData.employeeEntries.length > 0 && valueData.employeeEntries[0].ceoReviews.length > 0 ? (
+                    {valueData.employeeEntries.length > 0 && valueData.employeeEntries[0].ceoEntries && valueData.employeeEntries[0].ceoEntries.length > 0 ? (
                       <div className="space-y-3">
-                        {valueData.employeeEntries[0].ceoReviews.map((ceoReview) => (
+                        {valueData.employeeEntries[0].ceoEntries.map((ceoReview) => (
                           <div key={ceoReview.id} className="space-y-3 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
                             <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
                               <MessageSquare className="h-3 w-3" />
