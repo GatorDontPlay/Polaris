@@ -216,7 +216,7 @@ export function useBehaviorEntries({ pdrId, currentUser }: UseBehaviorEntriesPro
     const ceoEntryData: BehaviorEntryFormData = {
       valueId,
       authorType: 'CEO',
-      description: reviewData.description || '',
+      description: reviewData.description,
       comments: reviewData.comments,
       rating: reviewData.rating,
       employeeEntryId,

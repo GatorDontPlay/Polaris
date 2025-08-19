@@ -12,14 +12,24 @@ import { z } from 'zod';
 
 // Validation schema for behavior entry
 const behaviorEntrySchema = z.object({
-  valueId: z.string().uuid(),
+  valueId: z.string().min(1), // Allow demo IDs that aren't UUIDs
   authorType: z.enum(['EMPLOYEE', 'CEO']),
-  description: z.string().min(1),
+  description: z.string().optional(), // Made optional since CEO entries might not have a modified description
   examples: z.string().optional(),
   selfAssessment: z.string().optional(),
   rating: z.number().int().min(1).max(5).optional(),
   comments: z.string().optional(),
-  employeeEntryId: z.string().uuid().optional(), // For CEO entries linking to employee entries
+  employeeEntryId: z.string().min(1).optional(), // Allow demo IDs that aren't UUIDs
+}).refine((data) => {
+  // For employee entries, description is required
+  if (data.authorType === 'EMPLOYEE') {
+    return data.description && data.description.length > 0;
+  }
+  // For CEO entries, description is optional
+  return true;
+}, {
+  message: "Description is required for employee entries",
+  path: ["description"],
 });
 
 export async function GET(
@@ -277,7 +287,7 @@ export async function POST(
         valueId: entryData.valueId,
         authorId: user.id,
         authorType: entryData.authorType,
-        description: entryData.description,
+        description: entryData.description || '', // Use empty string if description is undefined
         examples: entryData.examples || null,
         selfAssessment: entryData.selfAssessment || null,
         rating: entryData.rating || null,
