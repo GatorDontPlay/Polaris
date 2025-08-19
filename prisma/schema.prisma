@@ -53,10 +53,11 @@ model User {
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
 
   // Relations
-  pdrs          PDR[]
-  lockedPDRs    PDR[]           @relation("PDRLockedBy")
-  auditLogs     AuditLog[]
-  notifications Notification[]
+  pdrs            PDR[]
+  lockedPDRs      PDR[]           @relation("PDRLockedBy")
+  behaviorEntries BehaviorEntry[]
+  auditLogs       AuditLog[]
+  notifications   Notification[]
 
   @@index([email])
   @@index([role])
@@ -99,14 +100,15 @@ model PDR {
   updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
 
   // Relations
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  period         PDRPeriod?      @relation(fields: [periodId], references: [id], onDelete: Cascade)
-  lockedByUser   User?           @relation("PDRLockedBy", fields: [lockedBy], references: [id])
-  goals          Goal[]
-  behaviors      Behavior[]
-  midYearReview  MidYearReview?
-  endYearReview  EndYearReview?
-  notifications  Notification[]
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  period          PDRPeriod?      @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  lockedByUser    User?           @relation("PDRLockedBy", fields: [lockedBy], references: [id])
+  goals           Goal[]
+  behaviors       Behavior[]
+  behaviorEntries BehaviorEntry[]
+  midYearReview   MidYearReview?
+  endYearReview   EndYearReview?
+  notifications   Notification[]
 
   @@unique([userId, fyLabel])
   @@index([userId, fyLabel])
@@ -148,7 +150,8 @@ model CompanyValue {
   createdAt   DateTime @default(now()) @map("created_at")
 
   // Relations
-  behaviors Behavior[]
+  behaviors       Behavior[]
+  behaviorEntries BehaviorEntry[]
 
   @@map("company_values")
 }
@@ -173,6 +176,41 @@ model Behavior {
   @@index([pdrId])
   @@index([valueId])
   @@map("behaviors")
+}
+
+model BehaviorEntry {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pdrId           String   @map("pdr_id") @db.Uuid
+  valueId         String   @map("value_id") @db.Uuid
+  authorId        String   @map("author_id") @db.Uuid
+  authorType      String   @map("author_type") @db.VarChar(20) // 'EMPLOYEE' or 'CEO'
+  
+  // Content fields
+  description     String   @db.Text
+  examples        String?  @db.Text
+  selfAssessment  String?  @map("self_assessment") @db.Text
+  rating          Int?
+  comments        String?  @db.Text
+  
+  // Linking CEO entries to Employee entries
+  employeeEntryId String?  @map("employee_entry_id") @db.Uuid
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  pdr             PDR          @relation(fields: [pdrId], references: [id], onDelete: Cascade)
+  value           CompanyValue @relation(fields: [valueId], references: [id])
+  author          User         @relation(fields: [authorId], references: [id])
+  employeeEntry   BehaviorEntry? @relation("CEOToEmployee", fields: [employeeEntryId], references: [id])
+  ceoEntries      BehaviorEntry[] @relation("CEOToEmployee")
+
+  @@index([pdrId])
+  @@index([valueId])
+  @@index([authorId])
+  @@index([employeeEntryId])
+  @@index([authorType])
+  @@map("behavior_entries")
 }
 
 model MidYearReview {

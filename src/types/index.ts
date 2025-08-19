@@ -125,6 +125,40 @@ export interface Behavior {
   value?: CompanyValue;
 }
 
+export type BehaviorAuthorType = 'EMPLOYEE' | 'CEO';
+
+export interface BehaviorEntry {
+  id: string;
+  pdrId: string;
+  valueId: string;
+  authorId: string;
+  authorType: BehaviorAuthorType;
+  description: string;
+  examples?: string;
+  selfAssessment?: string;
+  rating?: number;
+  comments?: string;
+  employeeEntryId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  
+  // Relations
+  pdr?: PDR;
+  value?: CompanyValue;
+  author?: AuthUser;
+  employeeEntry?: BehaviorEntry;
+  ceoEntries?: BehaviorEntry[];
+}
+
+export interface OrganizedBehaviorData {
+  companyValue: CompanyValue;
+  employeeEntries: (BehaviorEntry & { ceoReviews: BehaviorEntry[] })[];
+  standaloneCeoEntries: BehaviorEntry[];
+  hasEmployeeEntry: boolean;
+  hasCeoEntry: boolean;
+  totalEntries: number;
+}
+
 export interface MidYearReview {
   id: string;
   pdrId: string;
@@ -244,6 +278,17 @@ export interface BehaviorFormData {
   examples?: string;
   employeeSelfAssessment?: string;
   employeeRating?: number;
+}
+
+export interface BehaviorEntryFormData {
+  valueId: string;
+  authorType: BehaviorAuthorType;
+  description: string;
+  examples?: string;
+  selfAssessment?: string;
+  rating?: number;
+  comments?: string;
+  employeeEntryId?: string;
 }
 
 export interface MidYearFormData {

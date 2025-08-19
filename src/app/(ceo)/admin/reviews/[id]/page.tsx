@@ -57,6 +57,7 @@ import {
 import { formatDateAU, getPDRStatusLabel } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { BehaviorReviewSection } from '@/components/ceo/behavior-review-section';
 
 interface PDRData {
   id: string;
@@ -1360,140 +1361,17 @@ export default function CEOPDRReviewPage() {
           </TabsContent>
 
           <TabsContent value="behaviors" className="space-y-4">
-            <Card className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle>Behavioral Competencies</CardTitle>
-                <CardDescription>
-                  Employee's self-assessment of behavioral competencies
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {behaviors.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No behaviors have been assessed for this PDR.
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {behaviors.map((behavior) => (
-                      <Card key={behavior.id} className="p-6">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                          {/* Employee Side */}
-                          <div className="space-y-4">
-                            <h4 className="font-semibold text-blue-600">Employee Assessment</h4>
-                            
-                            <div>
-                              <Label className="text-sm font-medium">Company Value</Label>
-                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm font-medium">
-                                {behavior.value?.name || behavior.title || 'Untitled Behavior'}
-                              </div>
-                            </div>
-                            
-                            <div>
-                              <Label className="text-sm font-medium">Behavior Description</Label>
-                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm min-h-[60px]">
-                                {behavior.description || 'No description provided'}
-                              </div>
-                            </div>
-                            
-                            {/* Hide Self Rating at planning stage */}
-                            {pdr.status !== 'SUBMITTED' ? (
-                              <div>
-                                <Label className="text-sm font-medium">Self Rating</Label>
-                                <div className="mt-1 space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <Progress value={(behavior.selfRating || 0) * 20} className="flex-1 h-3" />
-                                    <span className="text-sm font-medium">{behavior.selfRating || 0}/5</span>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : null}
+            <BehaviorReviewSection 
+              pdr={pdr as any} 
+              currentUser={{
+                id: 'demo-ceo-1',
+                email: 'ceo@company.com',
+                firstName: 'CEO',
+                lastName: 'Demo',
+                role: 'CEO'
+              }} 
+            />
 
-                            {behavior.examples && (
-                              <div>
-                                <Label className="text-sm font-medium">Examples</Label>
-                                <div className="mt-1 p-2 bg-muted/50 rounded text-sm min-h-[40px]">
-                                  {behavior.examples}
-                                </div>
-                              </div>
-                            )}
-
-                            {behavior.comments && (
-                              <div>
-                                <Label className="text-sm font-medium">Employee Comments</Label>
-                                <div className="mt-1 p-2 bg-muted/50 rounded text-sm min-h-[40px]">
-                                  {behavior.comments}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* CEO Side */}
-                          <div className="space-y-4 border-l pl-6">
-                            <h4 className="font-semibold text-green-600">CEO Review</h4>
-                            
-                            <div>
-                              <Label className="text-sm font-medium">
-                                Company Value
-                              </Label>
-                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm font-medium">
-                                {behavior.value?.name || behavior.title || 'Untitled Behavior'}
-                              </div>
-                            </div>
-                            
-                            <div>
-                              <Label className="text-sm font-medium">
-                                Behavior Description
-                              </Label>
-                              <Textarea
-                                id={`ceo-behavior-employee-desc-${behavior.id}`}
-                                defaultValue={ceoBehaviorFeedback[behavior.id]?.employeeDescription || behavior.description || ''}
-                                onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'employeeDescription', e.target.value)}
-                                className="mt-1 min-h-[80px] bg-muted/30"
-                                rows={3}
-                                disabled={pdr?.isLocked}
-                                placeholder="Enter your modified description..."
-                              />
-                            </div>
-                            
-                            {/* CEO Feedback Fields */}
-                            <div>
-                              <Label htmlFor={`ceo-behavior-feedback-${behavior.id}`} className="text-sm font-medium">
-                                CEO Feedback
-                              </Label>
-                              <Textarea
-                                id={`ceo-behavior-feedback-${behavior.id}`}
-                                placeholder="Your feedback on this behavior..."
-                                defaultValue={ceoBehaviorFeedback[behavior.id]?.ceoComments || ''}
-                                onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'ceoComments', e.target.value)}
-                                className="mt-1 min-h-[80px]"
-                                rows={4}
-                                disabled={pdr?.isLocked}
-                              />
-                            </div>
-                            
-                            {/* Rating Comparison */}
-                            {behavior.selfRating && ceoBehaviorFeedback[behavior.id]?.ceoRating && (
-                              <div>
-                                <Label className="text-sm font-medium">Rating Comparison</Label>
-                                <div className="mt-2 space-y-2">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span>Employee: {behavior.selfRating}/5</span>
-                                    <span>CEO: {ceoBehaviorFeedback[behavior.id]?.ceoRating}/5</span>
-                                    <span className={`font-medium ${Math.abs((behavior.selfRating || 0) - (ceoBehaviorFeedback[behavior.id]?.ceoRating || 0)) > 1 ? 'text-yellow-600' : 'text-green-600'}`}>
-                                      Δ {Math.abs((behavior.selfRating || 0) - (ceoBehaviorFeedback[behavior.id]?.ceoRating || 0))}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="summary" className="space-y-4">
