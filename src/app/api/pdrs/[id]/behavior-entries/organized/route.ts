@@ -37,7 +37,7 @@ export async function GET(
     }
 
     if (isDemoMode) {
-      // For demo mode, return the actual demo company values with any existing behavior entries
+      // For demo mode, return all 6 demo company values with any existing behavior entries
       const demoCompanyValues = [
         {
           id: '550e8400-e29b-41d4-a716-446655440001',
@@ -69,6 +69,22 @@ export async function GET(
           description: 'We approach every challenge with a forward-looking, solution-driven mindset. Instead of assigning blame, we focus on learning, improvement, and taking ownership to move the business forward.',
           isActive: true,
           sortOrder: 4,
+          createdAt: new Date(),
+        },
+        {
+          id: '550e8400-e29b-41d4-a716-446655440005',
+          name: 'Self Reflection',
+          description: 'Self Reflection / Development Reflect on your development goals and how you\'d like to grow.',
+          isActive: true,
+          sortOrder: 5,
+          createdAt: new Date(),
+        },
+        {
+          id: '550e8400-e29b-41d4-a716-446655440006',
+          name: 'CodeFish 3D - Deep Dive Development',
+          description: 'You have up to $1000 per financial year to invest in your learning and growth. This could include courses, tools, workshops, or any learning experience that sparks your curiosity and aligns with our goals. We encourage you to share what you learn with the team to create a culture of continuous improvement.',
+          isActive: true,
+          sortOrder: 6,
           createdAt: new Date(),
         },
       ];
