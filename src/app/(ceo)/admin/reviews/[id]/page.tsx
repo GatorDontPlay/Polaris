@@ -55,9 +55,9 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { formatDateAU, getPDRStatusLabel } from '@/lib/utils';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { BehaviorReviewSection } from '@/components/ceo/behavior-review-section';
+import { BehaviorReviewSection, type BehaviorReviewSectionRef } from '@/components/ceo/behavior-review-section';
 
 interface PDRData {
   id: string;
@@ -118,6 +118,9 @@ export default function CEOPDRReviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("goals");
+  
+  // Ref for the behavior review section
+  const behaviorReviewRef = useRef<BehaviorReviewSectionRef>(null);
   
   // CEO feedback state
   const [ceoGoalFeedback, setCeoGoalFeedback] = useState<Record<string, {
@@ -888,52 +891,34 @@ export default function CEOPDRReviewPage() {
   };
   
   // Function to save behavior changes and navigate to summary tab
-  const saveAndNavigateToSummary = () => {
-    // Instead of relying on DOM IDs which might be duplicated, use the state directly
-    // Create a copy of the behaviors with their current values
-    const updatedBehaviors = [...behaviors]; // Keep original behaviors unchanged
-    
-    // For each behavior, save the CEO feedback separately
-    behaviors.forEach(behavior => {
-      // Get the form elements for this specific behavior
-      const descInput = document.getElementById(`ceo-behavior-employee-desc-${behavior.id}`);
-      const feedbackInput = document.getElementById(`ceo-behavior-feedback-${behavior.id}`);
+  const saveAndNavigateToSummary = async () => {
+    try {
+      setIsSaving(true);
       
-      // Get values directly from the form elements if they exist
-      // Company Value is not editable, so we don't need to get it from a form element
-      const employeeDescription = descInput ? descInput.value : ceoBehaviorFeedback[behavior.id]?.employeeDescription || '';
-      const ceoComments = feedbackInput ? feedbackInput.value : ceoBehaviorFeedback[behavior.id]?.ceoComments || '';
-      
-      console.log(`Saving CEO feedback for behavior ${behavior.id} (${behavior.value?.name}): `, {
-        employeeDescription,
-        ceoComments
-      });
-      
-      // Update the CEO feedback for this behavior
-      const updatedFeedback = {
-        ...(ceoBehaviorFeedback[behavior.id] || {}),
-        employeeDescription,
-        ceoComments
-      };
-      
-      // Save the updated feedback
-      setCeoBehaviorFeedback(prev => ({
-        ...prev,
-        [behavior.id]: updatedFeedback
-      }));
-      
-      // Save to localStorage immediately for this behavior
-      const feedbackKey = `ceo_behavior_feedback_${pdrId}`;
-      const currentFeedback = JSON.parse(localStorage.getItem(feedbackKey) || '{}');
-      currentFeedback[behavior.id] = updatedFeedback;
-      localStorage.setItem(feedbackKey, JSON.stringify(currentFeedback));
-    });
-    
-    // Original behaviors remain unchanged in localStorage
-    console.log('✅ CEO Review: Saved CEO feedback for behaviors');
-    
-    // Navigate to summary tab
-    setActiveTab("summary");
+      // Use the new behavior review section's save function
+      if (behaviorReviewRef.current) {
+        const saveSuccess = await behaviorReviewRef.current.saveAllReviews();
+        
+        if (saveSuccess) {
+          console.log('✅ CEO Review: Saved all CEO behavior feedback');
+          // Navigate to summary tab
+          setActiveTab("summary");
+        } else {
+          console.error('❌ CEO Review: Failed to save some behavior feedback');
+          // Still navigate but show a warning
+          setActiveTab("summary");
+        }
+      } else {
+        console.log('No behavior review component found, navigating to summary');
+        setActiveTab("summary");
+      }
+    } catch (error) {
+      console.error('Error in saveAndNavigateToSummary:', error);
+      // Navigate anyway to not block the user
+      setActiveTab("summary");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleLockPDR = () => {
@@ -1191,9 +1176,10 @@ export default function CEOPDRReviewPage() {
             {activeTab === "behaviors" && (
               <Button 
                 onClick={saveAndNavigateToSummary}
+                disabled={isSaving}
                 className="bg-primary hover:bg-primary/90"
               >
-                Next: Summary
+                {isSaving ? 'Saving...' : 'Next: Summary'}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}
@@ -1362,6 +1348,7 @@ export default function CEOPDRReviewPage() {
 
           <TabsContent value="behaviors" className="space-y-4">
             <BehaviorReviewSection 
+              ref={behaviorReviewRef}
               pdr={pdr as any} 
               currentUser={{
                 id: 'demo-ceo-1',

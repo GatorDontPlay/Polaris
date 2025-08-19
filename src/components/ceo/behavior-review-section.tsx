@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,7 +17,12 @@ interface BehaviorReviewSectionProps {
   currentUser?: AuthUser;
 }
 
-export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectionProps) {
+export interface BehaviorReviewSectionRef {
+  saveAllReviews: () => Promise<boolean>;
+}
+
+export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, BehaviorReviewSectionProps>(
+  ({ pdr, currentUser }, ref) => {
   const {
     isLoading,
     isSaving,
@@ -41,9 +46,42 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
     fetchOrganizedData();
   }, [fetchOrganizedData]);
 
-  // Pre-populate form with existing CEO review data (only if form is empty)
+  // Load CEO behavior feedback from localStorage in demo mode
   useEffect(() => {
-    if (organizedData && organizedData.length > 0) {
+    const isDemoMode = typeof window !== 'undefined' && pdr.id.startsWith('demo-pdr-');
+    
+    if (isDemoMode) {
+      const storageKey = `ceo_behavior_feedback_${pdr.id}`;
+      const savedFeedback = localStorage.getItem(storageKey);
+      
+      if (savedFeedback) {
+        try {
+          const parsedFeedback = JSON.parse(savedFeedback);
+          const loadedFeedback: Record<string, { description?: string; comments?: string; }> = {};
+          
+          // Convert the saved format to the component's expected format
+          Object.keys(parsedFeedback).forEach(valueId => {
+            const saved = parsedFeedback[valueId];
+            loadedFeedback[valueId] = {
+              description: saved.description || '',
+              comments: saved.comments || '',
+            };
+          });
+          
+          setCeoFeedback(loadedFeedback);
+          console.log('Demo mode: Loaded CEO behavior feedback from localStorage', loadedFeedback);
+        } catch (error) {
+          console.error('Error loading CEO behavior feedback from localStorage:', error);
+        }
+      }
+    }
+  }, [pdr.id]);
+
+  // Pre-populate form with existing CEO review data from API (only if form is empty and not demo mode)
+  useEffect(() => {
+    const isDemoMode = typeof window !== 'undefined' && pdr.id.startsWith('demo-pdr-');
+    
+    if (!isDemoMode && organizedData && organizedData.length > 0) {
       const newCeoFeedback: Record<string, { description?: string; comments?: string; }> = {};
       let hasExistingData = false;
       
@@ -66,11 +104,11 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
         );
         
       if (hasExistingData && currentFormIsEmpty) {
-        console.log('Pre-populating form with existing CEO review data');
+        console.log('Pre-populating form with existing CEO review data from API');
         setCeoFeedback(newCeoFeedback);
       }
     }
-  }, [organizedData, ceoFeedback]);
+  }, [organizedData, ceoFeedback, pdr.id]);
 
   // Update local CEO feedback state
   const updateCeoFeedback = (valueId: string, field: string, value: string | number) => {
@@ -94,24 +132,43 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
     const feedback = ceoFeedback[valueData.companyValue.id] || {};
     
     try {
-      // Check if CEO already has a review for this employee entry
-      if (employeeEntry.ceoEntries && employeeEntry.ceoEntries.length > 0) {
-        // Update existing CEO review
-        const ceoReview = employeeEntry.ceoEntries[0];
-        await updateBehaviorEntry(ceoReview.id, {
-          description: feedback.description,
-          comments: feedback.comments,
-        });
+      // Check if this is demo mode
+      const isDemoMode = typeof window !== 'undefined' && pdr.id.startsWith('demo-pdr-');
+      
+      if (isDemoMode) {
+        // In demo mode, save to localStorage
+        const storageKey = `ceo_behavior_feedback_${pdr.id}`;
+        const existingFeedback = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        
+        existingFeedback[valueData.companyValue.id] = {
+          description: feedback.description || '',
+          comments: feedback.comments || '',
+          companyValueName: valueData.companyValue.name,
+          savedAt: new Date().toISOString(),
+        };
+        
+        localStorage.setItem(storageKey, JSON.stringify(existingFeedback));
+        console.log('Demo mode: Saved CEO behavior feedback to localStorage for', valueData.companyValue.name);
       } else {
-        // Create new CEO review
-        await createCeoReview(
-          employeeEntry.id,
-          valueData.companyValue.id,
-          {
+        // Production mode - use API
+        if (employeeEntry.ceoEntries && employeeEntry.ceoEntries.length > 0) {
+          // Update existing CEO review
+          const ceoReview = employeeEntry.ceoEntries[0];
+          await updateBehaviorEntry(ceoReview.id, {
             description: feedback.description,
             comments: feedback.comments,
-          }
-        );
+          });
+        } else {
+          // Create new CEO review
+          await createCeoReview(
+            employeeEntry.id,
+            valueData.companyValue.id,
+            {
+              description: feedback.description,
+              comments: feedback.comments,
+            }
+          );
+        }
       }
 
       // Keep the form data in local state - don't clear it
@@ -122,6 +179,41 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
       // Keep the form data even on error so user doesn't lose their input
     }
   };
+
+  // Save all CEO reviews at once (for navigation)
+  const saveAllReviews = async (): Promise<boolean> => {
+    if (!organizedData || organizedData.length === 0) {
+      console.log('No organized data available to save');
+      return true; // Consider it successful if there's nothing to save
+    }
+
+    let allSaved = true;
+    const savePromises = organizedData.map(async (valueData) => {
+      // Only save if there's feedback for this value
+      const feedback = ceoFeedback[valueData.companyValue.id];
+      if (feedback && (feedback.description || feedback.comments)) {
+        try {
+          await saveCeoReview(valueData);
+          return true;
+        } catch (error) {
+          console.error(`Failed to save CEO review for ${valueData.companyValue.name}:`, error);
+          return false;
+        }
+      }
+      return true; // No feedback to save, consider successful
+    });
+
+    const results = await Promise.all(savePromises);
+    allSaved = results.every(result => result);
+
+    console.log(`Save all reviews completed. Success: ${allSaved}`);
+    return allSaved;
+  };
+
+  // Expose the saveAllReviews function via ref
+  useImperativeHandle(ref, () => ({
+    saveAllReviews,
+  }));
 
   if (isLoading) {
     return (
@@ -291,4 +383,4 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
       </CardContent>
     </Card>
   );
-}
+});
