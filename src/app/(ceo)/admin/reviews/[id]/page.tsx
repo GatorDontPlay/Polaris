@@ -52,6 +52,7 @@ import {
   Lock,
   Unlock,
   ArrowLeft,
+  ArrowRight,
 } from 'lucide-react';
 import { formatDateAU, getPDRStatusLabel } from '@/lib/utils';
 import { useState, useEffect } from 'react';
@@ -105,6 +106,7 @@ export default function CEOPDRReviewPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [behaviors, setBehaviors] = useState<Behavior[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("goals");
   
   // CEO feedback state
   const [ceoGoalFeedback, setCeoGoalFeedback] = useState<Record<string, {
@@ -636,6 +638,24 @@ export default function CEOPDRReviewPage() {
     if (progress >= 40) return 'bg-yellow-500';
     return 'bg-gray-400';
   };
+  
+  // Function to handle tab navigation
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+  };
+  
+  // Function to navigate to the next tab
+  const navigateToNextTab = () => {
+    if (activeTab === "goals") {
+      setActiveTab("behaviors");
+    } else if (activeTab === "behaviors") {
+      setActiveTab("summary");
+    } else if (activeTab === "summary") {
+      setActiveTab("mid-year");
+    } else if (activeTab === "mid-year") {
+      setActiveTab("final-review");
+    }
+  };
 
   const handleLockPDR = () => {
     if (!pdr) return;
@@ -851,29 +871,42 @@ export default function CEOPDRReviewPage() {
         </div>
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="goals" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="goals" className="flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              Goals ({goals.length})
-            </TabsTrigger>
-            <TabsTrigger value="behaviors" className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Behaviors ({behaviors.length})
-            </TabsTrigger>
-            <TabsTrigger value="summary" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Summary
-            </TabsTrigger>
-            <TabsTrigger value="mid-year" className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Mid Year Checkin
-            </TabsTrigger>
-            <TabsTrigger value="final-review" className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4" />
-              Final Review
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
+          <div className="flex justify-between items-center">
+            <TabsList>
+              <TabsTrigger value="goals" className="flex items-center gap-2">
+                <Target className="h-4 w-4" />
+                Goals ({goals.length})
+              </TabsTrigger>
+              <TabsTrigger value="behaviors" className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Behaviors ({behaviors.length})
+              </TabsTrigger>
+              <TabsTrigger value="summary" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Summary
+              </TabsTrigger>
+              <TabsTrigger value="mid-year" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Mid Year Checkin
+              </TabsTrigger>
+              <TabsTrigger value="final-review" className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4" />
+                Final Review
+              </TabsTrigger>
+            </TabsList>
+            
+            {/* Next button */}
+            {activeTab === "goals" && (
+              <Button 
+                onClick={navigateToNextTab}
+                className="bg-primary hover:bg-primary/90"
+              >
+                Next: Behaviors
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            )}
+          </div>
 
           <TabsContent value="goals" className="space-y-4">
             <Card className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm">
