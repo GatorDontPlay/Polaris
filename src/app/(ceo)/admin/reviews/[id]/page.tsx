@@ -1045,7 +1045,7 @@ export default function CEOPDRReviewPage() {
                               <Input
                                 id={`ceo-title-${goal.id}`}
                                 placeholder="Rename the employees goal (If Required)"
-                                value={ceoGoalFeedback[goal.id]?.ceoTitle || ''}
+                                defaultValue={goal.title || ''}
                                 onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoTitle', e.target.value)}
                                 className="mt-1 h-9 bg-muted/30"
                                 disabled={pdr.isLocked}
@@ -1059,7 +1059,7 @@ export default function CEOPDRReviewPage() {
                               <Textarea
                                 id={`ceo-desc-${goal.id}`}
                                 placeholder="Enter new goal description (If applicable)"
-                                value={ceoGoalFeedback[goal.id]?.ceoDescription || ''}
+                                defaultValue={goal.description || ''}
                                 onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoDescription', e.target.value)}
                                 className="mt-1 min-h-[104px] bg-muted/30"
                                 rows={4}
@@ -1077,7 +1077,7 @@ export default function CEOPDRReviewPage() {
                                 min="0"
                                 max="100"
                                 placeholder="Suggest weighting for the employee"
-                                value={ceoGoalFeedback[goal.id]?.ceoProgress || ''}
+                                defaultValue={goal.weighting || ''}
                                 onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoProgress', parseInt(e.target.value) || 0)}
                                 className="mt-1 h-9 bg-muted/30"
                                 disabled={pdr.isLocked}
@@ -1180,7 +1180,7 @@ export default function CEOPDRReviewPage() {
                               </Label>
                               <Input
                                 id={`ceo-behavior-value-${behavior.id}`}
-                                value={ceoBehaviorFeedback[behavior.id]?.valueTitle || behavior.value?.name || behavior.title || ''}
+                                defaultValue={behavior.value?.name || behavior.title || ''}
                                 onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'valueTitle', e.target.value)}
                                 className="mt-1 bg-muted/30"
                                 disabled={pdr.isLocked}
@@ -1194,7 +1194,7 @@ export default function CEOPDRReviewPage() {
                               </Label>
                               <Textarea
                                 id={`ceo-behavior-employee-desc-${behavior.id}`}
-                                value={ceoBehaviorFeedback[behavior.id]?.employeeDescription || behavior.description || ''}
+                                defaultValue={behavior.description || ''}
                                 onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'employeeDescription', e.target.value)}
                                 className="mt-1 min-h-[80px] bg-muted/30"
                                 rows={3}
@@ -1211,7 +1211,7 @@ export default function CEOPDRReviewPage() {
                               <Textarea
                                 id={`ceo-behavior-feedback-${behavior.id}`}
                                 placeholder="Your feedback on this behavior..."
-                                value={ceoBehaviorFeedback[behavior.id]?.ceoComments || ''}
+                                defaultValue={ceoBehaviorFeedback[behavior.id]?.ceoComments || ''}
                                 onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'ceoComments', e.target.value)}
                                 className="mt-1 min-h-[80px]"
                                 rows={4}
