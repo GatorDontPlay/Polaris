@@ -41,10 +41,11 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
     fetchOrganizedData();
   }, [fetchOrganizedData]);
 
-  // Pre-populate form with existing CEO review data
+  // Pre-populate form with existing CEO review data (only if form is empty)
   useEffect(() => {
     if (organizedData && organizedData.length > 0) {
       const newCeoFeedback: Record<string, { description?: string; comments?: string; }> = {};
+      let hasExistingData = false;
       
       organizedData.forEach(valueData => {
         if (valueData.employeeEntries.length > 0 && valueData.employeeEntries[0].ceoEntries && valueData.employeeEntries[0].ceoEntries.length > 0) {
@@ -53,12 +54,23 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
             description: ceoReview.description || '',
             comments: ceoReview.comments || '',
           };
+          hasExistingData = true;
         }
       });
       
-      setCeoFeedback(newCeoFeedback);
+      // Only update form state if we have existing data and current form is mostly empty
+      const currentFormIsEmpty = Object.keys(ceoFeedback).length === 0 || 
+        Object.values(ceoFeedback).every(feedback => 
+          (!feedback.description || feedback.description.trim() === '') && 
+          (!feedback.comments || feedback.comments.trim() === '')
+        );
+        
+      if (hasExistingData && currentFormIsEmpty) {
+        console.log('Pre-populating form with existing CEO review data');
+        setCeoFeedback(newCeoFeedback);
+      }
     }
-  }, [organizedData]);
+  }, [organizedData, ceoFeedback]);
 
   // Update local CEO feedback state
   const updateCeoFeedback = (valueId: string, field: string, value: string | number) => {
@@ -81,28 +93,34 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
 
     const feedback = ceoFeedback[valueData.companyValue.id] || {};
     
-    // Check if CEO already has a review for this employee entry
-    if (employeeEntry.ceoEntries && employeeEntry.ceoEntries.length > 0) {
-      // Update existing CEO review
-      const ceoReview = employeeEntry.ceoEntries[0];
-      await updateBehaviorEntry(ceoReview.id, {
-        description: feedback.description,
-        comments: feedback.comments,
-      });
-    } else {
-      // Create new CEO review
-      await createCeoReview(
-        employeeEntry.id,
-        valueData.companyValue.id,
-        {
+    try {
+      // Check if CEO already has a review for this employee entry
+      if (employeeEntry.ceoEntries && employeeEntry.ceoEntries.length > 0) {
+        // Update existing CEO review
+        const ceoReview = employeeEntry.ceoEntries[0];
+        await updateBehaviorEntry(ceoReview.id, {
           description: feedback.description,
           comments: feedback.comments,
-        }
-      );
-    }
+        });
+      } else {
+        // Create new CEO review
+        await createCeoReview(
+          employeeEntry.id,
+          valueData.companyValue.id,
+          {
+            description: feedback.description,
+            comments: feedback.comments,
+          }
+        );
+      }
 
-    // Refresh data after save
-    fetchOrganizedData();
+      // Keep the form data in local state - don't clear it
+      console.log('CEO review saved successfully, preserving form data');
+      
+    } catch (error) {
+      console.error('Error saving CEO review:', error);
+      // Keep the form data even on error so user doesn't lose their input
+    }
   };
 
   if (isLoading) {
