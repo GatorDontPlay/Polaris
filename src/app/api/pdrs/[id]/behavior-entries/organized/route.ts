@@ -99,8 +99,8 @@ export async function GET(
           authorId: 'demo-employee-1',
           authorType: 'EMPLOYEE' as const,
           description: `${value.name} Comments`, // This matches what's shown in the UI
-          examples: `Example behaviors demonstrating ${value.name.toLowerCase()}`,
-          selfAssessment: `Self reflection on ${value.name.toLowerCase()} development goals and areas for growth.`,
+          examples: null,
+          selfAssessment: null,
           rating: null,
           comments: null,
           employeeEntryId: null,

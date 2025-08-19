@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useBehaviorEntries } from '@/hooks/use-behavior-entries';
-import { RatingInput } from '@/components/pdr/rating-input';
 import type { PDR, AuthUser, OrganizedBehaviorData } from '@/types';
 import { MessageSquare, Star, TrendingUp, User } from 'lucide-react';
 
@@ -35,7 +34,6 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
   const [ceoFeedback, setCeoFeedback] = useState<Record<string, {
     description?: string;
     comments?: string;
-    rating?: number;
   }>>({});
 
   // Load organized data on component mount
@@ -71,7 +69,6 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
       await updateBehaviorEntry(ceoReview.id, {
         description: feedback.description,
         comments: feedback.comments,
-        rating: feedback.rating,
       });
     } else {
       // Create new CEO review
@@ -81,7 +78,6 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
         {
           description: feedback.description,
           comments: feedback.comments,
-          rating: feedback.rating,
         }
       );
     }
@@ -161,24 +157,6 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
                             </div>
                           </div>
                           
-                          {employeeEntry.examples && (
-                            <div>
-                              <Label className="text-sm font-medium">Examples</Label>
-                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm min-h-[40px]">
-                                {employeeEntry.examples}
-                              </div>
-                            </div>
-                          )}
-
-                          {employeeEntry.selfAssessment && (
-                            <div>
-                              <Label className="text-sm font-medium">Self Assessment</Label>
-                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm min-h-[40px]">
-                                {employeeEntry.selfAssessment}
-                              </div>
-                            </div>
-                          )}
-                          
                           {employeeEntry.rating && pdr.status !== 'SUBMITTED' && (
                             <div>
                               <Label className="text-sm font-medium">Self Rating</Label>
@@ -248,26 +226,7 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
                               </div>
                             )}
                             
-                            {ceoReview.rating && (
-                              <div>
-                                <Label className="text-sm font-medium">CEO Rating</Label>
-                                <div className="mt-1 flex items-center gap-2">
-                                  <div className="flex">
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                      <Star
-                                        key={star}
-                                        className={`h-4 w-4 ${
-                                          star <= ceoReview.rating!
-                                            ? 'text-yellow-400 fill-current'
-                                            : 'text-gray-300'
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                  <span className="text-sm font-medium">{ceoReview.rating}/5</span>
-                                </div>
-                              </div>
-                            )}
+
                           </div>
                         ))}
                       </div>
@@ -298,19 +257,7 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
                           />
                         </div>
                         
-                        <div>
-                          <Label className="text-sm font-medium">CEO Rating</Label>
-                          <div className="mt-1">
-                            <RatingInput
-                              value={ceoFeedback[valueData.companyValue.id]?.rating}
-                              onChange={(rating) => updateCeoFeedback(valueData.companyValue.id, 'rating', rating)}
-                              disabled={pdr.isLocked}
-                              size="md"
-                              showLabel={true}
-                            />
-                          </div>
-                        </div>
-                        
+
                         <Separator />
                         
                         <Button
