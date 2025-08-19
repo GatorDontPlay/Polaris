@@ -707,6 +707,55 @@ export default function CEOPDRReviewPage() {
       setActiveTab("final-review");
     }
   };
+  
+  // Function to save behavior changes and navigate to summary tab
+  const saveAndNavigateToSummary = () => {
+    // Instead of relying on DOM IDs which might be duplicated, use the state directly
+    // Create a copy of the behaviors with their current values
+    const updatedBehaviors = [...behaviors]; // Keep original behaviors unchanged
+    
+    // For each behavior, save the CEO feedback separately
+    behaviors.forEach(behavior => {
+      // Get the form elements for this specific behavior
+      const descInput = document.getElementById(`ceo-behavior-employee-desc-${behavior.id}`);
+      const feedbackInput = document.getElementById(`ceo-behavior-feedback-${behavior.id}`);
+      
+      // Get values directly from the form elements if they exist
+      // Company Value is not editable, so we don't need to get it from a form element
+      const employeeDescription = descInput ? descInput.value : ceoBehaviorFeedback[behavior.id]?.employeeDescription || '';
+      const ceoComments = feedbackInput ? feedbackInput.value : ceoBehaviorFeedback[behavior.id]?.ceoComments || '';
+      
+      console.log(`Saving CEO feedback for behavior ${behavior.id} (${behavior.value?.name}): `, {
+        employeeDescription,
+        ceoComments
+      });
+      
+      // Update the CEO feedback for this behavior
+      const updatedFeedback = {
+        ...(ceoBehaviorFeedback[behavior.id] || {}),
+        employeeDescription,
+        ceoComments
+      };
+      
+      // Save the updated feedback
+      setCeoBehaviorFeedback(prev => ({
+        ...prev,
+        [behavior.id]: updatedFeedback
+      }));
+      
+      // Save to localStorage immediately for this behavior
+      const feedbackKey = `ceo_behavior_feedback_${pdrId}`;
+      const currentFeedback = JSON.parse(localStorage.getItem(feedbackKey) || '{}');
+      currentFeedback[behavior.id] = updatedFeedback;
+      localStorage.setItem(feedbackKey, JSON.stringify(currentFeedback));
+    });
+    
+    // Original behaviors remain unchanged in localStorage
+    console.log('✅ CEO Review: Saved CEO feedback for behaviors');
+    
+    // Navigate to summary tab
+    setActiveTab("summary");
+  };
 
   const handleLockPDR = () => {
     if (!pdr) return;
@@ -957,6 +1006,17 @@ export default function CEOPDRReviewPage() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}
+            
+            {/* Next to Summary button */}
+            {activeTab === "behaviors" && (
+              <Button 
+                onClick={saveAndNavigateToSummary}
+                className="bg-primary hover:bg-primary/90"
+              >
+                Next: Summary
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            )}
           </div>
 
           <TabsContent value="goals" className="space-y-4">
@@ -1175,31 +1235,26 @@ export default function CEOPDRReviewPage() {
                             <h4 className="font-semibold text-green-600">CEO Review</h4>
                             
                             <div>
-                              <Label htmlFor={`ceo-behavior-value-${behavior.id}`} className="text-sm font-medium">
+                              <Label className="text-sm font-medium">
                                 Company Value
                               </Label>
-                              <Input
-                                id={`ceo-behavior-value-${behavior.id}`}
-                                defaultValue={behavior.value?.name || behavior.title || ''}
-                                onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'valueTitle', e.target.value)}
-                                className="mt-1 bg-muted/30"
-                                disabled={pdr.isLocked}
-                                placeholder="Edit company value name..."
-                              />
+                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm font-medium">
+                                {behavior.value?.name || behavior.title || 'Untitled Behavior'}
+                              </div>
                             </div>
                             
                             <div>
                               <Label className="text-sm font-medium">
-                                Employee's Behavior Description
+                                Behavior Description
                               </Label>
                               <Textarea
                                 id={`ceo-behavior-employee-desc-${behavior.id}`}
-                                defaultValue={behavior.description || ''}
+                                defaultValue={ceoBehaviorFeedback[behavior.id]?.employeeDescription || behavior.description || ''}
                                 onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'employeeDescription', e.target.value)}
                                 className="mt-1 min-h-[80px] bg-muted/30"
                                 rows={3}
                                 disabled={pdr.isLocked}
-                                placeholder="Edit employee's behavior description..."
+                                placeholder="Enter your modified description..."
                               />
                             </div>
                             
