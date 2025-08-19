@@ -1047,7 +1047,7 @@ export default function CEOPDRReviewPage() {
                                 placeholder="Rename the employees goal (If Required)"
                                 value={ceoGoalFeedback[goal.id]?.ceoTitle || ''}
                                 onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoTitle', e.target.value)}
-                                className="mt-1 h-9"
+                                className="mt-1 h-9 bg-muted/30"
                                 disabled={pdr.isLocked}
                               />
                             </div>
@@ -1061,7 +1061,7 @@ export default function CEOPDRReviewPage() {
                                 placeholder="Enter new goal description (If applicable)"
                                 value={ceoGoalFeedback[goal.id]?.ceoDescription || ''}
                                 onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoDescription', e.target.value)}
-                                className="mt-1 min-h-[104px]"
+                                className="mt-1 min-h-[104px] bg-muted/30"
                                 rows={4}
                                 disabled={pdr.isLocked}
                               />
@@ -1079,7 +1079,7 @@ export default function CEOPDRReviewPage() {
                                 placeholder="Suggest weighting for the employee"
                                 value={ceoGoalFeedback[goal.id]?.ceoProgress || ''}
                                 onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoProgress', parseInt(e.target.value) || 0)}
-                                className="mt-1 h-9"
+                                className="mt-1 h-9 bg-muted/30"
                                 disabled={pdr.isLocked}
                               />
                             </div>
@@ -1178,18 +1178,29 @@ export default function CEOPDRReviewPage() {
                               <Label htmlFor={`ceo-behavior-value-${behavior.id}`} className="text-sm font-medium">
                                 Company Value
                               </Label>
-                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm font-medium">
-                                {behavior.value?.name || behavior.title || 'Untitled Behavior'}
-                              </div>
+                              <Input
+                                id={`ceo-behavior-value-${behavior.id}`}
+                                value={ceoBehaviorFeedback[behavior.id]?.valueTitle || behavior.value?.name || behavior.title || ''}
+                                onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'valueTitle', e.target.value)}
+                                className="mt-1 bg-muted/30"
+                                disabled={pdr.isLocked}
+                                placeholder="Edit company value name..."
+                              />
                             </div>
                             
                             <div>
                               <Label className="text-sm font-medium">
                                 Employee's Behavior Description
                               </Label>
-                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm min-h-[60px]">
-                                {behavior.description || 'No description provided'}
-                              </div>
+                              <Textarea
+                                id={`ceo-behavior-employee-desc-${behavior.id}`}
+                                value={ceoBehaviorFeedback[behavior.id]?.employeeDescription || behavior.description || ''}
+                                onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'employeeDescription', e.target.value)}
+                                className="mt-1 min-h-[80px] bg-muted/30"
+                                rows={3}
+                                disabled={pdr.isLocked}
+                                placeholder="Edit employee's behavior description..."
+                              />
                             </div>
                             
                             {/* CEO Feedback Fields */}
