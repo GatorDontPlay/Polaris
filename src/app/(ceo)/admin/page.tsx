@@ -255,31 +255,31 @@ export default function CEODashboard() {
                     All employee PDR activities (last 14 days)
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="pt-2">
-                  <div className="space-y-2">
+                <CardContent className="pt-2 px-3">
+                  <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
                     {recentActivity.length === 0 ? (
                       <p className="text-center py-4 text-muted-foreground text-sm">
                         No recent activity
                       </p>
                     ) : (
                       recentActivity.slice(0, 6).map((activity: any) => (
-                        <div key={activity.id} className="flex items-center space-x-3 p-2 rounded border bg-card/50 hover:bg-accent/30 transition-colors">
-                          <Avatar className="h-7 w-7 flex-shrink-0">
+                        <div key={activity.id} className="flex items-start space-x-3 p-3 rounded border bg-card/50 hover:bg-accent/30 transition-colors">
+                          <Avatar className="h-7 w-7 flex-shrink-0 mt-0.5">
                             <AvatarFallback className="text-xs">
                               {activity.user?.firstName?.[0]}{activity.user?.lastName?.[0]}
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="truncate">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                              <div className="flex flex-col">
                                 <span className="text-xs font-medium">
                                   {`${activity.user?.firstName || 'Unknown'} ${activity.user?.lastName || 'User'}`}
                                 </span>
-                                <span className="text-xs text-muted-foreground ml-2">
+                                <div className="text-xs text-muted-foreground mt-0.5 break-words">
                                   {activity.message}
-                                </span>
+                                </div>
                               </div>
-                              <div className="flex items-center space-x-1 flex-shrink-0">
+                              <div className="flex items-center space-x-1 flex-shrink-0 mt-1 sm:mt-0">
                                 <Badge 
                                   variant={
                                     activity.priority === 'high' ? 'destructive' :

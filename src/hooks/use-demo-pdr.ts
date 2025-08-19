@@ -260,14 +260,38 @@ export function useDemoBehaviors(pdrId: string) {
 
   useEffect(() => {
     // Load behaviors from localStorage if they exist
-    const savedBehaviors = localStorage.getItem(`demo_behaviors_${pdrId}`);
-    if (savedBehaviors) {
-      try {
-        setBehaviors(JSON.parse(savedBehaviors));
-      } catch {
+    const loadBehaviors = () => {
+      const savedBehaviors = localStorage.getItem(`demo_behaviors_${pdrId}`);
+      if (savedBehaviors) {
+        try {
+          const parsed = JSON.parse(savedBehaviors);
+          setBehaviors(parsed);
+          console.log('🔍 useDemoBehaviors loaded:', parsed.length, 'behaviors from key:', `demo_behaviors_${pdrId}`);
+          console.log('🔍 Full behaviors data:', parsed);
+          console.log('🔍 Behavior descriptions:', parsed.map(b => ({ valueId: b.valueId, description: b.description })));
+        } catch {
+          setBehaviors([]);
+        }
+      } else {
         setBehaviors([]);
       }
-    }
+    };
+
+    // Load initially
+    loadBehaviors();
+
+    // Listen for storage events to detect changes from other components
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === `demo_behaviors_${pdrId}`) {
+        loadBehaviors();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [pdrId]);
 
   const addBehavior = (behaviorData: BehaviorFormData) => {

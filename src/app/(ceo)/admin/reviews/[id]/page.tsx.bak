@@ -56,7 +56,6 @@ import {
 } from 'lucide-react';
 import { formatDateAU, getPDRStatusLabel } from '@/lib/utils';
 import { useState, useEffect } from 'react';
-import { useToast } from '@/hooks/use-toast';
 
 interface PDRData {
   id: string;
@@ -71,7 +70,6 @@ interface PDRData {
   createdAt: string;
   updatedAt: string;
   submittedAt?: string;
-  ceoFields?: Record<string, any>;
   user: {
     firstName: string;
     lastName: string;
@@ -108,14 +106,12 @@ interface Behavior {
 export default function CEOPDRReviewPage() {
   const params = useParams();
   const router = useRouter();
-  const { toast } = useToast();
   const pdrId = params.id as string;
 
   const [pdr, setPdr] = useState<PDRData | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [behaviors, setBehaviors] = useState<Behavior[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("goals");
   
   // CEO feedback state
@@ -633,33 +629,6 @@ export default function CEOPDRReviewPage() {
       loadPDRData();
     }, [pdrId]);
 
-  // Load demo CEO feedback on component mount
-  useEffect(() => {
-    const loadDemoCeoFeedback = () => {
-      if (typeof window !== 'undefined' && localStorage.getItem('demo_user')) {
-        const demoDataKey = `demo_pdr_ceo_fields_${pdrId}`;
-        const savedCeoFields = localStorage.getItem(demoDataKey);
-        
-        if (savedCeoFields) {
-          try {
-            const ceoFields = JSON.parse(savedCeoFields);
-            if (ceoFields.goalFeedback) {
-              setCeoGoalFeedback(ceoFields.goalFeedback);
-              console.log('Demo mode: Loaded CEO goal feedback', ceoFields.goalFeedback);
-            }
-          } catch (error) {
-            console.error('Error loading demo CEO feedback:', error);
-          }
-        }
-      }
-    };
-
-    // Load demo data after PDR data is loaded
-    if (pdr && pdrId) {
-      loadDemoCeoFeedback();
-    }
-  }, [pdr, pdrId]);
-
   const getStatusBadge = (status: string) => {
     const statusLabel = getPDRStatusLabel(status as any) || status;
     
@@ -722,197 +691,64 @@ export default function CEOPDRReviewPage() {
   };
   
   // Function to handle tab navigation
-  const handleTabChange = async (value: string) => {
-    // Prevent rapid-fire tab changes
-    if (isSaving) {
-      console.log('Tab change blocked: Currently saving');
-      return;
-    }
-
-    try {
-      // If navigating from goals to behaviors tab, save CEO goal feedback first
-      if (activeTab === "goals" && value === "behaviors") {
-        const saved = await saveCeoGoalFeedback();
-        if (saved) {
-          setActiveTab(value);
-        }
-      } else {
-        setActiveTab(value);
-      }
-    } catch (error) {
-      console.error('Error during tab change:', error);
-      toast({
-        title: 'Navigation Error',
-        description: 'Unable to change tabs. Please try again.',
-        variant: 'destructive',
-      });
-    }
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
   };
   
-  // Function to save CEO goal feedback to the PDR ceoFields
-  const saveCeoGoalFeedback = async () => {
-    // Prevent multiple simultaneous saves
-    if (isSaving) {
-      console.log('Save blocked: Already saving');
-      return false;
-    }
-
-    setIsSaving(true);
-    try {
-      if (!pdr) {
-        throw new Error('PDR data not found');
-      }
-      
-      // Prepare the ceoFields data with goal feedback
-      const ceoFields = {
-        ...(pdr.ceoFields as Record<string, any> || {}),
-        goalFeedback: ceoGoalFeedback
-      };
-      
-      // Check if we're in demo mode
-      const isDemo = typeof window !== 'undefined' && localStorage.getItem('demo_user');
-      
-      if (isDemo) {
-        // For demo mode, save locally and update state immediately
-        console.log('Demo mode: Saving CEO goal feedback locally', ceoFields);
-        
-        // Save to localStorage for demo persistence
-        const demoDataKey = `demo_pdr_ceo_fields_${pdrId}`;
-        localStorage.setItem(demoDataKey, JSON.stringify(ceoFields));
-        
-        // Update the local PDR state with the new ceoFields
-        setPdr((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            ceoFields: ceoFields as any
-          };
-        });
-        
-        // Show success message for demo
-        toast({
-          title: 'Success',
-          description: 'CEO feedback saved successfully (Demo mode)',
-        });
-        
-        return true;
-      } else {
-        // For production mode, make API call
-        const headers: HeadersInit = {
-          'Content-Type': 'application/json',
-        };
-        
-        // Check for regular auth token in cookies
-        const token = document.cookie
-          .split('; ')
-          .find(row => row.startsWith('access_token='))
-          ?.split('=')[1];
-        
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-        
-        const response = await fetch(`/api/pdrs/${pdrId}`, {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify({
-            ceoFields
-          }),
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to save CEO goal feedback');
-        }
-        
-        // Update the local PDR state with the new ceoFields
-        setPdr((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            ceoFields: ceoFields as any
-          };
-        });
-        
-        toast({
-          title: 'Success',
-          description: 'CEO feedback saved successfully',
-        });
-        
-        return true;
-      }
-    } catch (error) {
-      console.error('Error saving CEO goal feedback:', error);
-      // Use toast function from component level
-      toast({
-        title: 'Error',
-        description: 'Failed to save your feedback. Please try again.',
-        variant: 'destructive',
-      });
-      return false;
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   // Function to navigate to the next tab
-  const navigateToNextTab = async () => {
-    // Prevent rapid-fire navigation
-    if (isSaving) {
-      console.log('Navigation blocked: Currently saving');
-      return;
-    }
-
-    try {
-      if (activeTab === "goals") {
-        // Save CEO goal feedback before navigating
-        const saved = await saveCeoGoalFeedback();
-        if (saved) {
-          setActiveTab("behaviors");
-        }
-      } else if (activeTab === "behaviors") {
-        setActiveTab("summary");
-      } else if (activeTab === "summary") {
-        setActiveTab("mid-year");
-      } else if (activeTab === "mid-year") {
-        setActiveTab("final-review");
-      }
-    } catch (error) {
-      console.error('Error during navigation:', error);
-      toast({
-        title: 'Navigation Error',
-        description: 'Unable to navigate. Please try again.',
-        variant: 'destructive',
-      });
+  const navigateToNextTab = () => {
+    if (activeTab === "goals") {
+      setActiveTab("behaviors");
+    } else if (activeTab === "behaviors") {
+      setActiveTab("summary");
+    } else if (activeTab === "summary") {
+      setActiveTab("mid-year");
+    } else if (activeTab === "mid-year") {
+      setActiveTab("final-review");
     }
   };
   
   // Function to save behavior changes and navigate to summary tab
   const saveAndNavigateToSummary = () => {
-    // Instead of relying on DOM IDs which might be duplicated, use the state directly
-    // Create a copy of the behaviors with their current values
-    const updatedBehaviors = [...behaviors]; // Keep original behaviors unchanged
+    // Create a copy of the behaviors to update
+    const updatedBehaviors = [...behaviors];
     
-    // For each behavior, save the CEO feedback separately
-    behaviors.forEach(behavior => {
-      // Get the form elements for this specific behavior
-      const descInput = document.getElementById(`ceo-behavior-employee-desc-${behavior.id}`);
-      const feedbackInput = document.getElementById(`ceo-behavior-feedback-${behavior.id}`);
+    // For each behavior, update the source data based on CEO edits
+    updatedBehaviors.forEach((behavior, index) => {
+      // Get the form elements for this specific behavior using the unique ID with index
+      const uniqueDescId = `ceo-behavior-employee-desc-${behavior.id}-${index}`;
+      const uniqueFeedbackId = `ceo-behavior-feedback-${behavior.id}-${index}`;
+      
+      const descInput = document.getElementById(uniqueDescId);
+      const feedbackInput = document.getElementById(uniqueFeedbackId);
+      
+      console.log(`Looking for elements with IDs: ${uniqueDescId}, ${uniqueFeedbackId}`);
+      
+      if (!descInput) {
+        console.error(`Could not find description input for behavior ${index} (${behavior.value?.name})`);
+      }
+      
+      if (!feedbackInput) {
+        console.error(`Could not find feedback input for behavior ${index} (${behavior.value?.name})`);
+      }
       
       // Get values directly from the form elements if they exist
-      // Company Value is not editable, so we don't need to get it from a form element
-      const employeeDescription = descInput ? descInput.value : ceoBehaviorFeedback[behavior.id]?.employeeDescription || '';
+      const employeeDescription = descInput ? descInput.value : ceoBehaviorFeedback[behavior.id]?.employeeDescription || behavior.description || '';
       const ceoComments = feedbackInput ? feedbackInput.value : ceoBehaviorFeedback[behavior.id]?.ceoComments || '';
       
-      console.log(`Saving CEO feedback for behavior ${behavior.id} (${behavior.value?.name}): `, {
+      console.log(`Saving CEO feedback for behavior ${index}: ${behavior.id} (${behavior.value?.name}): `, {
         employeeDescription,
-        ceoComments
+        ceoComments,
+        descInputFound: !!descInput,
+        feedbackInputFound: !!feedbackInput
       });
       
       // Update the CEO feedback for this behavior
       const updatedFeedback = {
         ...(ceoBehaviorFeedback[behavior.id] || {}),
         employeeDescription,
-        ceoComments
+        ceoComments,
+        behaviorIndex: index // Store the index to help with debugging
       };
       
       // Save the updated feedback
@@ -926,10 +762,21 @@ export default function CEOPDRReviewPage() {
       const currentFeedback = JSON.parse(localStorage.getItem(feedbackKey) || '{}');
       currentFeedback[behavior.id] = updatedFeedback;
       localStorage.setItem(feedbackKey, JSON.stringify(currentFeedback));
+      
+      // Update the source behavior data with CEO's edits
+      updatedBehaviors[index] = {
+        ...behavior,
+        description: employeeDescription // Update the description with CEO's edit
+      };
     });
     
-    // Original behaviors remain unchanged in localStorage
-    console.log('✅ CEO Review: Saved CEO feedback for behaviors');
+    // Save the updated behaviors to localStorage
+    localStorage.setItem(`demo_behaviors_${pdrId}`, JSON.stringify(updatedBehaviors));
+    
+    // Update the behaviors state
+    setBehaviors(updatedBehaviors);
+    
+    console.log('✅ CEO Review: Updated behaviors with CEO edits:', updatedBehaviors);
     
     // Navigate to summary tab
     setActiveTab("summary");
@@ -1178,10 +1025,9 @@ export default function CEOPDRReviewPage() {
             {activeTab === "goals" && (
               <Button 
                 onClick={navigateToNextTab}
-                disabled={isSaving}
                 className="bg-primary hover:bg-primary/90"
               >
-                {isSaving ? 'Saving...' : 'Next: Behaviors'}
+                Next: Behaviors
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}
@@ -1284,16 +1130,10 @@ export default function CEOPDRReviewPage() {
                               <Input
                                 id={`ceo-title-${goal.id}`}
                                 placeholder="Rename the employees goal (If Required)"
-                                defaultValue={
-                                  // Use CEO's modified title if available, otherwise use employee's title
-                                  (pdr && (pdr.ceoFields as any)?.goalFeedback && 
-                                   (pdr.ceoFields as any).goalFeedback[goal.id]?.ceoTitle !== undefined) 
-                                    ? (pdr.ceoFields as any).goalFeedback[goal.id].ceoTitle 
-                                    : goal.title || ''
-                                }
+                                defaultValue={goal.title || ''}
                                 onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoTitle', e.target.value)}
                                 className="mt-1 h-9 bg-muted/30"
-                                disabled={pdr?.isLocked}
+                                disabled={pdr.isLocked}
                               />
                             </div>
                             
@@ -1304,17 +1144,11 @@ export default function CEOPDRReviewPage() {
                               <Textarea
                                 id={`ceo-desc-${goal.id}`}
                                 placeholder="Enter new goal description (If applicable)"
-                                defaultValue={
-                                  // Use CEO's modified description if available, otherwise use employee's description
-                                  (pdr && (pdr.ceoFields as any)?.goalFeedback && 
-                                   (pdr.ceoFields as any).goalFeedback[goal.id]?.ceoDescription !== undefined) 
-                                    ? (pdr.ceoFields as any).goalFeedback[goal.id].ceoDescription 
-                                    : goal.description || ''
-                                }
+                                defaultValue={goal.description || ''}
                                 onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoDescription', e.target.value)}
                                 className="mt-1 min-h-[104px] bg-muted/30"
                                 rows={4}
-                                disabled={pdr?.isLocked}
+                                disabled={pdr.isLocked}
                               />
                             </div>
                             
@@ -1328,16 +1162,10 @@ export default function CEOPDRReviewPage() {
                                 min="0"
                                 max="100"
                                 placeholder="Suggest weighting for the employee"
-                                defaultValue={
-                                  // Use CEO's modified progress if available, otherwise use employee's weighting
-                                  (pdr && (pdr.ceoFields as any)?.goalFeedback && 
-                                   (pdr.ceoFields as any).goalFeedback[goal.id]?.ceoProgress !== undefined) 
-                                    ? (pdr.ceoFields as any).goalFeedback[goal.id].ceoProgress 
-                                    : (goal as any).weighting || ''
-                                }
+                                defaultValue={goal.weighting || ''}
                                 onChange={(e) => updateCeoGoalFeedback(goal.id, 'ceoProgress', parseInt(e.target.value) || 0)}
                                 className="mt-1 h-9 bg-muted/30"
-                                disabled={pdr?.isLocked}
+                                disabled={pdr.isLocked}
                               />
                             </div>
                             
@@ -1352,7 +1180,8 @@ export default function CEOPDRReviewPage() {
                           </div>
                         </div>
                       </Card>
-                    ))}
+                    );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -1374,8 +1203,10 @@ export default function CEOPDRReviewPage() {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {behaviors.map((behavior) => (
-                      <Card key={behavior.id} className="p-6">
+                    {behaviors.map((behavior, index) => {
+                      console.log(`Rendering behavior ${index}: ID=${behavior.id}, Value=${behavior.value?.name}`);
+                      return (
+                      <Card key={`behavior-card-${behavior.id}`} className="p-6">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                           {/* Employee Side */}
                           <div className="space-y-4">
@@ -1445,29 +1276,29 @@ export default function CEOPDRReviewPage() {
                                 Behavior Description
                               </Label>
                               <Textarea
-                                id={`ceo-behavior-employee-desc-${behavior.id}`}
+                                id={`ceo-behavior-employee-desc-${behavior.id}-${index}`}
                                 defaultValue={ceoBehaviorFeedback[behavior.id]?.employeeDescription || behavior.description || ''}
                                 onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'employeeDescription', e.target.value)}
                                 className="mt-1 min-h-[80px] bg-muted/30"
                                 rows={3}
-                                disabled={pdr?.isLocked}
+                                disabled={pdr.isLocked}
                                 placeholder="Enter your modified description..."
                               />
                             </div>
                             
                             {/* CEO Feedback Fields */}
                             <div>
-                              <Label htmlFor={`ceo-behavior-feedback-${behavior.id}`} className="text-sm font-medium">
+                              <Label htmlFor={`ceo-behavior-feedback-${behavior.id}-${index}`} className="text-sm font-medium">
                                 CEO Feedback
                               </Label>
                               <Textarea
-                                id={`ceo-behavior-feedback-${behavior.id}`}
+                                id={`ceo-behavior-feedback-${behavior.id}-${index}`}
                                 placeholder="Your feedback on this behavior..."
                                 defaultValue={ceoBehaviorFeedback[behavior.id]?.ceoComments || ''}
                                 onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'ceoComments', e.target.value)}
                                 className="mt-1 min-h-[80px]"
                                 rows={4}
-                                disabled={pdr?.isLocked}
+                                disabled={pdr.isLocked}
                               />
                             </div>
                             
@@ -1489,7 +1320,8 @@ export default function CEOPDRReviewPage() {
                           </div>
                         </div>
                       </Card>
-                    ))}
+                    );
+                    })}
                   </div>
                 )}
               </CardContent>
