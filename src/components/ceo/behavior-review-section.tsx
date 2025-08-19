@@ -41,6 +41,25 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
     fetchOrganizedData();
   }, [fetchOrganizedData]);
 
+  // Pre-populate form with existing CEO review data
+  useEffect(() => {
+    if (organizedData && organizedData.length > 0) {
+      const newCeoFeedback: Record<string, { description?: string; comments?: string; }> = {};
+      
+      organizedData.forEach(valueData => {
+        if (valueData.employeeEntries.length > 0 && valueData.employeeEntries[0].ceoEntries && valueData.employeeEntries[0].ceoEntries.length > 0) {
+          const ceoReview = valueData.employeeEntries[0].ceoEntries[0];
+          newCeoFeedback[valueData.companyValue.id] = {
+            description: ceoReview.description || '',
+            comments: ceoReview.comments || '',
+          };
+        }
+      });
+      
+      setCeoFeedback(newCeoFeedback);
+    }
+  }, [organizedData]);
+
   // Update local CEO feedback state
   const updateCeoFeedback = (valueId: string, field: string, value: string | number) => {
     setCeoFeedback(prev => ({
@@ -184,9 +203,9 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
                         <TrendingUp className="h-4 w-4 text-green-600" />
                         <h4 className="font-semibold text-green-600">CEO Review</h4>
                       </div>
-                      {valueData.hasCeoEntry && (
+                      {valueData.employeeEntries.length > 0 && valueData.employeeEntries[0].ceoEntries && valueData.employeeEntries[0].ceoEntries.length > 0 && (
                         <Badge variant="secondary" className="text-xs">
-                          Reviewed
+                          Previously Reviewed
                         </Badge>
                       )}
                     </div>
@@ -198,39 +217,7 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
                       </div>
                     </div>
                     
-                    {/* Show existing CEO review if available */}
-                    {valueData.employeeEntries.length > 0 && valueData.employeeEntries[0].ceoEntries && valueData.employeeEntries[0].ceoEntries.length > 0 ? (
-                      <div className="space-y-3">
-                        {valueData.employeeEntries[0].ceoEntries.map((ceoReview) => (
-                          <div key={ceoReview.id} className="space-y-3 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
-                            <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
-                              <MessageSquare className="h-3 w-3" />
-                              <span>CEO Review by {ceoReview.author?.firstName} {ceoReview.author?.lastName}</span>
-                            </div>
-                            
-                            {ceoReview.description && (
-                              <div>
-                                <Label className="text-sm font-medium">Modified Description</Label>
-                                <div className="mt-1 p-2 bg-background rounded text-sm min-h-[60px]">
-                                  {ceoReview.description}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {ceoReview.comments && (
-                              <div>
-                                <Label className="text-sm font-medium">CEO Feedback</Label>
-                                <div className="mt-1 p-2 bg-background rounded text-sm min-h-[60px]">
-                                  {ceoReview.comments}
-                                </div>
-                              </div>
-                            )}
-                            
-
-                          </div>
-                        ))}
-                      </div>
-                    ) : valueData.employeeEntries.length > 0 ? (
+                    {valueData.employeeEntries.length > 0 ? (
                       /* CEO Review Form */
                       <div className="space-y-3">
                         <div>
@@ -266,7 +253,10 @@ export function BehaviorReviewSection({ pdr, currentUser }: BehaviorReviewSectio
                           className="w-full"
                           size="sm"
                         >
-                          {isSaving ? 'Saving...' : 'Save CEO Review'}
+                          {isSaving ? 'Saving...' : 
+                           (valueData.employeeEntries[0].ceoEntries && valueData.employeeEntries[0].ceoEntries.length > 0) 
+                             ? 'Update CEO Review' 
+                             : 'Save CEO Review'}
                         </Button>
                       </div>
                     ) : (
