@@ -89,12 +89,18 @@ interface Goal {
 
 interface Behavior {
   id: string;
-  title: string;
+  title?: string;
   description: string;
-  examples: string;
+  examples?: string;
   selfRating: number;
   managerRating?: number;
-  comments: string;
+  comments?: string;
+  valueId?: string;
+  value?: {
+    id: string;
+    name: string;
+    description?: string;
+  };
 }
 
 export default function CEOPDRReviewPage() {
@@ -485,8 +491,53 @@ export default function CEOPDRReviewPage() {
         if (behaviorsData) {
           try {
             const parsedBehaviors = JSON.parse(behaviorsData);
-            setBehaviors(parsedBehaviors);
-            console.log('✅ CEO Review: Found behaviors:', parsedBehaviors.length);
+            
+            // Load company values to associate with behaviors
+            const DEMO_COMPANY_VALUES = [
+              {
+                id: '550e8400-e29b-41d4-a716-446655440001',
+                name: 'Lean Thinking',
+                description: 'We embrace a lean mindset, always seeking ways to eliminate waste and improve productivity.',
+              },
+              {
+                id: '550e8400-e29b-41d4-a716-446655440002',
+                name: 'Craftsmanship',
+                description: 'We take pride in creating high-quality products and services.',
+              },
+              {
+                id: '550e8400-e29b-41d4-a716-446655440003',
+                name: 'Value-Centric Innovation',
+                description: 'We focus on creating products and services that add significant value to our customers\' lives.',
+              },
+              {
+                id: '550e8400-e29b-41d4-a716-446655440004',
+                name: 'Blameless Problem-Solving',
+                description: 'We approach every challenge with a forward-looking, solution-driven mindset.',
+              },
+              {
+                id: '550e8400-e29b-41d4-a716-446655440005',
+                name: 'Self Reflection',
+                description: 'We regularly reflect on our actions and decisions to continuously improve.',
+              },
+              {
+                id: '550e8400-e29b-41d4-a716-446655440006',
+                name: 'CodeFish 3D - Deep Dive Development',
+                description: 'We dive deep into complex problems and develop comprehensive solutions.',
+              }
+            ];
+            
+            // Associate company values with behaviors
+            const behaviorsWithValues = parsedBehaviors.map(behavior => {
+              const companyValue = DEMO_COMPANY_VALUES.find(value => value.id === behavior.valueId);
+              return {
+                ...behavior,
+                value: companyValue || null
+              };
+            });
+            
+            setBehaviors(behaviorsWithValues);
+            console.log('✅ CEO Review: Found behaviors:', behaviorsWithValues.length);
+            console.log('✅ CEO Review: Behaviors with values:', behaviorsWithValues);
           } catch (error) {
             console.error('Error parsing behaviors:', error);
           }
@@ -985,7 +1036,7 @@ export default function CEOPDRReviewPage() {
 
                           {/* CEO Side */}
                           <div className="space-y-4 border-l pl-6">
-                            <h4 className="font-semibold text-green-600">CEO Assessment</h4>
+                            <h4 className="font-semibold text-green-600">CEO Review</h4>
                             
                             <div>
                               <Label htmlFor={`ceo-title-${goal.id}`} className="text-sm font-medium">
@@ -1074,28 +1125,31 @@ export default function CEOPDRReviewPage() {
                             <h4 className="font-semibold text-blue-600">Employee Assessment</h4>
                             
                             <div>
-                              <Label className="text-sm font-medium">Behavior Title</Label>
+                              <Label className="text-sm font-medium">Company Value</Label>
                               <div className="mt-1 p-2 bg-muted/50 rounded text-sm font-medium">
-                                {behavior.title || 'Untitled Behavior'}
+                                {behavior.value?.name || behavior.title || 'Untitled Behavior'}
                               </div>
                             </div>
                             
                             <div>
-                              <Label className="text-sm font-medium">Description</Label>
+                              <Label className="text-sm font-medium">Behavior Description</Label>
                               <div className="mt-1 p-2 bg-muted/50 rounded text-sm min-h-[60px]">
                                 {behavior.description || 'No description provided'}
                               </div>
                             </div>
                             
-                            <div>
-                              <Label className="text-sm font-medium">Self Rating</Label>
-                              <div className="mt-1 space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <Progress value={(behavior.selfRating || 0) * 20} className="flex-1 h-3" />
-                                  <span className="text-sm font-medium">{behavior.selfRating || 0}/5</span>
+                            {/* Hide Self Rating at planning stage */}
+                            {pdr.status !== 'SUBMITTED' ? (
+                              <div>
+                                <Label className="text-sm font-medium">Self Rating</Label>
+                                <div className="mt-1 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Progress value={(behavior.selfRating || 0) * 20} className="flex-1 h-3" />
+                                    <span className="text-sm font-medium">{behavior.selfRating || 0}/5</span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
+                            ) : null}
 
                             {behavior.examples && (
                               <div>
@@ -1118,55 +1172,34 @@ export default function CEOPDRReviewPage() {
 
                           {/* CEO Side */}
                           <div className="space-y-4 border-l pl-6">
-                            <h4 className="font-semibold text-green-600">CEO Assessment</h4>
+                            <h4 className="font-semibold text-green-600">CEO Review</h4>
                             
                             <div>
-                              <Label htmlFor={`ceo-behavior-rating-${behavior.id}`} className="text-sm font-medium">
-                                Your Rating (1-5)
+                              <Label htmlFor={`ceo-behavior-value-${behavior.id}`} className="text-sm font-medium">
+                                Company Value
                               </Label>
-                              <Input
-                                id={`ceo-behavior-rating-${behavior.id}`}
-                                type="number"
-                                min="1"
-                                max="5"
-                                placeholder="1-5"
-                                value={ceoBehaviorFeedback[behavior.id]?.ceoRating || ''}
-                                onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'ceoRating', parseInt(e.target.value) || 0)}
-                                className="mt-1"
-                                disabled={pdr.isLocked}
-                              />
-                              {ceoBehaviorFeedback[behavior.id]?.ceoRating && (
-                                <div className="mt-2 space-y-1">
-                                  <div className="flex items-center gap-2">
-                                    <Progress value={(ceoBehaviorFeedback[behavior.id]?.ceoRating || 0) * 20} className="flex-1 h-3" />
-                                    <span className="text-sm font-medium">{ceoBehaviorFeedback[behavior.id]?.ceoRating}/5</span>
-                                  </div>
-                                </div>
-                              )}
+                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm font-medium">
+                                {behavior.value?.name || behavior.title || 'Untitled Behavior'}
+                              </div>
                             </div>
                             
                             <div>
-                              <Label htmlFor={`ceo-behavior-examples-${behavior.id}`} className="text-sm font-medium">
-                                Your Examples/Observations
+                              <Label className="text-sm font-medium">
+                                Employee's Behavior Description
                               </Label>
-                              <Textarea
-                                id={`ceo-behavior-examples-${behavior.id}`}
-                                placeholder="Specific examples or observations of this behavior..."
-                                value={ceoBehaviorFeedback[behavior.id]?.ceoExamples || ''}
-                                onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'ceoExamples', e.target.value)}
-                                className="mt-1 min-h-[60px]"
-                                rows={3}
-                                disabled={pdr.isLocked}
-                              />
+                              <div className="mt-1 p-2 bg-muted/50 rounded text-sm min-h-[60px]">
+                                {behavior.description || 'No description provided'}
+                              </div>
                             </div>
                             
+                            {/* CEO Feedback Fields */}
                             <div>
-                              <Label htmlFor={`ceo-behavior-comments-${behavior.id}`} className="text-sm font-medium">
-                                Your Comments & Feedback
+                              <Label htmlFor={`ceo-behavior-feedback-${behavior.id}`} className="text-sm font-medium">
+                                CEO Feedback
                               </Label>
                               <Textarea
-                                id={`ceo-behavior-comments-${behavior.id}`}
-                                placeholder="Your assessment, areas for improvement, strengths, etc..."
+                                id={`ceo-behavior-feedback-${behavior.id}`}
+                                placeholder="Your feedback on this behavior..."
                                 value={ceoBehaviorFeedback[behavior.id]?.ceoComments || ''}
                                 onChange={(e) => updateCeoBehaviorFeedback(behavior.id, 'ceoComments', e.target.value)}
                                 className="mt-1 min-h-[80px]"
