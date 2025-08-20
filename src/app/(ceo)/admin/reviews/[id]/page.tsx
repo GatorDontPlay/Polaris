@@ -55,7 +55,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { formatDateAU, getPDRStatusLabel } from '@/lib/utils';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { BehaviorReviewSection, type BehaviorReviewSectionRef } from '@/components/ceo/behavior-review-section';
 
@@ -161,6 +161,35 @@ export default function CEOPDRReviewPage() {
   // Validation error dialog state
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isValidationErrorDialogOpen, setIsValidationErrorDialogOpen] = useState(false);
+
+  // State to force re-render of metrics when localStorage changes
+  const [metricsRefreshKey, setMetricsRefreshKey] = useState(0);
+
+  // Function to refresh metrics
+  const refreshMetrics = useCallback(() => {
+    setMetricsRefreshKey(prev => prev + 1);
+  }, []);
+
+  // Listen for storage events and custom events to refresh metrics
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key?.includes(`ceo_goal_feedback_${pdrId}`) || e.key?.includes(`ceo_behavior_feedback_${pdrId}`)) {
+        refreshMetrics();
+      }
+    };
+
+    const handleCustomRefresh = () => {
+      refreshMetrics();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('ceo-feedback-updated', handleCustomRefresh);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('ceo-feedback-updated', handleCustomRefresh);
+    };
+  }, [pdrId, refreshMetrics]);
   
   // Mid-year save and close confirmation dialog state
   const [isMidYearSaveConfirmDialogOpen, setIsMidYearSaveConfirmDialogOpen] = useState(false);
@@ -315,45 +344,61 @@ export default function CEOPDRReviewPage() {
     console.log('✅ Mid-Year Review: Completed and PDR moved to Final Review phase');
   };
 
-  // Validate that CEO has provided comprehensive feedback
+  // Validate that CEO has provided comprehensive feedback for planning stage
   const validateCEOFeedback = () => {
-    console.log('🔍 Validation: Starting CEO feedback validation');
-    console.log('📊 Goals:', goals);
-    console.log('📊 Behaviors:', behaviors);
-    console.log('📊 CEO Goal Feedback:', ceoGoalFeedback);
-    console.log('📊 CEO Behavior Feedback:', ceoBehaviorFeedback);
-    console.log('📊 CEO Comments:', ceoComments);
+    console.log('🔍 Validation: Starting CEO feedback validation for planning stage');
     
     const validationErrors: string[] = [];
     
-    // Check goals feedback
+    // Get real CEO feedback data from localStorage (same as metrics)
+    const getCeoGoalFeedback = () => {
+      if (typeof window === 'undefined') return {};
+      const savedData = localStorage.getItem(`ceo_goal_feedback_${pdrId}`);
+      return savedData ? JSON.parse(savedData) : {};
+    };
+
+    const getCeoBehaviorFeedback = () => {
+      if (typeof window === 'undefined') return {};
+      const savedData = localStorage.getItem(`ceo_behavior_feedback_${pdrId}`);
+      return savedData ? JSON.parse(savedData) : {};
+    };
+
+    const realCeoGoalFeedback = getCeoGoalFeedback();
+    const realCeoBehaviorFeedback = getCeoBehaviorFeedback();
+    
+    console.log('📊 Real CEO Goal Feedback:', realCeoGoalFeedback);
+    console.log('📊 Real CEO Behavior Feedback:', realCeoBehaviorFeedback);
+    
+    // Check goals feedback - only require some form of CEO input (not ratings)
     goals.forEach((goal) => {
-      const feedback = ceoGoalFeedback[goal.id];
+      const feedback = realCeoGoalFeedback[goal.id];
       console.log(`🎯 Validating goal "${goal.title}":`, feedback);
-      if (!feedback?.ceoRating) {
-        validationErrors.push(`Goal "${goal.title}" - Missing CEO rating`);
-      }
-      if (!feedback?.ceoDescription?.trim()) {
-        validationErrors.push(`Goal "${goal.title}" - Missing CEO comments`);
-      }
-    });
-    
-    // Check behaviors feedback
-    behaviors.forEach((behavior) => {
-      const feedback = ceoBehaviorFeedback[behavior.id];
-      console.log(`⚡ Validating behavior "${behavior.title}":`, feedback);
-      if (!feedback?.ceoRating) {
-        validationErrors.push(`Behavior "${behavior.title}" - Missing CEO rating`);
-      }
-      if (!feedback?.ceoComments?.trim()) {
-        validationErrors.push(`Behavior "${behavior.title}" - Missing CEO comments`);
+      
+      // For planning stage, require at least one form of CEO feedback
+      const hasFeedback = feedback && (
+        (feedback.ceoTitle && feedback.ceoTitle.trim()) ||
+        (feedback.ceoDescription && feedback.ceoDescription.trim()) ||
+        (feedback.ceoComments && feedback.ceoComments.trim())
+      );
+      
+      if (!hasFeedback) {
+        validationErrors.push(`Goal "${goal.title}" - Missing CEO feedback`);
       }
     });
     
-    // Check overall comments
-    console.log('💬 Validating overall comments:', ceoComments);
-    if (!ceoComments.trim()) {
-      validationErrors.push('Overall CEO comments are required');
+    // Check behaviors feedback - require description or comments (not ratings)
+    const totalBehaviors = 6; // 6 company values
+    const behaviorsFeedbackCount = Object.keys(realCeoBehaviorFeedback).filter(valueId => {
+      const feedback = realCeoBehaviorFeedback[valueId];
+      return feedback && (
+        (feedback.description && feedback.description.trim()) ||
+        (feedback.comments && feedback.comments.trim())
+      );
+    }).length;
+    
+    if (behaviorsFeedbackCount < totalBehaviors) {
+      const missingCount = totalBehaviors - behaviorsFeedbackCount;
+      validationErrors.push(`${missingCount} behavior(s) missing CEO feedback`);
     }
     
     console.log('❌ Validation errors:', validationErrors);
@@ -799,6 +844,10 @@ export default function CEOPDRReviewPage() {
           description: 'CEO feedback saved successfully (Demo mode)',
         });
         
+        // Trigger metrics refresh
+        refreshMetrics();
+        window.dispatchEvent(new CustomEvent('ceo-feedback-updated'));
+        
         return true;
       } else {
         // For production mode, make API call
@@ -841,6 +890,10 @@ export default function CEOPDRReviewPage() {
           title: 'Success',
           description: 'CEO feedback saved successfully',
         });
+        
+        // Trigger metrics refresh
+        refreshMetrics();
+        window.dispatchEvent(new CustomEvent('ceo-feedback-updated'));
         
         return true;
       }
@@ -1144,7 +1197,7 @@ export default function CEOPDRReviewPage() {
               </TabsTrigger>
               <TabsTrigger value="behaviors" className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
-                Behaviors ({behaviors.length})
+                Behaviors (6)
               </TabsTrigger>
               <TabsTrigger value="summary" className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
@@ -1369,22 +1422,58 @@ export default function CEOPDRReviewPage() {
               {/* Review Progress - Compact */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Review Progress</CardTitle>
+                  <CardTitle className="text-lg">Planning Stage Completion</CardTitle>
                   <CardDescription className="text-sm">
-                    Track your feedback completion
+                    Your Planned PDR state's readiness for submission
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {(() => {
-                    const totalItems = goals.length + behaviors.length + 1; // +1 for overall comments
-                    const completedGoals = goals.filter(g => 
-                      ceoGoalFeedback[g.id]?.ceoRating && ceoGoalFeedback[g.id]?.ceoDescription?.trim()
-                    ).length;
-                    const completedBehaviors = behaviors.filter(b => 
-                      ceoBehaviorFeedback[b.id]?.ceoRating && ceoBehaviorFeedback[b.id]?.ceoComments?.trim()
-                    ).length;
-                    const hasOverallComments = ceoComments.trim().length > 0;
-                    const completedItems = completedGoals + completedBehaviors + (hasOverallComments ? 1 : 0);
+                    // Force re-calculation when metricsRefreshKey changes
+                    metricsRefreshKey; // This ensures the calculation runs when metrics refresh
+                    
+                    // Get real CEO feedback data from localStorage
+                    const getCeoGoalFeedback = () => {
+                      if (typeof window === 'undefined') return {};
+                      const savedData = localStorage.getItem(`ceo_goal_feedback_${pdrId}`);
+                      return savedData ? JSON.parse(savedData) : {};
+                    };
+
+                    const getCeoBehaviorFeedback = () => {
+                      if (typeof window === 'undefined') return {};
+                      const savedData = localStorage.getItem(`ceo_behavior_feedback_${pdrId}`);
+                      return savedData ? JSON.parse(savedData) : {};
+                    };
+
+                    const realCeoGoalFeedback = getCeoGoalFeedback();
+                    const realCeoBehaviorFeedback = getCeoBehaviorFeedback();
+
+                    // Calculate completion based on real system data
+                    const totalBehaviors = 6; // 6 company values
+                    const totalGoals = goals.length;
+                    const totalItems = totalGoals + totalBehaviors; // Goals + Behaviors only
+
+                    // Count completed goals (CEO has provided feedback)
+                    const completedGoals = Object.keys(realCeoGoalFeedback).filter(goalId => {
+                      const feedback = realCeoGoalFeedback[goalId];
+                      return feedback && (
+                        (feedback.ceoTitle && feedback.ceoTitle.trim()) ||
+                        (feedback.ceoDescription && feedback.ceoDescription.trim()) ||
+                        (feedback.ceoComments && feedback.ceoComments.trim()) ||
+                        feedback.ceoRating
+                      );
+                    }).length;
+
+                    // Count completed behaviors (CEO has provided feedback)
+                    const completedBehaviors = Object.keys(realCeoBehaviorFeedback).filter(valueId => {
+                      const feedback = realCeoBehaviorFeedback[valueId];
+                      return feedback && (
+                        (feedback.description && feedback.description.trim()) ||
+                        (feedback.comments && feedback.comments.trim())
+                      );
+                    }).length;
+
+                    const completedItems = completedGoals + completedBehaviors;
                     const completionPercentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
                     
                     return (
@@ -1396,18 +1485,14 @@ export default function CEOPDRReviewPage() {
                           </div>
                           <Progress value={completionPercentage} className="h-3" />
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
                           <div className="text-center p-2 bg-muted/50 rounded">
-                            <div className="font-bold text-sm">{completedGoals}/{goals.length}</div>
+                            <div className="font-bold text-sm">{completedGoals}/{totalGoals}</div>
                             <div className="text-muted-foreground">Goals</div>
                           </div>
                           <div className="text-center p-2 bg-muted/50 rounded">
-                            <div className="font-bold text-sm">{completedBehaviors}/{behaviors.length}</div>
+                            <div className="font-bold text-sm">{completedBehaviors}/{totalBehaviors}</div>
                             <div className="text-muted-foreground">Behaviors</div>
-                          </div>
-                          <div className="text-center p-2 bg-muted/50 rounded">
-                            <div className="font-bold text-sm">{hasOverallComments ? '✓' : '✗'}</div>
-                            <div className="text-muted-foreground">Comments</div>
                           </div>
                         </div>
                       </div>
@@ -1545,61 +1630,7 @@ export default function CEOPDRReviewPage() {
               </Card>
             </div>
 
-            {/* Goals and Behaviors Summary - Moved Below Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Goals Summary - Compact Card Design */}
-              <div className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm rounded-lg px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <h3 className="font-semibold text-foreground text-sm">Goals Summary</h3>
-                    <div className="flex items-center space-x-3 text-xs">
-                      <span className="px-2 py-1 bg-muted rounded-md text-muted-foreground font-medium">
-                        {goals.length} Total
-                      </span>
-                      <span className="px-2 py-1 bg-status-success/10 text-status-success rounded-md font-medium">
-                        {goals.filter(g => g.employeeRating && g.employeeRating > 0).length} Employee
-                      </span>
-                      <span className="px-2 py-1 bg-status-info/10 text-status-info rounded-md font-medium">
-                        {goals.filter(g => g.ceoRating && g.ceoRating > 0).length} CEO
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold text-foreground">
-                      {goals.length > 0 && goals.some(g => g.employeeRating) 
-                        ? (goals.reduce((acc, g) => acc + (g.employeeRating || 0), 0) / goals.filter(g => g.employeeRating).length).toFixed(1)
-                        : '0.0'}/5
-                    </div>
-                    <div className="text-xs text-muted-foreground">Avg Rating</div>
-                  </div>
-                </div>
-              </div>
 
-              {/* Behaviors Summary - Compact Card Design */}
-              <div className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm rounded-lg px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <h3 className="font-semibold text-foreground text-sm">Behaviors Summary</h3>
-                    <div className="flex items-center space-x-3 text-xs">
-                      <span className="px-2 py-1 bg-muted rounded-md text-muted-foreground font-medium">
-                        {behaviors.length} Total
-                      </span>
-                      <span className="px-2 py-1 bg-status-warning/10 text-status-warning rounded-md font-medium">
-                        {behaviors.filter(b => b.ceoRating).length}/{behaviors.length} CEO
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold text-foreground">
-                      {behaviors.length > 0 
-                        ? (behaviors.reduce((acc, b) => acc + (b.employeeRating || 0), 0) / behaviors.length).toFixed(1)
-                        : '0.0'}/5
-                    </div>
-                    <div className="text-xs text-muted-foreground">Avg Self Rating</div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </TabsContent>
 
           <TabsContent value="mid-year" className="space-y-4">

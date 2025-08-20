@@ -98,7 +98,7 @@ export async function GET(
           valueId: value.id,
           authorId: 'demo-employee-1',
           authorType: 'EMPLOYEE' as const,
-          description: `${value.name} Comments`, // This matches what's shown in the UI
+          description: `${value.name} Comments`,
           examples: null,
           selfAssessment: null,
           rating: null,
