@@ -270,7 +270,7 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
       <CardHeader>
         <CardTitle>Behavioral Competencies</CardTitle>
         <CardDescription>
-          Employee's self-assessment and CEO review of behavioral competencies
+          Employees thoughts on how they can contribute to the company values this year.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-4">
@@ -310,7 +310,7 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
                       valueData.employeeEntries.map((employeeEntry) => (
                         <div key={employeeEntry.id}>
                           <div>
-                            <Label className="text-sm font-medium">Behavior Description</Label>
+                            <Label className="text-sm font-medium">Behaviour/Values Initiative</Label>
                             <div className="mt-1 p-2 bg-muted/50 rounded text-sm min-h-[50px] relative">
                               {employeeEntry.description ? (
                                 <>
@@ -383,9 +383,9 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
                       /* CEO Review Form */
                       <div className="space-y-3">
                         <div>
-                          <Label className="text-sm font-medium">Modified Description (Optional)</Label>
+                          <Label className="text-sm font-medium">Adjust Employees Initiatives (Optional)</Label>
                           <Textarea
-                            placeholder="Enter modified behavior description if needed..."
+                            placeholder="Adjust or refine the employee's initiative if needed..."
                             value={ceoFeedback[valueData.companyValue.id]?.description || ''}
                             onChange={(e) => updateCeoFeedback(valueData.companyValue.id, 'description', e.target.value)}
                             className="mt-1 min-h-[60px] bg-muted/30"
@@ -395,9 +395,9 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
                         </div>
                         
                         <div>
-                          <Label className="text-sm font-medium">CEO Feedback</Label>
+                          <Label className="text-sm font-medium">CEO Notes/Feedback</Label>
                           <Textarea
-                            placeholder="Your feedback on this behavior..."
+                            placeholder="Your notes and feedback on this initiative..."
                             value={ceoFeedback[valueData.companyValue.id]?.comments || ''}
                             onChange={(e) => updateCeoFeedback(valueData.companyValue.id, 'comments', e.target.value)}
                             className="mt-1 min-h-[60px]"
