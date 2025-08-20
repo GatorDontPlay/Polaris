@@ -7,9 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useBehaviorEntries } from '@/hooks/use-behavior-entries';
 import type { PDR, AuthUser, OrganizedBehaviorData } from '@/types';
-import { MessageSquare, Star, TrendingUp, User, ChevronDown, ChevronUp } from 'lucide-react';
+import { MessageSquare, Star, TrendingUp, User, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
 
 interface BehaviorReviewSectionProps {
   pdr: PDR;
@@ -383,7 +384,28 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
                       /* CEO Review Form */
                       <div className="space-y-3">
                         <div>
-                          <Label className="text-sm font-medium">Adjust Employees Initiatives (Optional)</Label>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Label className="text-sm font-medium">Adjust Employees Initiatives (Optional)</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                                >
+                                  <HelpCircle className="h-4 w-4" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-80 p-3" align="start">
+                                <div className="space-y-2">
+                                  <h4 className="font-medium text-sm">Adjusting Employee Initiatives</h4>
+                                  <p className="text-sm text-muted-foreground leading-relaxed">
+                                    As CEO/Manager, you have ability to adjust an employee's initiatives to best align with the companies objectives. Discuss this with the employee, and adjust as necessary.
+                                  </p>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                           <Textarea
                             placeholder="Adjust or refine the employee's initiative if needed..."
                             value={ceoFeedback[valueData.companyValue.id]?.description || ''}
