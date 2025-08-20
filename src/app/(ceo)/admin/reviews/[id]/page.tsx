@@ -1671,7 +1671,7 @@ export default function CEOPDRReviewPage() {
                 <CardHeader>
                   <CardTitle>Mid Year Performance Review</CardTitle>
                   <CardDescription>
-                    Mid-year check-in and performance assessment for {pdr?.user?.firstName} {pdr?.user?.lastName}
+                    Discuss and record your mid year feedback with the employee. Identify how they're tracking, what issues may be occurring, and if the plan needs to be adjusted.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
