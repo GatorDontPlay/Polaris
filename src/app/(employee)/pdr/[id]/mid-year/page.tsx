@@ -4,12 +4,14 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useDemoPDR } from '@/hooks/use-demo-pdr';
+import { useDemoPDR, useDemoGoals, useDemoCompanyValues } from '@/hooks/use-demo-pdr';
 import { midYearReviewSchema } from '@/lib/validations';
 import { MidYearFormData } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -19,7 +21,13 @@ import {
   CheckCircle,
   AlertCircle,
   FileText,
-  MessageSquare
+  MessageSquare,
+  Target,
+  TrendingUp,
+  Eye,
+  ChevronDown,
+  ChevronRight,
+  User
 } from 'lucide-react';
 
 interface MidYearPageProps {
@@ -29,10 +37,72 @@ interface MidYearPageProps {
 export default function MidYearPage({ params }: MidYearPageProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
+  const [expandedBehaviors, setExpandedBehaviors] = useState<Set<string>>(new Set());
   
   const { data: pdr, isLoading: pdrLoading, updatePdr } = useDemoPDR(params.id);
+  const { data: goals, isLoading: goalsLoading } = useDemoGoals(params.id);
+  const { data: companyValues } = useDemoCompanyValues();
+  
+  // Get CEO feedback data for the recap
+  const getCeoFeedbackData = () => {
+    if (typeof window === 'undefined') return { goals: {}, behaviors: {} };
+    
+    const ceoGoalFeedback = localStorage.getItem(`ceo_goal_feedback_${params.id}`);
+    const ceoBehaviorFeedback = localStorage.getItem(`ceo_behavior_feedback_${params.id}`);
+    
+    return {
+      goals: ceoGoalFeedback ? JSON.parse(ceoGoalFeedback) : {},
+      behaviors: ceoBehaviorFeedback ? JSON.parse(ceoBehaviorFeedback) : {},
+    };
+  };
+  
+  // Get employee behavior data
+  const getEmployeeBehaviorData = () => {
+    if (typeof window === 'undefined') return {};
+    const employeeBehaviors = localStorage.getItem(`demo_behaviors_${params.id}`);
+    if (employeeBehaviors) {
+      try {
+        const behaviorsArray = JSON.parse(employeeBehaviors);
+        // Convert array to object keyed by valueId for easier lookup
+        const behaviorsMap: { [key: string]: any } = {};
+        behaviorsArray.forEach((behavior: any) => {
+          behaviorsMap[behavior.valueId] = behavior;
+        });
+        return behaviorsMap;
+      } catch (error) {
+        console.error('Error parsing employee behaviors:', error);
+        return {};
+      }
+    }
+    return {};
+  };
+  
+  const ceoFeedback = getCeoFeedbackData();
+  const employeeBehaviors = getEmployeeBehaviorData();
 
-  const isLoading = pdrLoading;
+  // Toggle functions for expanding/collapsing items
+  const toggleGoal = (goalId: string) => {
+    const newExpanded = new Set(expandedGoals);
+    if (newExpanded.has(goalId)) {
+      newExpanded.delete(goalId);
+    } else {
+      newExpanded.add(goalId);
+    }
+    setExpandedGoals(newExpanded);
+  };
+
+  const toggleBehavior = (behaviorId: string) => {
+    const newExpanded = new Set(expandedBehaviors);
+    if (newExpanded.has(behaviorId)) {
+      newExpanded.delete(behaviorId);
+    } else {
+      newExpanded.add(behaviorId);
+    }
+    setExpandedBehaviors(newExpanded);
+  };
+
+  const isLoading = pdrLoading || goalsLoading;
   const canEdit = pdr && !pdr.isLocked && pdr.status !== 'SUBMITTED' && pdr.status !== 'Created';
   const canUpdate = pdr && !pdr.isLocked;
   
@@ -129,44 +199,44 @@ export default function MidYearPage({ params }: MidYearPageProps) {
         <Card>
           <CardHeader>
             <CardTitle>Your Mid-Year Reflection</CardTitle>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Submitted on {new Date(midYearReview.submittedAt).toLocaleDateString('en-AU')}
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
               <h4 className="font-semibold text-foreground mb-3 text-base">Progress Summary</h4>
-              <p className="text-gray-700 whitespace-pre-wrap">{midYearReview.progressSummary}</p>
+              <p className="text-foreground whitespace-pre-wrap">{midYearReview.progressSummary}</p>
             </div>
 
             {midYearReview.blockersChallenges && (
               <div>
                 <h4 className="font-semibold text-foreground mb-3 text-base">Blockers & Challenges</h4>
-                <p className="text-gray-700 whitespace-pre-wrap">{midYearReview.blockersChallenges}</p>
+                <p className="text-foreground whitespace-pre-wrap">{midYearReview.blockersChallenges}</p>
               </div>
             )}
 
             {midYearReview.supportNeeded && (
               <div>
                 <h4 className="font-semibold text-foreground mb-3 text-base">Support Needed</h4>
-                <p className="text-gray-700 whitespace-pre-wrap">{midYearReview.supportNeeded}</p>
+                <p className="text-foreground whitespace-pre-wrap">{midYearReview.supportNeeded}</p>
               </div>
             )}
 
             {midYearReview.employeeComments && (
               <div>
                 <h4 className="font-semibold text-foreground mb-3 text-base">Additional Comments</h4>
-                <p className="text-gray-700 whitespace-pre-wrap">{midYearReview.employeeComments}</p>
+                <p className="text-foreground whitespace-pre-wrap">{midYearReview.employeeComments}</p>
               </div>
             )}
 
             {midYearReview.ceoFeedback && (
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-2 flex items-center">
-                  <MessageSquare className="h-4 w-4 mr-2" />
+              <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
+                <h4 className="font-medium text-foreground mb-2 flex items-center">
+                  <MessageSquare className="h-4 w-4 mr-2 text-primary" />
                   Manager Feedback
                 </h4>
-                <p className="text-blue-700 whitespace-pre-wrap">{midYearReview.ceoFeedback}</p>
+                <p className="text-foreground whitespace-pre-wrap">{midYearReview.ceoFeedback}</p>
               </div>
             )}
           </CardContent>
@@ -207,114 +277,317 @@ export default function MidYearPage({ params }: MidYearPageProps) {
       </div>
 
       {/* Instructions */}
-      {true && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="py-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <AlertCircle className="h-5 w-5 text-blue-500" />
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">
-                  Mid-Year Reflection
-                </h3>
-                <p className="text-sm text-blue-700 mt-1">
-                  Take a moment to reflect on your progress so far. This is an opportunity to 
-                  celebrate achievements, identify challenges, and get the support you need.
-                </p>
-              </div>
+      <Card className="border-primary/20 bg-primary/5">
+        <CardContent className="py-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <AlertCircle className="h-5 w-5 text-primary" />
             </div>
-          </CardContent>
-        </Card>
-      )}
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-foreground">
+                Mid-Year Reflection
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Take a moment to reflect on your progress so far. This is an opportunity to 
+                celebrate achievements, identify challenges, and get the support you need.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Review Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Mid-Year Reflection</CardTitle>
-          <p className="text-sm text-gray-600">
-            Share your thoughts on progress, challenges, and support needs
-          </p>
-        </CardHeader>
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* PDR Recap Card */}
+        <div className="xl:col-span-1">
+          <Card className="h-fit">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center">
+                <Eye className="h-5 w-5 mr-2 text-primary" />
+                PDR Recap
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Agreed goals and behaviors from planning stage
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Goals Section */}
+              {goals && goals.length > 0 && (
+                <div>
+                  <div className="flex items-center mb-2">
+                    <Target className="h-4 w-4 mr-1 text-green-600" />
+                    <h4 className="font-medium text-sm">Goals ({goals.length})</h4>
+                  </div>
+                  <div className="space-y-1">
+                    {goals.map((goal) => (
+                      <div key={goal.id} className="border border-border/50 rounded">
+                        {/* Goal Header - Clickable */}
+                        <button
+                          onClick={() => toggleGoal(goal.id)}
+                          className="w-full p-2 text-left hover:bg-muted/50 rounded transition-colors flex items-center justify-between"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-xs text-foreground truncate">
+                              {ceoFeedback.goals[goal.id]?.ceoTitle || goal.title}
+                            </div>
+                          </div>
+                          {expandedGoals.has(goal.id) ? (
+                            <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0 ml-2" />
+                          ) : (
+                            <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0 ml-2" />
+                          )}
+                        </button>
+                        
+                        {/* Goal Content - Expandable */}
+                        {expandedGoals.has(goal.id) && (
+                          <div className="px-3 pb-3 space-y-3 border-t border-border/50 bg-muted/20">
+                            {/* Employee Original */}
+                            <div className="bg-card border border-blue-200 rounded-md p-3 shadow-sm">
+                              <div className="flex items-center mb-2">
+                                <User className="h-4 w-4 mr-2 text-blue-600" />
+                                <span className="font-semibold text-sm text-blue-700">Employee Original</span>
+                              </div>
+                              <div className="space-y-2">
+                                <div>
+                                  <div className="text-xs font-medium text-muted-foreground mb-1">Title</div>
+                                  <div className="text-sm text-foreground font-medium">{goal.title}</div>
+                                </div>
+                                {goal.description && (
+                                  <div>
+                                    <div className="text-xs font-medium text-muted-foreground mb-1">Description</div>
+                                    <div className="text-sm text-foreground leading-relaxed">{goal.description}</div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* CEO Modifications */}
+                            {ceoFeedback.goals[goal.id] && (
+                              <div className="bg-card border border-green-200 rounded-md p-3 shadow-sm">
+                                <div className="flex items-center mb-2">
+                                  <TrendingUp className="h-4 w-4 mr-2 text-green-600" />
+                                  <span className="font-semibold text-sm text-green-700">CEO Planning Input</span>
+                                </div>
+                                <div className="space-y-2">
+                                  {ceoFeedback.goals[goal.id].ceoTitle && (
+                                    <div>
+                                      <div className="text-xs font-medium text-muted-foreground mb-1">Modified Title</div>
+                                      <div className="text-sm text-foreground font-medium">{ceoFeedback.goals[goal.id].ceoTitle}</div>
+                                    </div>
+                                  )}
+                                  {ceoFeedback.goals[goal.id].ceoDescription && (
+                                    <div>
+                                      <div className="text-xs font-medium text-muted-foreground mb-1">Modified Description</div>
+                                      <div className="text-sm text-foreground leading-relaxed">{ceoFeedback.goals[goal.id].ceoDescription}</div>
+                                    </div>
+                                  )}
+                                  {ceoFeedback.goals[goal.id].ceoComments && (
+                                    <div>
+                                      <div className="text-xs font-medium text-muted-foreground mb-1">CEO Comments</div>
+                                      <div className="text-sm text-foreground leading-relaxed">{ceoFeedback.goals[goal.id].ceoComments}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Behaviors Section */}
+              <div>
+                <div className="flex items-center mb-2">
+                  <TrendingUp className="h-4 w-4 mr-1 text-blue-600" />
+                  <h4 className="font-medium text-sm">Behaviors ({Object.keys(ceoFeedback.behaviors).length})</h4>
+                </div>
+                <div className="space-y-1">
+                  {Object.entries(ceoFeedback.behaviors).map(([valueId, feedback]) => (
+                    <div key={valueId} className="border border-border/50 rounded">
+                      {/* Behavior Header - Clickable */}
+                      <button
+                        onClick={() => toggleBehavior(valueId)}
+                        className="w-full p-2 text-left hover:bg-muted/50 rounded transition-colors flex items-center justify-between"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-xs text-foreground truncate">
+                            {(feedback as any).companyValueName || 'Company Value'}
+                          </div>
+                        </div>
+                        {expandedBehaviors.has(valueId) ? (
+                          <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0 ml-2" />
+                        ) : (
+                          <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0 ml-2" />
+                        )}
+                      </button>
+                      
+                      {/* Behavior Content - Expandable */}
+                      {expandedBehaviors.has(valueId) && (
+                        <div className="px-3 pb-3 space-y-3 border-t border-border/50 bg-muted/20">
+                          {/* Employee Original - Note: Employee behaviors would come from separate data source */}
+                          <div className="bg-card border border-blue-200 rounded-md p-3 shadow-sm">
+                            <div className="flex items-center mb-2">
+                              <User className="h-4 w-4 mr-2 text-blue-600" />
+                              <span className="font-semibold text-sm text-blue-700">Employee Assessment</span>
+                            </div>
+                            <div className="space-y-2">
+                              <div>
+                                <div className="text-xs font-medium text-muted-foreground mb-1">Company Value</div>
+                                <div className="text-sm text-foreground font-medium">{(feedback as any).companyValueName}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs font-medium text-muted-foreground mb-1">Behavior Description</div>
+                                <div className="text-sm text-foreground leading-relaxed">
+                                  {employeeBehaviors[valueId]?.description || 
+                                   companyValues?.find(cv => cv.id === valueId)?.description ||
+                                   'Employee assessment pending'}
+                                </div>
+                              </div>
+                              {employeeBehaviors[valueId]?.examples && (
+                                <div>
+                                  <div className="text-xs font-medium text-muted-foreground mb-1">Examples</div>
+                                  <div className="text-sm text-foreground leading-relaxed">
+                                    {employeeBehaviors[valueId].examples}
+                                  </div>
+                                </div>
+                              )}
+                              {employeeBehaviors[valueId]?.employeeSelfAssessment && (
+                                <div>
+                                  <div className="text-xs font-medium text-muted-foreground mb-1">Self Assessment</div>
+                                  <div className="text-sm text-foreground leading-relaxed">
+                                    {employeeBehaviors[valueId].employeeSelfAssessment}
+                                  </div>
+                                </div>
+                              )}
+                              {employeeBehaviors[valueId]?.employeeRating && (
+                                <div>
+                                  <div className="text-xs font-medium text-muted-foreground mb-1">Employee Rating</div>
+                                  <div className="text-sm text-foreground font-medium">
+                                    {employeeBehaviors[valueId].employeeRating}/5
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* CEO Modifications */}
+                          <div className="bg-card border border-green-200 rounded-md p-3 shadow-sm">
+                            <div className="flex items-center mb-2">
+                              <TrendingUp className="h-4 w-4 mr-2 text-green-600" />
+                              <span className="font-semibold text-sm text-green-700">CEO Planning Input</span>
+                            </div>
+                            <div className="space-y-2">
+                              {(feedback as any).description && (
+                                <div>
+                                  <div className="text-xs font-medium text-muted-foreground mb-1">Modified Description</div>
+                                  <div className="text-sm text-foreground leading-relaxed">{(feedback as any).description}</div>
+                                </div>
+                              )}
+                              {(feedback as any).comments && (
+                                <div>
+                                  <div className="text-xs font-medium text-muted-foreground mb-1">CEO Feedback</div>
+                                  <div className="text-sm text-foreground leading-relaxed">{(feedback as any).comments}</div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Review Form */}
+        <div className="xl:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Mid-Year Reflection</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Share your thoughts on progress, challenges, and support needs
+              </p>
+            </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Progress Summary */}
-            <div>
-              <label htmlFor="progressSummary" className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="space-y-2">
+              <Label htmlFor="progressSummary">
                 Progress Summary *
-              </label>
-              <p className="text-xs text-gray-500 mb-2">
+              </Label>
+              <p className="text-xs text-muted-foreground">
                 Summarize your key achievements and progress toward your goals
               </p>
-              <textarea
+              <Textarea
                 id="progressSummary"
                 {...register('progressSummary')}
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Describe the progress you've made on your goals and key accomplishments..."
               />
               {errors.progressSummary && (
-                <p className="mt-1 text-sm text-red-600">{errors.progressSummary.message}</p>
+                <p className="text-sm text-destructive">{errors.progressSummary.message}</p>
               )}
             </div>
 
             {/* Blockers & Challenges */}
-            <div>
-              <label htmlFor="blockersChallenges" className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="space-y-2">
+              <Label htmlFor="blockersChallenges">
                 Blockers & Challenges
-              </label>
-              <p className="text-xs text-gray-500 mb-2">
+              </Label>
+              <p className="text-xs text-muted-foreground">
                 What obstacles or challenges have you encountered?
               </p>
-              <textarea
+              <Textarea
                 id="blockersChallenges"
                 {...register('blockersChallenges')}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Describe any blockers, challenges, or obstacles you've faced..."
               />
               {errors.blockersChallenges && (
-                <p className="mt-1 text-sm text-red-600">{errors.blockersChallenges.message}</p>
+                <p className="text-sm text-destructive">{errors.blockersChallenges.message}</p>
               )}
             </div>
 
             {/* Support Needed */}
-            <div>
-              <label htmlFor="supportNeeded" className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="space-y-2">
+              <Label htmlFor="supportNeeded">
                 Support Needed
-              </label>
-              <p className="text-xs text-gray-500 mb-2">
+              </Label>
+              <p className="text-xs text-muted-foreground">
                 What support or resources would help you succeed?
               </p>
-              <textarea
+              <Textarea
                 id="supportNeeded"
                 {...register('supportNeeded')}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="What support, resources, or assistance would be most helpful..."
               />
               {errors.supportNeeded && (
-                <p className="mt-1 text-sm text-red-600">{errors.supportNeeded.message}</p>
+                <p className="text-sm text-destructive">{errors.supportNeeded.message}</p>
               )}
             </div>
 
             {/* Additional Comments */}
-            <div>
-              <label htmlFor="employeeComments" className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="space-y-2">
+              <Label htmlFor="employeeComments">
                 Additional Comments
-              </label>
-              <p className="text-xs text-gray-500 mb-2">
+              </Label>
+              <p className="text-xs text-muted-foreground">
                 Any other thoughts or feedback you'd like to share
               </p>
-              <textarea
+              <Textarea
                 id="employeeComments"
                 {...register('employeeComments')}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Share any additional thoughts, concerns, or feedback..."
               />
               {errors.employeeComments && (
-                <p className="mt-1 text-sm text-red-600">{errors.employeeComments.message}</p>
+                <p className="text-sm text-destructive">{errors.employeeComments.message}</p>
               )}
             </div>
 
@@ -343,6 +616,8 @@ export default function MidYearPage({ params }: MidYearPageProps) {
           </form>
         </CardContent>
       </Card>
+        </div>
+      </div>
 
       {/* Navigation */}
       <div className="flex justify-between">
