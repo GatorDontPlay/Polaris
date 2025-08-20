@@ -402,10 +402,19 @@ export default function MidYearPage({ params }: MidYearPageProps) {
               <div>
                 <div className="flex items-center mb-2">
                   <TrendingUp className="h-4 w-4 mr-1 text-blue-600" />
-                  <h4 className="font-medium text-sm">Behaviors ({Object.keys(ceoFeedback.behaviors).length})</h4>
+                  <h4 className="font-medium text-sm">Behaviors ({Object.entries(ceoFeedback.behaviors).filter(([valueId, feedback]) => {
+                    const companyValueName = (feedback as any).companyValueName;
+                    return companyValueName && companyValueName !== 'Company Value';
+                  }).length})</h4>
                 </div>
                 <div className="space-y-1">
-                  {Object.entries(ceoFeedback.behaviors).map(([valueId, feedback]) => (
+                  {Object.entries(ceoFeedback.behaviors)
+                    .filter(([valueId, feedback]) => {
+                      // Filter out entries that don't have a proper company value name
+                      const companyValueName = (feedback as any).companyValueName;
+                      return companyValueName && companyValueName !== 'Company Value';
+                    })
+                    .map(([valueId, feedback]) => (
                     <div key={valueId} className="border border-border/50 rounded">
                       {/* Behavior Header - Clickable */}
                       <button
