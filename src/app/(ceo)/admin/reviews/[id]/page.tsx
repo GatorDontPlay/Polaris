@@ -269,6 +269,16 @@ export default function CEOPDRReviewPage() {
     }, 100);
   };
 
+  // Local state for meeting booked status
+  const [meetingBooked, setMeetingBooked] = useState(pdr?.meetingBooked || false);
+
+  // Handle meeting booked status change
+  const handleMeetingBookedChange = (isBooked: boolean) => {
+    // Update local state immediately for visual feedback
+    setMeetingBooked(isBooked);
+    console.log('✅ Meeting booked status updated locally:', isBooked);
+  };
+
   const handleOpenCommentsDialog = () => {
     setIsCommentsDialogOpen(true);
   };
@@ -439,6 +449,7 @@ export default function CEOPDRReviewPage() {
       ...pdr,
       status: 'PLAN_LOCKED',
       isLocked: true,
+      meetingBooked: meetingBooked, // Save the meeting booked status
       reviewedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -1495,6 +1506,22 @@ export default function CEOPDRReviewPage() {
                             <div className="text-muted-foreground">Behaviors</div>
                           </div>
                         </div>
+                        
+                        {/* Meeting Confirmation */}
+                        <div className="pt-3 border-t border-border/50">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="meeting-booked"
+                              checked={meetingBooked}
+                              onChange={(e) => handleMeetingBookedChange(e.target.checked)}
+                              className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                            />
+                            <label htmlFor="meeting-booked" className="text-sm text-foreground cursor-pointer">
+                              I have booked a meeting with this employee
+                            </label>
+                          </div>
+                        </div>
                       </div>
                     );
                   })()}
@@ -1604,7 +1631,12 @@ export default function CEOPDRReviewPage() {
                   <div className="pt-2 border-t">
                     <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                       <div><strong>Status:</strong> {getPDRStatusLabel(pdr.status as any) || pdr.status}</div>
-                      <div><strong>Meeting:</strong> {pdr.meetingBooked ? 'Booked' : 'Not booked'}</div>
+                      <div>
+                        <strong>Meeting:</strong>{' '}
+                        <span className={meetingBooked ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                          {meetingBooked ? 'Booked' : 'Not booked'}
+                        </span>
+                      </div>
                       <div><strong>Submitted:</strong> {pdr.submittedAt ? formatDateAU(new Date(pdr.submittedAt)) : 'Not submitted'}</div>
                       <div><strong>Updated:</strong> {formatDateAU(new Date(pdr.updatedAt))}</div>
                     </div>
