@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AdminHeader, PageHeader } from '@/components/admin/admin-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,7 +56,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { formatDateAU, getPDRStatusLabel } from '@/lib/utils';
-import { useState, useEffect, useRef, useCallback } from 'react';
+
 import { useToast } from '@/hooks/use-toast';
 import { BehaviorReviewSection, type BehaviorReviewSectionRef } from '@/components/ceo/behavior-review-section';
 
@@ -285,16 +286,40 @@ export default function CEOPDRReviewPage() {
 
   // Save mid-year check-in comment
   const saveMidYearComment = (itemId: string, comment: string, type: 'goal' | 'behavior') => {
+    console.log('saveMidYearComment called:', { itemId, comment: comment.substring(0, 20), type });
     if (type === 'goal') {
       const updatedComments = { ...midYearGoalComments, [itemId]: comment };
       setMidYearGoalComments(updatedComments);
       localStorage.setItem(`mid_year_goal_comments_${pdrId}`, JSON.stringify(updatedComments));
+      console.log('Updated goal comments:', updatedComments);
     } else {
       const updatedComments = { ...midYearBehaviorComments, [itemId]: comment };
       setMidYearBehaviorComments(updatedComments);
       localStorage.setItem(`mid_year_behavior_comments_${pdrId}`, JSON.stringify(updatedComments));
+      console.log('Updated behavior comments:', updatedComments);
     }
   };
+
+  // Separate handlers for goals and behaviors to avoid closure issues
+  const handleGoalCommentChange = useCallback((goalId: string, comment: string) => {
+    console.log('handleGoalCommentChange called:', { goalId, comment: comment.substring(0, 20) + '...' });
+    setMidYearGoalComments(prevComments => {
+      const updatedComments = { ...prevComments, [goalId]: comment };
+      localStorage.setItem(`mid_year_goal_comments_${pdrId}`, JSON.stringify(updatedComments));
+      console.log('Updated goal comments state:', updatedComments);
+      return updatedComments;
+    });
+  }, [pdrId]);
+
+  const handleBehaviorCommentChange = useCallback((behaviorId: string, comment: string) => {
+    console.log('handleBehaviorCommentChange called:', { behaviorId, comment: comment.substring(0, 20) + '...' });
+    setMidYearBehaviorComments(prevComments => {
+      const updatedComments = { ...prevComments, [behaviorId]: comment };
+      localStorage.setItem(`mid_year_behavior_comments_${pdrId}`, JSON.stringify(updatedComments));
+      console.log('Updated behavior comments state:', updatedComments);
+      return updatedComments;
+    });
+  }, [pdrId]);
 
   // Save final review data
   const saveFinalGoalReview = (goalId: string, field: 'rating' | 'comments', value: number | string) => {
@@ -646,22 +671,28 @@ export default function CEOPDRReviewPage() {
         const savedMidYearGoalComments = localStorage.getItem(midYearGoalCommentsKey);
         if (savedMidYearGoalComments) {
           try {
-            setMidYearGoalComments(JSON.parse(savedMidYearGoalComments));
-            console.log('✅ CEO Review: Loaded mid-year goal comments');
+            const parsedGoalComments = JSON.parse(savedMidYearGoalComments);
+            setMidYearGoalComments(parsedGoalComments);
+            console.log('✅ CEO Review: Loaded mid-year goal comments:', parsedGoalComments);
           } catch (error) {
             console.error('Error parsing mid-year goal comments:', error);
           }
+        } else {
+          console.log('✅ CEO Review: No saved mid-year goal comments found');
         }
 
         const midYearBehaviorCommentsKey = `mid_year_behavior_comments_${pdrId}`;
         const savedMidYearBehaviorComments = localStorage.getItem(midYearBehaviorCommentsKey);
         if (savedMidYearBehaviorComments) {
           try {
-            setMidYearBehaviorComments(JSON.parse(savedMidYearBehaviorComments));
-            console.log('✅ CEO Review: Loaded mid-year behavior comments');
+            const parsedBehaviorComments = JSON.parse(savedMidYearBehaviorComments);
+            setMidYearBehaviorComments(parsedBehaviorComments);
+            console.log('✅ CEO Review: Loaded mid-year behavior comments:', parsedBehaviorComments);
           } catch (error) {
             console.error('Error parsing mid-year behavior comments:', error);
           }
+        } else {
+          console.log('✅ CEO Review: No saved mid-year behavior comments found');
         }
 
         // Load final review data
@@ -1687,14 +1718,12 @@ export default function CEOPDRReviewPage() {
                       </h4>
                       <div className="space-y-6">
                         {goals.map((goal, index) => {
-                          const employeeRating = goal.employeeRating || 0;
-                          const ceoRating = ceoGoalFeedback[goal.id]?.ceoRating || 0;
-                          const employeeComments = goal.employeeProgress || '';
-                          const ceoComments = ceoGoalFeedback[goal.id]?.ceoDescription || '';
-                          const checkinComments = midYearGoalComments[goal.id] || '';
+                          const employeeComments = ceoGoalFeedback[goal.id]?.ceoDescription || goal.description || '';
+                          const ceoComments = ceoGoalFeedback[goal.id]?.ceoComments || ceoGoalFeedback[goal.id]?.ceoDescription || '';
+                          const goalCheckinComments = midYearGoalComments[goal.id] || '';
                           
                           return (
-                            <div key={goal.id} className="border border-border/30 rounded-lg p-4 bg-background/50">
+                            <div key={`goal-container-${goal.id}-${index}`} className="border border-border/30 rounded-lg p-4 bg-background/50">
                               {/* Goal Header */}
                               <div className="mb-4">
                                 <h5 className="font-medium text-sm mb-1">{goal.title}</h5>
@@ -1728,37 +1757,28 @@ export default function CEOPDRReviewPage() {
                                   <h6 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Check-in Comments</h6>
                                   {pdr?.status === 'END_YEAR_REVIEW' ? (
                                     <div className="min-h-[80px] p-3 bg-muted/30 rounded-md text-sm">
-                                      {checkinComments || (
+                                      {goalCheckinComments || (
                                         <span className="text-muted-foreground italic">No check-in comments provided</span>
                                       )}
                                     </div>
                                   ) : (
                                     <Textarea
+                                      key={`goal-checkin-${goal.id}-${pdrId}`}
+                                      id={`goal-checkin-${goal.id}-${pdrId}`}
                                       placeholder="Add mid-year check-in notes..."
-                                      value={checkinComments}
-                                      onChange={(e) => saveMidYearComment(goal.id, e.target.value, 'goal')}
+                                      value={goalCheckinComments}
+                                      onChange={(e) => {
+                                        console.log(`Goal textarea ${goal.id} changed:`, e.target.value.substring(0, 20) + '...');
+                                        handleGoalCommentChange(goal.id, e.target.value);
+                                      }}
                                       className="min-h-[80px] text-sm"
+                                      data-goal-id={goal.id}
+                                      data-type="goal"
                                     />
                                   )}
                                 </div>
                               </div>
                               
-                              {/* Ratings Display */}
-                              <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/30">
-                                <div className="flex items-center gap-4 text-sm">
-                                  <div className="text-center">
-                                    <div className="font-medium">{employeeRating}/5</div>
-                                    <div className="text-xs text-muted-foreground">Employee Rating</div>
-                                  </div>
-                                  <div className="text-center">
-                                    <div className="font-medium">{ceoRating}/5</div>
-                                    <div className="text-xs text-muted-foreground">CEO Rating</div>
-                                  </div>
-                                </div>
-                                <Badge variant="outline" className="text-xs">
-                                  Mid-Year Review
-                                </Badge>
-                              </div>
                             </div>
                           );
                         })}
@@ -1773,14 +1793,22 @@ export default function CEOPDRReviewPage() {
                       </h4>
                       <div className="space-y-6">
                         {behaviors.map((behavior, index) => {
-                          const employeeRating = behavior.employeeRating || 0;
-                          const ceoRating = ceoBehaviorFeedback[behavior.id]?.ceoRating || 0;
-                          const employeeComments = behavior.employeeExamples || '';
-                          const ceoComments = ceoBehaviorFeedback[behavior.id]?.ceoComments || '';
-                          const checkinComments = midYearBehaviorComments[behavior.id] || '';
+                          const employeeComments = behavior.description || '';
+                          // Get CEO behavior feedback from localStorage for demo mode to show planning feedback
+                          const getCeoBehaviorPlanningFeedback = () => {
+                            if (typeof window === 'undefined') return {};
+                            const savedData = localStorage.getItem(`ceo_behavior_feedback_${pdrId}`);
+                            return savedData ? JSON.parse(savedData) : {};
+                          };
+                          const ceoBehaviorPlanningData = getCeoBehaviorPlanningFeedback();
+                          const ceoComments = (behavior.value?.id && ceoBehaviorPlanningData[behavior.value.id]?.description) || 
+                                             (behavior.value?.id && ceoBehaviorPlanningData[behavior.value.id]?.comments) || 
+                                             ceoBehaviorFeedback[behavior.id]?.ceoComments || '';
+                          const behaviorUniqueId = behavior.value?.id || behavior.valueId || behavior.id;
+                          const behaviorCheckinComments = midYearBehaviorComments[behaviorUniqueId] || '';
                           
                           return (
-                            <div key={behavior.id} className="border border-border/30 rounded-lg p-4 bg-background/50">
+                            <div key={`behavior-container-${behaviorUniqueId}-${index}`} className="border border-border/30 rounded-lg p-4 bg-background/50">
                               {/* Behavior Header */}
                               <div className="mb-4">
                                 <h5 className="font-medium text-sm mb-1">{behavior.value?.name}</h5>
@@ -1814,36 +1842,27 @@ export default function CEOPDRReviewPage() {
                                   <h6 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Check-in Comments</h6>
                                   {pdr?.status === 'END_YEAR_REVIEW' ? (
                                     <div className="min-h-[80px] p-3 bg-muted/30 rounded-md text-sm">
-                                      {checkinComments || (
+                                      {behaviorCheckinComments || (
                                         <span className="text-muted-foreground italic">No check-in comments provided</span>
                                       )}
                                     </div>
                                   ) : (
                                     <Textarea
+                                      key={`behavior-checkin-${behaviorUniqueId}-${pdrId}`}
+                                      id={`behavior-checkin-${behaviorUniqueId}-${pdrId}`}
                                       placeholder="Add mid-year check-in notes..."
-                                      value={checkinComments}
-                                      onChange={(e) => saveMidYearComment(behavior.id, e.target.value, 'behavior')}
+                                      value={behaviorCheckinComments}
+                                      onChange={(e) => {
+                                        console.log(`Behavior textarea ${behaviorUniqueId} (${behavior.value?.name}) changed:`, e.target.value.substring(0, 20) + '...');
+                                        handleBehaviorCommentChange(behaviorUniqueId, e.target.value);
+                                      }}
                                       className="min-h-[80px] text-sm"
+                                      data-behavior-id={behaviorUniqueId}
+                                      data-behavior-name={behavior.value?.name}
+                                      data-type="behavior"
                                     />
                                   )}
                                 </div>
-                              </div>
-                              
-                              {/* Ratings Display */}
-                              <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/30">
-                                <div className="flex items-center gap-4 text-sm">
-                                  <div className="text-center">
-                                    <div className="font-medium">{employeeRating}/5</div>
-                                    <div className="text-xs text-muted-foreground">Employee Rating</div>
-                                  </div>
-                                  <div className="text-center">
-                                    <div className="font-medium">{ceoRating}/5</div>
-                                    <div className="text-xs text-muted-foreground">CEO Rating</div>
-                                  </div>
-                                </div>
-                                <Badge variant="outline" className="text-xs">
-                                  Mid-Year Review
-                                </Badge>
                               </div>
                             </div>
                           );
@@ -2021,17 +2040,20 @@ export default function CEOPDRReviewPage() {
                               
                               {/* CEO Final Assessment */}
                               <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">CEO Final Rating</p>
-                                <div className="flex items-center gap-1.5 mb-2">
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1" id={`goal-rating-label-${goal.id}`}>CEO Final Rating</p>
+                                <div className="flex items-center gap-1.5 mb-2" role="group" aria-labelledby={`goal-rating-label-${goal.id}`}>
                                   {[1, 2, 3, 4, 5].map((rating) => (
                                     <button
-                                      key={rating}
+                                      key={`goal-rating-${goal.id}-${rating}`}
+                                      id={`goal-rating-${goal.id}-${rating}`}
                                       onClick={() => saveFinalGoalReview(goal.id, 'rating', rating)}
                                       className={`w-7 h-7 rounded-full border-2 text-xs font-medium transition-colors ${
                                         finalReview.rating >= rating
                                           ? 'bg-primary border-primary text-primary-foreground shadow-sm'
                                           : 'border-border hover:border-primary/50 hover:bg-accent text-muted-foreground'
                                       }`}
+                                      aria-label={`Rate goal "${goal.title}" ${rating} out of 5`}
+                                      aria-pressed={finalReview.rating >= rating}
                                     >
                                       {rating}
                                     </button>
@@ -2041,12 +2063,16 @@ export default function CEOPDRReviewPage() {
                                   </span>
                                 </div>
                                 
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">CEO Final Comments</p>
+                                <Label htmlFor={`final-goal-comments-${goal.id}`} className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1 block">
+                                  CEO Final Comments
+                                </Label>
                                 <Textarea
+                                  id={`final-goal-comments-${goal.id}`}
                                   placeholder="Final assessment and comments..."
                                   value={finalReview.comments}
                                   onChange={(e) => saveFinalGoalReview(goal.id, 'comments', e.target.value)}
                                   className="min-h-[60px] text-sm"
+                                  aria-describedby={`final-goal-comments-${goal.id}-desc`}
                                 />
                               </div>
                             </div>
@@ -2094,10 +2120,11 @@ export default function CEOPDRReviewPage() {
                   </h3>
                   
                   {behaviors.map((behavior, index) => {
-                    const finalReview = finalBehaviorReviews[behavior.id] || { rating: 0, comments: '' };
+                    const behaviorUniqueId = behavior.value?.id || behavior.valueId || behavior.id;
+                    const finalReview = finalBehaviorReviews[behaviorUniqueId] || { rating: 0, comments: '' };
                     
                     return (
-                      <div key={behavior.id} className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm rounded-lg overflow-hidden">
+                      <div key={`final-behavior-${behaviorUniqueId}`} className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm rounded-lg overflow-hidden">
                         {/* Behavior Header */}
                         <div className="bg-gradient-to-r from-muted/20 to-muted/10 p-4 border-b border-border/30">
                           <h4 className="font-semibold text-lg mb-1">{behavior.value?.name}</h4>
@@ -2137,7 +2164,7 @@ export default function CEOPDRReviewPage() {
                               </div>
                               <div>
                                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">CEO Check-in Notes</p>
-                                <p className="text-sm text-foreground">{midYearBehaviorComments[behavior.id] || 'No check-in notes'}</p>
+                                <p className="text-sm text-foreground">{midYearBehaviorComments[behavior.value?.id || behavior.valueId || behavior.id] || 'No check-in notes'}</p>
                               </div>
                             </div>
                           </div>
@@ -2163,17 +2190,20 @@ export default function CEOPDRReviewPage() {
                               
                               {/* CEO Final Assessment */}
                               <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">CEO Final Rating</p>
-                                <div className="flex items-center gap-1.5 mb-2">
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1" id={`behavior-rating-label-${behaviorUniqueId}`}>CEO Final Rating</p>
+                                <div className="flex items-center gap-1.5 mb-2" role="group" aria-labelledby={`behavior-rating-label-${behaviorUniqueId}`}>
                                   {[1, 2, 3, 4, 5].map((rating) => (
                                     <button
-                                      key={rating}
-                                      onClick={() => saveFinalBehaviorReview(behavior.id, 'rating', rating)}
+                                      key={`behavior-rating-${behaviorUniqueId}-${rating}`}
+                                      id={`behavior-rating-${behaviorUniqueId}-${rating}`}
+                                      onClick={() => saveFinalBehaviorReview(behaviorUniqueId, 'rating', rating)}
                                       className={`w-7 h-7 rounded-full border-2 text-xs font-medium transition-colors ${
                                         finalReview.rating >= rating
                                           ? 'bg-primary border-primary text-primary-foreground shadow-sm'
                                           : 'border-border hover:border-primary/50 hover:bg-accent text-muted-foreground'
                                       }`}
+                                      aria-label={`Rate behavior "${behavior.value?.name || 'behavior'}" ${rating} out of 5`}
+                                      aria-pressed={finalReview.rating >= rating}
                                     >
                                       {rating}
                                     </button>
@@ -2183,12 +2213,16 @@ export default function CEOPDRReviewPage() {
                                   </span>
                                 </div>
                                 
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">CEO Final Comments</p>
+                                <Label htmlFor={`final-behavior-comments-${behaviorUniqueId}`} className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1 block">
+                                  CEO Final Comments
+                                </Label>
                                 <Textarea
+                                  id={`final-behavior-comments-${behaviorUniqueId}`}
                                   placeholder="Final assessment and comments..."
                                   value={finalReview.comments}
-                                  onChange={(e) => saveFinalBehaviorReview(behavior.id, 'comments', e.target.value)}
+                                                                        onChange={(e) => saveFinalBehaviorReview(behaviorUniqueId, 'comments', e.target.value)}
                                   className="min-h-[60px] text-sm"
+                                  aria-describedby={`final-behavior-comments-${behaviorUniqueId}-desc`}
                                 />
                               </div>
                             </div>
