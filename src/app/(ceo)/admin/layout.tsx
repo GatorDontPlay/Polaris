@@ -78,8 +78,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     <SidebarProvider>
       <div className="flex h-screen w-full">
         <AdminSidebar />
-        <SidebarInset className="flex-1 overflow-hidden">
-          <div className="flex h-full flex-col min-h-0">
+        <SidebarInset className="flex-1">
+          <div className="flex h-full flex-col overflow-auto">
             {children}
           </div>
         </SidebarInset>

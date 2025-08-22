@@ -129,6 +129,13 @@ function getLegacyStatusConfig(status?: PDRStatus, meetingBooked?: boolean) {
         description: 'PDR is locked',
       };
 
+    case 'SUBMITTED_FOR_REVIEW':
+      return {
+        text: 'Pending Final Review',
+        variant: 'warning' as const,
+        description: 'Complete - awaiting final review meeting',
+      };
+
     default:
       return {
         text: status,

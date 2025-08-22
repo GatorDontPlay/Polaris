@@ -106,10 +106,12 @@ export function useDemoAdminDashboard() {
     
         // Create dashboard data with ONLY real user data - no simulation
         const completedPDRs = realPDRs.filter(pdr => pdr.status === 'COMPLETED').length;
+        const calibrationPDRs = realPDRs.filter(pdr => pdr.status === 'CALIBRATION').length;
         const pendingReviews = realPDRs.filter(pdr => 
           pdr.status === 'SUBMITTED' || 
           pdr.status === 'OPEN_FOR_REVIEW' || 
-          pdr.status === 'UNDER_REVIEW'
+          pdr.status === 'UNDER_REVIEW' ||
+          pdr.status === 'CALIBRATION'
         ).length;
         
         const dynamicData: CEODashboardData = {
@@ -219,7 +221,7 @@ export function useDemoAdminDashboard() {
             ...realPDRs
               .filter(pdr => {
                 // Include PDRs that need CEO attention - including all review phases for filtering
-                const needsCEOAction = ['SUBMITTED', 'UNDER_REVIEW', 'PLAN_LOCKED', 'END_YEAR_REVIEW'].includes(pdr.status);
+                const needsCEOAction = ['SUBMITTED', 'UNDER_REVIEW', 'PLAN_LOCKED', 'END_YEAR_REVIEW', 'CALIBRATION', 'COMPLETED'].includes(pdr.status);
                 console.log(`PDR ${pdr.id}: status=${pdr.status}, isLocked=${pdr.isLocked}, needsCEOAction=${needsCEOAction}`);
                 return needsCEOAction;
               })

@@ -1,14 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { usePDR } from '@/hooks/use-pdrs';
+import { useDemoPDR, useDemoGoals, useDemoBehaviors, useDemoCompanyValues } from '@/hooks/use-demo-pdr';
 import { useEndYearReview, useEndYearReviewMutation } from '@/hooks/use-reviews';
 import { endYearReviewSchema } from '@/lib/validations';
-import { EndYearFormData } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { EndYearFormData, Goal, Behavior, CompanyValue } from '@/types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RatingInput } from '@/components/pdr/rating-input';
@@ -22,6 +22,7 @@ import {
   Star,
   Trophy,
   Target,
+  TrendingUp,
   MessageSquare,
   PartyPopper
 } from 'lucide-react';
@@ -35,13 +36,53 @@ export default function EndYearPage({ params }: EndYearPageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   
-  const { data: pdr, isLoading: pdrLoading } = usePDR(params.id);
+  // Demo data hooks
+  const { data: pdr, isLoading: pdrLoading, updatePdr } = useDemoPDR(params.id);
+  const { data: goals, isLoading: goalsLoading } = useDemoGoals(params.id);
+  const { data: behaviors, isLoading: behaviorsLoading } = useDemoBehaviors(params.id);
+  const { data: companyValues } = useDemoCompanyValues();
   const { data: endYearReview, isLoading: reviewLoading } = useEndYearReview(params.id);
   const { create: createReview, update: updateReview } = useEndYearReviewMutation(params.id);
 
-  const isLoading = pdrLoading || reviewLoading;
+  // State for goal and behavior self-assessments
+  const [goalSelfAssessments, setGoalSelfAssessments] = useState<Record<string, { rating: number; reflection: string }>>({});
+  const [behaviorSelfAssessments, setBehaviorSelfAssessments] = useState<Record<string, { rating: number; reflection: string }>>({});
+  const [ceoFeedback, setCeoFeedback] = useState('');
+
+  const isLoading = pdrLoading || reviewLoading || goalsLoading || behaviorsLoading;
   const canEdit = pdr && !pdr.isLocked && !endYearReview;
   const canUpdate = pdr && !pdr.isLocked && endYearReview && pdr.status !== 'COMPLETED';
+
+  // Load saved self-assessments from localStorage
+  useEffect(() => {
+    if (params.id) {
+      // Load goal self-assessments
+      const savedGoalAssessments = localStorage.getItem(`end_year_goal_assessments_${params.id}`);
+      if (savedGoalAssessments) {
+        try {
+          setGoalSelfAssessments(JSON.parse(savedGoalAssessments));
+        } catch (error) {
+          console.error('Error loading goal assessments:', error);
+        }
+      }
+
+      // Load behavior self-assessments
+      const savedBehaviorAssessments = localStorage.getItem(`end_year_behavior_assessments_${params.id}`);
+      if (savedBehaviorAssessments) {
+        try {
+          setBehaviorSelfAssessments(JSON.parse(savedBehaviorAssessments));
+        } catch (error) {
+          console.error('Error loading behavior assessments:', error);
+        }
+      }
+
+      // Load CEO feedback
+      const savedCeoFeedback = localStorage.getItem(`end_year_ceo_feedback_${params.id}`);
+      if (savedCeoFeedback) {
+        setCeoFeedback(savedCeoFeedback);
+      }
+    }
+  }, [params.id]);
 
   const {
     register,
@@ -75,14 +116,101 @@ export default function EndYearPage({ params }: EndYearPageProps) {
     setValue('employeeOverallRating', rating, { shouldDirty: true });
   };
 
+  // Helper functions for goal and behavior assessments
+  const updateGoalAssessment = (goalId: string, field: 'rating' | 'reflection', value: number | string) => {
+    setGoalSelfAssessments(prev => {
+      const updated = {
+        ...prev,
+        [goalId]: {
+          ...prev[goalId],
+          [field]: value
+        }
+      };
+      localStorage.setItem(`end_year_goal_assessments_${params.id}`, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const updateBehaviorAssessment = (behaviorId: string, field: 'rating' | 'reflection', value: number | string) => {
+    setBehaviorSelfAssessments(prev => {
+      const updated = {
+        ...prev,
+        [behaviorId]: {
+          ...prev[behaviorId],
+          [field]: value
+        }
+      };
+      localStorage.setItem(`end_year_behavior_assessments_${params.id}`, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const updateCeoFeedback = (feedback: string) => {
+    setCeoFeedback(feedback);
+    localStorage.setItem(`end_year_ceo_feedback_${params.id}`, feedback);
+  };
+
+  // Get mid-year comments from localStorage
+  const getMidYearComments = () => {
+    const goalComments = localStorage.getItem(`mid_year_goal_comments_${params.id}`);
+    const behaviorComments = localStorage.getItem(`mid_year_behavior_comments_${params.id}`);
+    return {
+      goals: goalComments ? JSON.parse(goalComments) : {},
+      behaviors: behaviorComments ? JSON.parse(behaviorComments) : {}
+    };
+  };
+
+  const midYearComments = getMidYearComments();
+
+  // Get CEO feedback from localStorage
+  const getCeoFeedback = () => {
+    const goalFeedback = localStorage.getItem(`demo_ceo_goal_feedback_${params.id}`);
+    const behaviorFeedback = localStorage.getItem(`ceo_behavior_feedback_${params.id}`);
+    return {
+      goals: goalFeedback ? JSON.parse(goalFeedback) : {},
+      behaviors: behaviorFeedback ? JSON.parse(behaviorFeedback) : {}
+    };
+  };
+
+  const ceoFeedbackData = getCeoFeedback();
+
+  // Get rating label
+  const getRatingLabel = (rating: number) => {
+    switch (rating) {
+      case 1: return 'Did not achieve';
+      case 2: return 'Partial - Needs Improvement';
+      case 3: return 'Met Expectations';
+      case 4: return 'Exceeded Expectations';
+      case 5: return 'Outstanding Outcomes';
+      default: return '';
+    }
+  };
+
   const onSubmit = async (data: EndYearFormData) => {
     setIsSubmitting(true);
     try {
+      // Create enhanced end-year review data
+      const enhancedData = {
+        ...data,
+        goalSelfAssessments,
+        behaviorSelfAssessments,
+        ceoFeedback
+      };
+
       if (endYearReview) {
-        await updateReview.mutateAsync(data);
+        await updateReview.mutateAsync(enhancedData);
       } else {
-        await createReview.mutateAsync(data);
+        await createReview.mutateAsync(enhancedData);
       }
+
+      // Update PDR status to ready for CEO final review
+      if (pdr && updatePdr) {
+        await updatePdr({
+          status: 'SUBMITTED_FOR_REVIEW',
+          submittedAt: new Date()
+        });
+      }
+
       // Show completion modal
       setShowCompletionModal(true);
     } catch (error) {
@@ -131,14 +259,14 @@ export default function EndYearPage({ params }: EndYearPageProps) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground flex items-center">
-              <Trophy className="h-6 w-6 mr-2 text-yellow-600" />
+              <Trophy className="h-6 w-6 mr-2 text-pdr-endyear" />
               End-Year Review
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-muted-foreground mt-1">
               Your final assessment and reflection for this review period
             </p>
           </div>
-          <Badge className="bg-green-100 text-green-800">
+          <Badge className="pdr-status-completed">
             <CheckCircle className="h-4 w-4 mr-1" />
             Completed
           </Badge>
@@ -162,66 +290,66 @@ export default function EndYearPage({ params }: EndYearPageProps) {
                 </div>
               )}
             </CardTitle>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Submitted on {new Date(endYearReview.submittedAt).toLocaleDateString('en-AU')}
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
               <h4 className="font-semibold text-foreground mb-3 text-base flex items-center">
-                <Award className="h-4 w-4 mr-2 text-yellow-600" />
+                <Award className="h-4 w-4 mr-2 text-pdr-endyear" />
                 Key Achievements
               </h4>
-              <p className="text-gray-700 whitespace-pre-wrap">{endYearReview.achievementsSummary}</p>
+              <p className="text-foreground whitespace-pre-wrap">{endYearReview.achievementsSummary}</p>
             </div>
 
             {endYearReview.learningsGrowth && (
               <div>
                 <h4 className="font-semibold text-foreground mb-3 text-base flex items-center">
-                  <Star className="h-4 w-4 mr-2 text-blue-600" />
+                  <Star className="h-4 w-4 mr-2 text-status-info" />
                   Learning & Growth
                 </h4>
-                <p className="text-gray-700 whitespace-pre-wrap">{endYearReview.learningsGrowth}</p>
+                <p className="text-foreground whitespace-pre-wrap">{endYearReview.learningsGrowth}</p>
               </div>
             )}
 
             {endYearReview.challengesFaced && (
               <div>
                 <h4 className="font-semibold text-foreground mb-3 text-base flex items-center">
-                  <AlertCircle className="h-4 w-4 mr-2 text-orange-600" />
+                  <AlertCircle className="h-4 w-4 mr-2 text-status-warning" />
                   Challenges Faced
                 </h4>
-                <p className="text-gray-700 whitespace-pre-wrap">{endYearReview.challengesFaced}</p>
+                <p className="text-foreground whitespace-pre-wrap">{endYearReview.challengesFaced}</p>
               </div>
             )}
 
             {endYearReview.nextYearGoals && (
               <div>
                 <h4 className="font-semibold text-foreground mb-3 text-base flex items-center">
-                  <Target className="h-4 w-4 mr-2 text-green-600" />
+                  <Target className="h-4 w-4 mr-2 text-status-success" />
                   Next Year Goals
                 </h4>
-                <p className="text-gray-700 whitespace-pre-wrap">{endYearReview.nextYearGoals}</p>
+                <p className="text-foreground whitespace-pre-wrap">{endYearReview.nextYearGoals}</p>
               </div>
             )}
 
             {endYearReview.ceoFinalComments && (
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-2 flex items-center">
+              <div className="bg-status-info/10 border border-status-info/20 p-4 rounded-lg">
+                <h4 className="font-medium text-status-info mb-2 flex items-center">
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Manager Final Comments
                 </h4>
-                <p className="text-blue-700 whitespace-pre-wrap">{endYearReview.ceoFinalComments}</p>
+                <p className="text-status-info/80 whitespace-pre-wrap">{endYearReview.ceoFinalComments}</p>
                 {endYearReview.ceoOverallRating && (
                   <div className="mt-3 flex items-center">
-                    <span className="text-sm font-medium text-blue-900 mr-2">Manager Rating:</span>
+                    <span className="text-sm font-medium text-status-info mr-2">Manager Rating:</span>
                     <RatingInput
                       value={endYearReview.ceoOverallRating}
                       onChange={() => {}}
                       disabled
                       size="sm"
                     />
-                    <span className="ml-2 text-sm text-blue-700">
+                    <span className="ml-2 text-sm text-status-info/80">
                       {endYearReview.ceoOverallRating}/5
                     </span>
                   </div>
@@ -250,15 +378,15 @@ export default function EndYearPage({ params }: EndYearPageProps) {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-            <Trophy className="h-6 w-6 mr-2 text-yellow-600" />
+          <h1 className="text-2xl font-bold text-foreground flex items-center">
+            <Trophy className="h-6 w-6 mr-2 text-pdr-endyear" />
             End-Year Review
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-muted-foreground mt-1">
             Reflect on your achievements and plan for the future
           </p>
         </div>
-        <Badge variant="outline" className="flex items-center">
+        <Badge variant="outline" className="flex items-center pdr-status-endyear">
           <Star className="h-4 w-4 mr-1" />
           {endYearReview ? 'Update Review' : 'Final Review'}
         </Badge>
@@ -266,17 +394,17 @@ export default function EndYearPage({ params }: EndYearPageProps) {
 
       {/* Instructions */}
       {!endYearReview && (
-        <Card className="border-yellow-200 bg-yellow-50">
+        <Card className="border-pdr-endyear/20 bg-pdr-endyear/10">
           <CardContent className="py-4">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Trophy className="h-5 w-5 text-yellow-600" />
+                <Trophy className="h-5 w-5 text-pdr-endyear" />
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-yellow-800">
+                <h3 className="text-sm font-medium text-pdr-endyear">
                   Final Assessment
                 </h3>
-                <p className="text-sm text-yellow-700 mt-1">
+                <p className="text-sm text-pdr-endyear/80 mt-1">
                   This is your final review for this period. Take time to celebrate your achievements, 
                   reflect on your growth, and set intentions for the year ahead.
                 </p>
@@ -290,98 +418,319 @@ export default function EndYearPage({ params }: EndYearPageProps) {
       <Card>
         <CardHeader>
           <CardTitle>End-Year Self-Assessment</CardTitle>
-          <p className="text-sm text-gray-600">
+          <CardDescription>
             Reflect on your achievements, learning, and future goals
-          </p>
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+            {/* Goals Self-Assessment */}
+            {goals && goals.length > 0 && (
+              <div className="space-y-6">
+                <div className="border-b border-border pb-2">
+                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <Target className="h-5 w-5 text-pdr-endyear" />
+                    Goals Self-Assessment ({goals.length} goals)
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Reflect on your performance against each goal you set at the beginning of the year
+                  </p>
+                </div>
+
+                {goals.map((goal, index) => {
+                  const goalAssessment = goalSelfAssessments[goal.id] || { rating: 1, reflection: '' };
+                  const ceoGoalFeedback = ceoFeedbackData.goals[goal.id] || {};
+                  const midYearGoalComment = midYearComments.goals[goal.id] || '';
+
+                  return (
+                    <Card key={goal.id} className="border-l-4 border-l-pdr-endyear">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="text-base">{goal.title}</CardTitle>
+                            <CardDescription className="mt-1 text-sm">
+                              {goal.description}
+                            </CardDescription>
+                          </div>
+                          <Badge variant="outline" className="ml-4 shrink-0">
+                            Goal {index + 1}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {/* Left Side - Historical Information */}
+                          <div className="space-y-3">
+                            <h4 className="text-sm font-semibold text-foreground border-b border-border pb-1">
+                              Historical Context
+                            </h4>
+                            
+                            {/* Original Plan */}
+                            <div className="bg-muted/30 p-3 rounded-md">
+                              <h5 className="text-xs font-medium text-foreground mb-1">Original Plan</h5>
+                              <p className="text-xs text-foreground leading-relaxed">{goal.description}</p>
+                              {goal.targetOutcome && (
+                                <div className="mt-2 pt-2 border-t border-muted">
+                                  <span className="text-xs font-medium text-muted-foreground">Target: </span>
+                                  <span className="text-xs text-foreground">{goal.targetOutcome}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* CEO Comments */}
+                            {ceoGoalFeedback.ceoDescription && (
+                              <div className="bg-status-info/10 p-3 rounded-md border border-status-info/20">
+                                <h5 className="text-xs font-medium text-foreground mb-1">CEO Comments</h5>
+                                <p className="text-xs text-foreground leading-relaxed">{ceoGoalFeedback.ceoDescription}</p>
+                              </div>
+                            )}
+
+                            {/* Mid-Year Check-in */}
+                            {midYearGoalComment && (
+                              <div className="bg-pdr-midyear/10 p-3 rounded-md border border-pdr-midyear/20">
+                                <h5 className="text-xs font-medium text-foreground mb-1">Mid-Year Check-in</h5>
+                                <p className="text-xs text-foreground leading-relaxed">{midYearGoalComment}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Right Side - Self-Assessment Inputs */}
+                          <div className="space-y-4">
+                            <h4 className="text-sm font-semibold text-foreground border-b border-border pb-1">
+                              Your Self-Assessment
+                            </h4>
+                            
+                            <div>
+                              <label className="block text-sm font-medium text-foreground mb-2">
+                                Self-Rating
+                              </label>
+                              <div className="flex items-center gap-3">
+                                <RatingInput
+                                  value={goalAssessment.rating}
+                                  onChange={(rating) => updateGoalAssessment(goal.id, 'rating', rating)}
+                                  size="md"
+                                />
+                                <Badge variant="outline" className="px-2 py-1 text-xs">
+                                  {goalAssessment.rating}/5 - {getRatingLabel(goalAssessment.rating)}
+                                </Badge>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label htmlFor={`goal-reflection-${goal.id}`} className="block text-sm font-medium text-foreground mb-2">
+                                Your Reflection
+                              </label>
+                              <textarea
+                                id={`goal-reflection-${goal.id}`}
+                                value={goalAssessment.reflection}
+                                onChange={(e) => updateGoalAssessment(goal.id, 'reflection', e.target.value)}
+                                rows={4}
+                                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                                placeholder="Describe what you achieved, challenges faced, and how you performed against this goal..."
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Behaviors Self-Assessment */}
+            {behaviors && behaviors.length > 0 && (
+              <div className="space-y-6">
+                <div className="border-b border-border pb-2">
+                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-pdr-endyear" />
+                    Values & Behaviors Self-Assessment ({behaviors.length} values)
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Reflect on how well you demonstrated each company value throughout the year
+                  </p>
+                </div>
+
+                {behaviors.map((behavior, index) => {
+                  // Use valueId as the unique identifier for state management
+                  const behaviorUniqueId = behavior.valueId;
+                  const behaviorAssessment = behaviorSelfAssessments[behaviorUniqueId] || { rating: 1, reflection: '' };
+                  const companyValue = companyValues.find(v => v.id === behavior.valueId);
+                  const ceoBehaviorFeedback = ceoFeedbackData.behaviors[behavior.valueId] || {};
+                  const midYearBehaviorComment = midYearComments.behaviors[behavior.valueId] || '';
+
+                  return (
+                    <Card key={behaviorUniqueId} className="border-l-4 border-l-pdr-endyear">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="text-base">{companyValue?.name}</CardTitle>
+                            <CardDescription className="mt-1 text-sm">
+                              {companyValue?.description}
+                            </CardDescription>
+                          </div>
+                          <Badge variant="outline" className="ml-4 shrink-0">
+                            Value {index + 1}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {/* Left Side - Historical Information */}
+                          <div className="space-y-3">
+                            <h4 className="text-sm font-semibold text-foreground border-b border-border pb-1">
+                              Historical Context
+                            </h4>
+                            
+                            {/* Your Original Plan */}
+                            <div className="bg-muted/30 p-3 rounded-md">
+                              <h5 className="text-xs font-medium text-foreground mb-1">Your Original Plan</h5>
+                              <p className="text-xs text-foreground leading-relaxed">{behavior.description}</p>
+                              {behavior.examples && (
+                                <div className="mt-2 pt-2 border-t border-muted">
+                                  <span className="text-xs font-medium text-muted-foreground">Examples: </span>
+                                  <span className="text-xs text-foreground">{behavior.examples}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* CEO Comments */}
+                            {ceoBehaviorFeedback.description && (
+                              <div className="bg-status-info/10 p-3 rounded-md border border-status-info/20">
+                                <h5 className="text-xs font-medium text-foreground mb-1">CEO Comments</h5>
+                                <p className="text-xs text-foreground leading-relaxed">{ceoBehaviorFeedback.description}</p>
+                              </div>
+                            )}
+
+                            {/* Mid-Year Check-in */}
+                            {midYearBehaviorComment && (
+                              <div className="bg-pdr-midyear/10 p-3 rounded-md border border-pdr-midyear/20">
+                                <h5 className="text-xs font-medium text-foreground mb-1">Mid-Year Check-in</h5>
+                                <p className="text-xs text-foreground leading-relaxed">{midYearBehaviorComment}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Right Side - Self-Assessment Inputs */}
+                          <div className="space-y-4">
+                            <h4 className="text-sm font-semibold text-foreground border-b border-border pb-1">
+                              Your Self-Assessment
+                            </h4>
+                            
+                            <div>
+                              <label className="block text-sm font-medium text-foreground mb-2">
+                                Self-Rating
+                              </label>
+                              <div className="flex items-center gap-3">
+                                <RatingInput
+                                  value={behaviorAssessment.rating}
+                                  onChange={(rating) => updateBehaviorAssessment(behaviorUniqueId, 'rating', rating)}
+                                  size="md"
+                                />
+                                <Badge variant="outline" className="px-2 py-1 text-xs">
+                                  {behaviorAssessment.rating}/5 - {getRatingLabel(behaviorAssessment.rating)}
+                                </Badge>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label htmlFor={`behavior-reflection-${behaviorUniqueId}`} className="block text-sm font-medium text-foreground mb-2">
+                                Your Reflection
+                              </label>
+                              <textarea
+                                id={`behavior-reflection-${behaviorUniqueId}`}
+                                value={behaviorAssessment.reflection}
+                                onChange={(e) => updateBehaviorAssessment(behaviorUniqueId, 'reflection', e.target.value)}
+                                rows={4}
+                                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                                placeholder="Describe how you demonstrated this value, specific examples, and areas for improvement..."
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Overall Reflection */}
+            <div className="space-y-6">
+              <div className="border-b border-border pb-2">
+                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-pdr-endyear" />
+                  Overall Reflection
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Provide your overall thoughts on the year and feedback for your manager
+                </p>
+              </div>
+
             {/* Achievements Summary */}
             <div>
-              <label htmlFor="achievementsSummary" className="block text-sm font-medium text-gray-700 mb-1">
-                Key Achievements *
+                <label htmlFor="achievementsSummary" className="block text-sm font-medium text-foreground mb-1">
+                  Key Achievements Summary *
               </label>
-              <p className="text-xs text-gray-500 mb-2">
+                <p className="text-xs text-muted-foreground mb-2">
                 Highlight your most significant accomplishments this year
               </p>
               <textarea
                 id="achievementsSummary"
                 {...register('achievementsSummary')}
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Describe your key achievements, successes, and contributions this year..."
               />
               {errors.achievementsSummary && (
-                <p className="mt-1 text-sm text-red-600">{errors.achievementsSummary.message}</p>
+                  <p className="mt-1 text-sm text-destructive">{errors.achievementsSummary.message}</p>
               )}
             </div>
 
             {/* Learning & Growth */}
             <div>
-              <label htmlFor="learningsGrowth" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="learningsGrowth" className="block text-sm font-medium text-foreground mb-1">
                 Learning & Growth
               </label>
-              <p className="text-xs text-gray-500 mb-2">
+                <p className="text-xs text-muted-foreground mb-2">
                 What new skills or knowledge have you gained?
               </p>
               <textarea
                 id="learningsGrowth"
                 {...register('learningsGrowth')}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Describe the skills, knowledge, or capabilities you've developed..."
               />
               {errors.learningsGrowth && (
-                <p className="mt-1 text-sm text-red-600">{errors.learningsGrowth.message}</p>
+                  <p className="mt-1 text-sm text-destructive">{errors.learningsGrowth.message}</p>
               )}
             </div>
 
-            {/* Challenges Faced */}
+              {/* CEO Feedback */}
             <div>
-              <label htmlFor="challengesFaced" className="block text-sm font-medium text-gray-700 mb-1">
-                Challenges Faced
+                <label htmlFor="ceoFeedback" className="block text-sm font-medium text-foreground mb-1">
+                  Feedback for Your Manager
               </label>
-              <p className="text-xs text-gray-500 mb-2">
-                What significant challenges did you overcome?
+                <p className="text-xs text-muted-foreground mb-2">
+                  Share feedback about your manager's performance, support, and direction of CodeFish Studio
               </p>
               <textarea
-                id="challengesFaced"
-                {...register('challengesFaced')}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Describe the main challenges you faced and how you addressed them..."
-              />
-              {errors.challengesFaced && (
-                <p className="mt-1 text-sm text-red-600">{errors.challengesFaced.message}</p>
-              )}
-            </div>
-
-            {/* Next Year Goals */}
-            <div>
-              <label htmlFor="nextYearGoals" className="block text-sm font-medium text-gray-700 mb-1">
-                Next Year Goals
-              </label>
-              <p className="text-xs text-gray-500 mb-2">
-                What are your aspirations and goals for the coming year?
-              </p>
-              <textarea
-                id="nextYearGoals"
-                {...register('nextYearGoals')}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Outline your goals and aspirations for the next review period..."
-              />
-              {errors.nextYearGoals && (
-                <p className="mt-1 text-sm text-red-600">{errors.nextYearGoals.message}</p>
-              )}
+                  id="ceoFeedback"
+                  value={ceoFeedback}
+                  onChange={(e) => updateCeoFeedback(e.target.value)}
+                  rows={4}
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Provide constructive feedback about leadership, support, communication, and overall direction..."
+                />
             </div>
 
             {/* Overall Self-Rating */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                 Overall Self-Rating
               </label>
-              <p className="text-xs text-gray-500 mb-3">
+                <p className="text-xs text-muted-foreground mb-3">
                 How would you rate your overall performance this year?
               </p>
               <div className="flex items-center space-x-4">
@@ -393,17 +742,18 @@ export default function EndYearPage({ params }: EndYearPageProps) {
                 />
                 {employeeOverallRating && (
                   <Badge variant="outline" className="text-lg px-3 py-1">
-                    {employeeOverallRating}/5
+                      {employeeOverallRating}/5 - {getRatingLabel(employeeOverallRating)}
                   </Badge>
                 )}
               </div>
-              <div className="mt-2 text-xs text-gray-500">
+                <div className="mt-2 text-xs text-muted-foreground">
                 <div className="grid grid-cols-5 gap-1 text-center">
-                  <span>Needs<br/>Improvement</span>
-                  <span>Below<br/>Expectations</span>
-                  <span>Meets<br/>Expectations</span>
-                  <span>Exceeds<br/>Expectations</span>
-                  <span>Outstanding<br/>Performance</span>
+                    <span>Did not<br/>achieve</span>
+                    <span>Partial - Needs<br/>Improvement</span>
+                    <span>Met<br/>Expectations</span>
+                    <span>Exceeded<br/>Expectations</span>
+                    <span>Outstanding<br/>Outcomes</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -424,10 +774,10 @@ export default function EndYearPage({ params }: EndYearPageProps) {
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-yellow-600 hover:bg-yellow-700"
+                className="bg-pdr-endyear hover:bg-pdr-endyear/90 text-pdr-endyear-foreground"
               >
                 <Send className="h-4 w-4 mr-2" />
-                {isSubmitting ? 'Submitting...' : 'Complete PDR'}
+                {isSubmitting ? 'Submitting...' : 'Submit for Final Review'}
               </Button>
             </div>
           </form>
@@ -444,27 +794,30 @@ export default function EndYearPage({ params }: EndYearPageProps) {
 
       {/* Completion Modal */}
       {showCompletionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
           <Card className="w-full max-w-md">
             <CardHeader className="text-center">
-              <PartyPopper className="h-12 w-12 text-yellow-600 mx-auto mb-4" />
-              <CardTitle className="text-green-600">PDR Completed!</CardTitle>
+              <PartyPopper className="h-12 w-12 text-pdr-endyear mx-auto mb-4" />
+              <CardTitle className="text-pdr-completed">Thank You!</CardTitle>
             </CardHeader>
             <CardContent className="text-center">
-              <p className="text-gray-600 mb-4">
-                Congratulations! You've successfully completed your Performance & Development Review.
+              <p className="text-muted-foreground mb-2">
+                Thank you for taking the time to complete your End-Year Self-Assessment.
               </p>
-              <div className="bg-green-50 p-3 rounded-lg mb-4">
-                <h4 className="font-medium text-green-900 mb-1">What's Next:</h4>
-                <ul className="text-sm text-green-700 space-y-1">
-                  <li>• Your manager will review your assessment</li>
-                  <li>• You'll receive final ratings and feedback</li>
-                  <li>• Use insights to plan your development</li>
+              <p className="text-muted-foreground mb-4">
+                Your thoughtful reflections and self-evaluation will help guide your performance review discussion.
+              </p>
+              <div className="bg-pdr-completed/10 border border-pdr-completed/20 p-3 rounded-lg mb-4">
+                <h4 className="font-medium text-pdr-completed mb-1">Status: Complete - Pending Final Review Meeting</h4>
+                <ul className="text-sm text-pdr-completed/80 space-y-1">
+                  <li>• Your PDR is now ready for manager review</li>
+                  <li>• A final review meeting will be scheduled</li>
+                  <li>• You'll receive final ratings and development feedback</li>
                 </ul>
               </div>
               <Button
                 onClick={handleCompletionConfirm}
-                className="w-full bg-green-600 hover:bg-green-700"
+                className="w-full bg-pdr-completed hover:bg-pdr-completed/90 text-pdr-completed-foreground"
               >
                 <Trophy className="h-4 w-4 mr-2" />
                 Return to Dashboard

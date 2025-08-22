@@ -65,7 +65,7 @@ export default function CEODashboard() {
   const isDemo = !!demoUser;
   
   // Filter state for pending reviews
-  const [pendingReviewsFilter, setPendingReviewsFilter] = useState<'goal-setting' | 'mid-year' | 'year-end'>('goal-setting');
+  const [pendingReviewsFilter, setPendingReviewsFilter] = useState<'goal-setting' | 'mid-year' | 'year-end' | 'calibration' | 'closed'>('goal-setting');
   
   // Use appropriate data source based on authentication mode
   const realDashboard = useCEODashboard();
@@ -156,6 +156,8 @@ export default function CEODashboard() {
   const goalSettingCount = allPendingReviews.filter((review: any) => review.status === 'SUBMITTED').length;
   const midYearCount = allPendingReviews.filter((review: any) => review.status === 'PLAN_LOCKED' || review.status === 'LOCKED').length;
   const yearEndCount = allPendingReviews.filter((review: any) => review.status === 'FINAL_REVIEW' || review.status === 'END_YEAR_REVIEW').length;
+  const calibrationCount = allPendingReviews.filter((review: any) => review.status === 'CALIBRATION').length;
+  const closedCount = allPendingReviews.filter((review: any) => review.status === 'COMPLETED').length;
   
   // Filter pending reviews based on selected filter
   const pendingReviews = allPendingReviews.filter((review: any) => {
@@ -166,6 +168,10 @@ export default function CEODashboard() {
         return review.status === 'PLAN_LOCKED' || review.status === 'LOCKED';
       case 'year-end':
         return review.status === 'FINAL_REVIEW' || review.status === 'END_YEAR_REVIEW';
+      case 'calibration':
+        return review.status === 'CALIBRATION';
+      case 'closed':
+        return review.status === 'COMPLETED';
       default:
         return true;
     }
@@ -369,6 +375,36 @@ export default function CEODashboard() {
                         {yearEndCount > 0 && (
                           <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 text-xs font-medium bg-primary text-primary-foreground rounded-full">
                             {yearEndCount}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setPendingReviewsFilter('calibration')}
+                        className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+                          pendingReviewsFilter === 'calibration' 
+                            ? 'bg-background text-foreground shadow-sm' 
+                            : 'hover:bg-muted-foreground/10'
+                        }`}
+                      >
+                        Calibration
+                        {calibrationCount > 0 && (
+                          <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 text-xs font-medium bg-primary text-primary-foreground rounded-full">
+                            {calibrationCount}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setPendingReviewsFilter('closed')}
+                        className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+                          pendingReviewsFilter === 'closed' 
+                            ? 'bg-background text-foreground shadow-sm' 
+                            : 'hover:bg-muted-foreground/10'
+                        }`}
+                      >
+                        Closed
+                        {closedCount > 0 && (
+                          <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 text-xs font-medium bg-primary text-primary-foreground rounded-full">
+                            {closedCount}
                           </span>
                         )}
                       </button>

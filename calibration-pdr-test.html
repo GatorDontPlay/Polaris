@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Calibration PDR</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    button {
+      background: #4f46e5;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #4338ca;
+    }
+    pre {
+      background: #f1f5f9;
+      padding: 15px;
+      border-radius: 4px;
+      overflow: auto;
+    }
+    .output {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Create PDR with CALIBRATION Status</h1>
+  <p>Click the button below to create a test PDR with CALIBRATION status in localStorage.</p>
+  
+  <button id="createPDR">Create Calibration PDR</button>
+  
+  <div class="output">
+    <h2>Output:</h2>
+    <pre id="output">Click the button to create a PDR...</pre>
+  </div>
+
+  <script>
+    document.getElementById('createPDR').addEventListener('click', function() {
+      const outputElement = document.getElementById('output');
+      
+      try {
+        // Store original console.log
+        const originalConsoleLog = console.log;
+        const logs = [];
+        
+        // Override console.log to capture output
+        console.log = function() {
+          logs.push(Array.from(arguments).join(' '));
+          originalConsoleLog.apply(console, arguments);
+        };
+        
+        // Load and execute the script
+        const script = document.createElement('script');
+        script.src = './create-calibration-pdr.js';
+        script.onload = function() {
+          // Restore original console.log
+          console.log = originalConsoleLog;
+          
+          // Display logs
+          outputElement.textContent = logs.join('\n');
+        };
+        document.head.appendChild(script);
+      } catch (error) {
+        outputElement.textContent = 'Error: ' + error.message;
+      }
+    });
+  </script>
+</body>
+</html>
