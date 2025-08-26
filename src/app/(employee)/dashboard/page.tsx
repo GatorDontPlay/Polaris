@@ -3,12 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useDemoAuth } from '@/hooks/use-demo-auth';
 import { useDemoPDRDashboard, useDemoPDRHistory } from '@/hooks/use-demo-pdr';
-import { useDemoUserActivity } from '@/hooks/use-demo-activity';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RecentActivity } from '@/components/admin/recent-activity';
 import { useEffect, useState } from 'react';
 import { 
   Target, 
@@ -49,7 +47,7 @@ export default function EmployeeDashboard() {
   // Get current user's PDRs using demo system
   const { data: currentPDR, createPDR, isLoading: pdrLoading } = useDemoPDRDashboard();
   const { data: pdrHistory, isLoading: historyLoading } = useDemoPDRHistory();
-  const { data: userActivity, isLoading: activityLoading } = useDemoUserActivity(5);
+  // User activity removed as requested
   const [isCreatingPDR, setIsCreatingPDR] = useState(false);
   const [showFYDialog, setShowFYDialog] = useState(false);
   
@@ -392,35 +390,40 @@ export default function EmployeeDashboard() {
                 
                 {stats.selfAssessedScore.scores.length > 0 && (
                   <div className="mt-4">
-                    <div className="h-[60px] flex items-end justify-start space-x-2 mt-2">
-                      <TooltipProvider>
-                        {stats.selfAssessedScore.detailedScores.map((item, index) => (
-                          <Tooltip key={index}>
-                            <TooltipTrigger asChild>
-                              <div className="flex flex-col items-center cursor-help">
-                                <div 
-                                  className={`w-8 rounded-t-sm ${getScoreColor(item.score)}`} 
-                                  style={{ height: `${item.score * 10}px` }}
-                                ></div>
-                                <span className="text-xs mt-1 text-muted-foreground">{item.score}/5</span>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-[250px] text-left p-3 bg-card border border-border shadow-lg">
-                              <div>
-                                <h4 className="font-semibold text-sm text-foreground">{item.title}</h4>
-                                <p className="text-xs text-muted-foreground">{item.type}</p>
-                                {item.description && (
-                                  <p className="text-xs mt-1 text-foreground/80 line-clamp-3">{item.description}</p>
-                                )}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </TooltipProvider>
-                    </div>
-                    <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                      <span>Needs Improvement</span>
-                      <span>Outstanding</span>
+                    <div className="flex mt-2">
+                      {/* Y-axis labels */}
+                      <div className="flex flex-col justify-between h-[60px] pr-2 text-xs text-muted-foreground">
+                        <span>Outstanding</span>
+                        <span>Needs Improvement</span>
+                      </div>
+                      
+                      {/* Graph with columns */}
+                      <div className="h-[60px] flex items-end justify-start space-x-2">
+                        <TooltipProvider>
+                          {stats.selfAssessedScore.detailedScores.map((item, index) => (
+                            <Tooltip key={index}>
+                              <TooltipTrigger asChild>
+                                <div className="flex flex-col items-center cursor-help">
+                                  <div 
+                                    className={`w-8 rounded-t-sm ${getScoreColor(item.score)}`} 
+                                    style={{ height: `${item.score * 10}px` }}
+                                  ></div>
+                                  <span className="text-xs mt-1 text-muted-foreground">{item.score}/5</span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-[250px] text-left p-3 bg-card border border-border shadow-lg">
+                                <div>
+                                  <h4 className="font-semibold text-sm text-foreground">{item.title}</h4>
+                                  <p className="text-xs text-muted-foreground">{item.type}</p>
+                                  {item.description && (
+                                    <p className="text-xs mt-1 text-foreground/80 line-clamp-3">{item.description}</p>
+                                  )}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          ))}
+                        </TooltipProvider>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -435,11 +438,11 @@ export default function EmployeeDashboard() {
           </Card>
         </div>
 
-        {/* Current PDR & Recent Activity Side-by-Side */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Current PDR - Takes 2 columns */}
+        {/* Current PDR */}
+        <div className="grid grid-cols-1 gap-6 mb-8">
+          {/* Current PDR */}
           {currentPDR ? (
-            <Card className="lg:col-span-2">
+            <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Calendar className="mr-2 h-5 w-5" />
@@ -572,7 +575,7 @@ export default function EmployeeDashboard() {
             </CardContent>
           </Card>
           ) : (
-            <Card className="lg:col-span-2">
+            <Card>
             <CardHeader>
               <CardTitle>Create New PDR</CardTitle>
               <CardDescription>
@@ -614,12 +617,7 @@ export default function EmployeeDashboard() {
           </Card>
           )}
 
-          {/* Recent Activity - Takes 1 column */}
-          <RecentActivity 
-            activities={userActivity || []}
-            isLoading={activityLoading}
-            isUserActivity={true}
-          />
+          {/* Recent Activity removed as requested */}
         </div>
 
         {/* PDR History */}
