@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -39,10 +39,34 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
   const [expandedBehaviors, setExpandedBehaviors] = useState<Set<string>>(new Set());
+  const [existingReviewData, setExistingReviewData] = useState<any>(null);
   
   const { data: pdr, isLoading: pdrLoading, updatePdr } = useDemoPDR(params.id);
   const { data: goals, isLoading: goalsLoading } = useDemoGoals(params.id);
   const { data: companyValues } = useDemoCompanyValues();
+
+  // Load existing review data if available
+  useEffect(() => {
+    // Try to load existing review or draft data
+    const savedReview = localStorage.getItem(`mid_year_review_${params.id}`);
+    const savedDraft = localStorage.getItem(`mid_year_draft_${params.id}`);
+    
+    if (savedReview) {
+      try {
+        const reviewData = JSON.parse(savedReview);
+        setExistingReviewData(reviewData);
+      } catch (error) {
+        console.error('Error parsing saved mid-year review:', error);
+      }
+    } else if (savedDraft) {
+      try {
+        const draftData = JSON.parse(savedDraft);
+        setExistingReviewData(draftData);
+      } catch (error) {
+        console.error('Error parsing saved mid-year draft:', error);
+      }
+    }
+  }, [params.id]);
   
   // Get CEO feedback data for the recap
   const getCeoFeedbackData = () => {
@@ -117,6 +141,7 @@ export default function MidYearPage({ params }: MidYearPageProps) {
     handleSubmit,
     formState: { errors, isDirty },
     watch,
+    reset,
   } = useForm<MidYearFormData>({
     resolver: zodResolver(midYearReviewSchema),
     defaultValues: {
@@ -126,6 +151,18 @@ export default function MidYearPage({ params }: MidYearPageProps) {
       employeeComments: '',
     },
   });
+  
+  // Load saved values if they exist
+  useEffect(() => {
+    if (existingReviewData) {
+      reset({
+        progressSummary: existingReviewData.progressSummary || '',
+        blockersChallenges: existingReviewData.blockersChallenges || '',
+        supportNeeded: existingReviewData.supportNeeded || '',
+        employeeComments: existingReviewData.employeeComments || '',
+      });
+    }
+  }, [existingReviewData, reset]);
 
   const handlePrevious = () => {
     router.push(`/pdr/${params.id}/review`);
@@ -138,6 +175,22 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   const onSubmit = async (data: MidYearFormData) => {
     setIsSubmitting(true);
     try {
+      // Save the mid-year review data to localStorage
+      localStorage.setItem(`mid_year_review_${params.id}`, JSON.stringify({
+        ...data,
+        submittedAt: new Date().toISOString(),
+      }));
+      
+      // Also save individual field comments for goal and behavior tracking
+      const goalComments = {};
+      const behaviorComments = {};
+      
+      // If there are specific comments for goals or behaviors, we could save those here
+      if (data.progressSummary) {
+        localStorage.setItem(`mid_year_goal_comments_${params.id}`, JSON.stringify(goalComments));
+        localStorage.setItem(`mid_year_behavior_comments_${params.id}`, JSON.stringify(behaviorComments));
+      }
+      
       // For demo mode, simulate submission by updating PDR state
       updatePdr({
         currentStep: 5,
@@ -146,6 +199,9 @@ export default function MidYearPage({ params }: MidYearPageProps) {
       
       // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Show success message to user
+      console.log('Mid-year review submitted successfully!', data);
       
       // Redirect to next step after successful submission
       router.push(`/pdr/${params.id}/end-year`);
@@ -158,9 +214,23 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   };
 
   const handleSaveDraft = async () => {
-    // For demo mode, just show a simple feedback
-    console.log('Draft saved (demo mode)');
-    // TODO: Show success toast
+    try {
+      // Get the current form data
+      const formData = watch();
+      
+      // Save draft data to localStorage
+      localStorage.setItem(`mid_year_draft_${params.id}`, JSON.stringify({
+        ...formData,
+        lastSaved: new Date().toISOString(),
+      }));
+      
+      // For demo mode, show feedback
+      console.log('Mid-year review draft saved successfully!', formData);
+      // TODO: Show success toast
+    } catch (error) {
+      console.error('Failed to save mid-year review draft:', error);
+      // TODO: Show error toast
+    }
   };
 
   // Loading state

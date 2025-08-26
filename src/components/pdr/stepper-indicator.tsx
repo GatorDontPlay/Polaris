@@ -20,7 +20,10 @@ export function StepperIndicator({
   onStepClick,
   className,
 }: StepperIndicatorProps) {
+  // Calculate progress percentage based on the current step
+  // This matches the original application's behavior, showing a percentage of progress
   const progressPercentage = Math.round((currentStep / totalSteps) * 100);
+  const normalizedProgress = progressPercentage;
 
   return (
     <div className={cn('w-full', className)}>
@@ -28,18 +31,18 @@ export function StepperIndicator({
       <div className="mb-6">
         <div className="flex justify-between items-center text-sm text-muted-foreground mb-3">
           <span className="font-medium">Progress</span>
-          <span className="font-semibold text-foreground">{progressPercentage}%</span>
+          <span className="font-semibold text-foreground">{normalizedProgress}%</span>
         </div>
-        <div className="w-full bg-muted/50 rounded-full h-3 overflow-hidden">
+        <div className="w-full bg-gray-800 rounded-full h-4 overflow-hidden border border-gray-700">
           <div
-            className="bg-gradient-to-r from-status-success to-status-success/80 h-3 rounded-full transition-all duration-500 ease-out shadow-sm"
-            style={{ width: `${progressPercentage}%` }}
+            className="glow-effect h-4 rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${normalizedProgress}%` }}
           />
         </div>
       </div>
 
       {/* Steps Container - Responsive design */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-0">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8 lg:gap-0">
         {steps.map((step, index) => {
           // Mark a step as completed if it's less than the current step
           // This ensures previous steps are shown as completed
@@ -47,40 +50,72 @@ export function StepperIndicator({
             // Special case: Force step 2 (behaviors) to be completed when on step 3 (review)
             (currentStep >= 3 && step.number === 2);
           const isActive = step.number === currentStep;
+          // Only allow clicking on steps that are completed or current
           const isClickable = onStepClick && step.number <= currentStep;
 
           return (
-            <div key={step.number} className="flex items-center flex-1 group">
+            <div key={step.number} className="flex items-center flex-1 group relative">
+              {/* Mobile Vertical Connector */}
+              {index > 0 && (
+                <div className="absolute top-[-24px] left-8 h-6 w-2 bg-gray-700 lg:hidden">
+                  {step.number <= currentStep && (
+                    <div className="absolute inset-0 bg-emerald-400 rounded-full" />
+                  )}
+                </div>
+              )}
               {/* Step Circle */}
-              <div
+              <div 
+                role="button"
+                tabIndex={0}
+                onClick={() => isClickable && onStepClick && onStepClick(step.number)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    isClickable && onStepClick && onStepClick(step.number);
+                  }
+                }}
                 className={cn(
-                  'flex items-center justify-center w-12 h-12 rounded-full border-2 text-sm font-bold transition-all duration-300 shadow-lg',
+                  'flex items-center justify-center w-16 h-16 rounded-full border-2 text-base font-bold transition-all duration-300 shadow-lg',
                   {
-                    'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-primary shadow-primary/25': isActive,
-                    'bg-gradient-to-br from-status-success to-status-success/80 text-status-success-foreground border-status-success shadow-status-success/25': isCompleted,
-                    'bg-background text-muted-foreground border-border hover:border-border/80': !isActive && !isCompleted,
+                    'bg-gradient-to-br from-primary to-primary/80 text-white border-primary shadow-primary/25 scale-110 ring-4 ring-primary/30 animate-pulse': isActive,
+                    'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-emerald-400 shadow-emerald-500/40': isCompleted,
+                    'bg-gray-800 text-white border-gray-600 hover:border-white/80': !isActive && !isCompleted,
                     'cursor-pointer hover:scale-105 hover:shadow-xl': isClickable,
-                    'ring-4 ring-primary/20': isActive,
                   }
                 )}
-                onClick={() => isClickable && onStepClick(step.number)}
               >
                 {isCompleted ? (
-                  <CheckIcon className="w-6 h-6" />
+                  <CheckIcon className="w-8 h-8 text-emerald-400 stroke-[3]" />
+                ) : isActive ? (
+                  <span className="text-xl text-white font-bold">{step.number}</span>
                 ) : (
-                  step.number
+                  <span>{step.number}</span>
                 )}
               </div>
 
               {/* Step Content */}
-              <div className="ml-4 flex-1 min-w-0">
+              <div 
+                role="button"
+                tabIndex={0}
+                onClick={() => isClickable && onStepClick && onStepClick(step.number)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    isClickable && onStepClick && onStepClick(step.number);
+                  }
+                }}
+                className={cn(
+                  "ml-4 flex-1 min-w-0 cursor-pointer",
+                  isClickable && "hover:opacity-80"
+                )}
+              >
                 <div
                   className={cn(
-                    'text-base font-semibold leading-tight',
+                    'font-semibold leading-tight',
                     {
-                      'text-foreground': isActive,
-                      'text-status-success': isCompleted,
-                      'text-muted-foreground': !isActive && !isCompleted,
+                      'text-lg text-white font-bold underline decoration-primary decoration-2 underline-offset-4': isActive,
+                      'text-base text-emerald-400 font-bold': isCompleted,
+                      'text-base text-white font-medium': !isActive && !isCompleted,
                     }
                   )}
                 >
@@ -90,9 +125,9 @@ export function StepperIndicator({
                   className={cn(
                     'text-sm mt-1 leading-relaxed',
                     {
-                      'text-muted-foreground/90': isActive,
-                      'text-muted-foreground/70': isCompleted,
-                      'text-muted-foreground/60': !isActive && !isCompleted,
+                      'text-white/90': isActive,
+                      'text-gray-300/90': isCompleted,
+                      'text-white/80': !isActive && !isCompleted,
                     }
                   )}
                 >
@@ -105,10 +140,10 @@ export function StepperIndicator({
                 <div className="hidden lg:flex items-center mx-6">
                   <div
                     className={cn(
-                      'h-1 w-16 rounded-full transition-all duration-300',
+                      'h-2 w-16 rounded-full transition-all duration-300',
                       {
-                        'bg-gradient-to-r from-status-success to-primary': step.number < currentStep,
-                        'bg-border/50': step.number >= currentStep,
+                        'bg-gradient-to-r from-emerald-500 to-emerald-400': step.number < currentStep,
+                        'bg-gray-700': step.number >= currentStep,
                       }
                     )}
                   />

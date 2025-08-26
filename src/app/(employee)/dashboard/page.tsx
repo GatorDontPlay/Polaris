@@ -5,6 +5,7 @@ import { useDemoAuth } from '@/hooks/use-demo-auth';
 import { useDemoPDRDashboard, useDemoPDRHistory } from '@/hooks/use-demo-pdr';
 import { useDemoUserActivity } from '@/hooks/use-demo-activity';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RecentActivity } from '@/components/admin/recent-activity';
@@ -20,6 +21,18 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { getPDRDisplayName } from '@/lib/financial-year';
+
+// Helper function to get score color based on rating value
+const getScoreColor = (score: number): string => {
+  switch(score) {
+    case 1: return 'bg-red-500';
+    case 2: return 'bg-orange-500';
+    case 3: return 'bg-yellow-500';
+    case 4: return 'bg-blue-500';
+    case 5: return 'bg-green-500';
+    default: return 'bg-gray-500';
+  }
+};
 import { FinancialYearSelectionDialog, FinancialYearOption } from '@/components/pdr/financial-year-selection-dialog';
 
 export default function EmployeeDashboard() {
@@ -69,61 +82,185 @@ export default function EmployeeDashboard() {
       return 0;
     })() : 0;
 
-    // Completed PDRs - count PDRs with COMPLETED status
-    const completedPDRs = pdrHistory ? pdrHistory.filter(pdr => pdr.status === 'COMPLETED').length : 0;
+    // PDR Status - get status of current PDR
+    const pdrStatus = currentPDR ? currentPDR.status : null;
 
-    // Average Rating - calculate from completed PDRs with ratings
-    const averageRating = pdrHistory ? (() => {
-      const ratedPDRs = pdrHistory.filter(pdr => pdr.status === 'COMPLETED');
-      if (ratedPDRs.length === 0) return 0;
+    // Your Self-Assessed Score - calculate from current PDR's self-assessment
+    const selfAssessedScore = currentPDR ? (() => {
+      // Collect all the ratings from both goals and behaviors
+      let totalSelfRating = 0;
+      let selfRatingCount = 0;
+      let detailedScores: Array<{score: number, title: string, type: string, description?: string}> = [];
       
-      let totalRating = 0;
-      let ratingCount = 0;
+      // Check for goal self-assessments
+      const savedGoals = localStorage.getItem(`demo_goals_${currentPDR.id}`);
+      if (savedGoals) {
+        try {
+          const goals = JSON.parse(savedGoals);
+          goals.forEach((goal: any) => {
+            if (goal.employeeRating) {
+              totalSelfRating += goal.employeeRating;
+              selfRatingCount++;
+              detailedScores.push({
+                score: goal.employeeRating,
+                title: goal.title || 'Goal',
+                type: 'Goal',
+                description: goal.description
+              });
+            }
+          });
+        } catch (e) {
+          console.error('Error parsing goals for ratings:', e);
+        }
+      }
       
-      ratedPDRs.forEach(pdr => {
-        // Check for end year review rating
-        if (pdr.endYearReview?.ceoOverallRating) {
-          totalRating += pdr.endYearReview.ceoOverallRating;
-          ratingCount++;
-        }
-        // Also check individual goal ratings as fallback
-        const savedGoals = localStorage.getItem(`demo_goals_${pdr.id}`);
-        if (savedGoals) {
-          try {
-            const goals = JSON.parse(savedGoals);
-            goals.forEach((goal: any) => {
-              if (goal.employeeRating) {
-                totalRating += goal.employeeRating;
-                ratingCount++;
-              }
-            });
-          } catch {}
-        }
+      // Check for behavior self-assessments
+      const savedBehaviors = localStorage.getItem(`demo_behaviors_${currentPDR.id}`);
+      const companyValues = localStorage.getItem('demo_company_values');
+      let valueMap: Record<string, string> = {};
+      
+      // Use hardcoded company values for consistency - only the 4 scorable values
+      const demoCompanyValues = [
+        { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Lean Thinking' },
+        { id: '550e8400-e29b-41d4-a716-446655440002', name: 'Craftsmanship' },
+        { id: '550e8400-e29b-41d4-a716-446655440003', name: 'Value-Centric Innovation' },
+        { id: '550e8400-e29b-41d4-a716-446655440004', name: 'Blameless Problem-Solving' }
+      ];
+      
+      // IDs of informational-only values that should be excluded from scoring
+      const informationalValueIds = [
+        '550e8400-e29b-41d4-a716-446655440005', // Self Reflection
+        '550e8400-e29b-41d4-a716-446655440006'  // CodeFish 3D
+      ];
+      
+      // Create a map of value IDs to their names
+      demoCompanyValues.forEach(value => {
+        valueMap[value.id] = value.name;
       });
       
-      return ratingCount > 0 ? totalRating / ratingCount : 0;
-    })() : 0;
-
-    // Days Until Due - calculate based on current PDR period or default
-    const daysUntilDue = currentPDR && currentPDR.period ? (() => {
-      const endDate = new Date(currentPDR.period.endDate);
-      const today = new Date();
-      const diffTime = endDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return Math.max(0, diffDays);
-    })() : (() => {
-      // Default: assume PDR is due at end of current year
-      const endOfYear = new Date(new Date().getFullYear(), 11, 31);
-      const today = new Date();
-      const diffTime = endOfYear.getTime() - today.getTime();
-      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    })();
+      // Also try loading from localStorage if available
+      if (companyValues) {
+        try {
+          const values = JSON.parse(companyValues);
+          values.forEach((value: any) => {
+            if (value.id && value.name) {
+              valueMap[value.id] = value.name;
+            }
+          });
+        } catch (e) {
+          console.error('Error parsing company values:', e);
+        }
+      }
+      
+      if (savedBehaviors) {
+        try {
+          const behaviors = JSON.parse(savedBehaviors);
+          behaviors.forEach((behavior: any) => {
+            // Skip informational-only values
+            if (behavior.valueId && informationalValueIds.includes(behavior.valueId)) {
+              return;
+            }
+            
+            if (behavior.employeeRating) {
+              totalSelfRating += behavior.employeeRating;
+              selfRatingCount++;
+              const valueName = behavior.valueId && valueMap[behavior.valueId] ? valueMap[behavior.valueId] : 'Company Value';
+              detailedScores.push({
+                score: behavior.employeeRating,
+                title: valueName,
+                type: 'Behavior',
+                description: behavior.description
+              });
+            }
+          });
+        } catch (e) {
+          console.error('Error parsing behaviors for ratings:', e);
+        }
+      }
+      
+      // Check for end-year self-assessments (more detailed)
+      const endYearGoals = localStorage.getItem(`end_year_goal_assessments_${currentPDR.id}`);
+      const endYearBehaviors = localStorage.getItem(`end_year_behavior_assessments_${currentPDR.id}`);
+      
+      if (endYearGoals) {
+        try {
+          const goalAssessments = JSON.parse(endYearGoals);
+          Object.entries(goalAssessments).forEach(([goalId, assessment]: [string, any]) => {
+            if (assessment.rating) {
+              // Try to find goal details
+              let goalTitle = 'Goal Assessment';
+              let goalDescription;
+              if (savedGoals) {
+                try {
+                  const goals = JSON.parse(savedGoals);
+                  const matchingGoal = goals.find((g: any) => g.id === goalId);
+                  if (matchingGoal) {
+                    goalTitle = matchingGoal.title || goalTitle;
+                    goalDescription = matchingGoal.description;
+                  }
+                } catch {}
+              }
+              
+              totalSelfRating += assessment.rating;
+              selfRatingCount++;
+              detailedScores.push({
+                score: assessment.rating,
+                title: goalTitle,
+                type: 'End-Year Goal',
+                description: assessment.reflection || goalDescription
+              });
+            }
+          });
+        } catch (e) {
+          console.error('Error parsing end-year goal assessments:', e);
+        }
+      }
+      
+      if (endYearBehaviors) {
+        try {
+          const behaviorAssessments = JSON.parse(endYearBehaviors);
+          Object.entries(behaviorAssessments).forEach(([behaviorId, assessment]: [string, any]) => {
+            // Skip informational-only values
+            if (informationalValueIds.includes(behaviorId)) {
+              return;
+            }
+            
+            if (assessment.rating) {
+              // Try to find behavior value name
+              let valueName = 'Behavior Assessment';
+              if (valueMap[behaviorId]) {
+                valueName = valueMap[behaviorId];
+              }
+              
+              totalSelfRating += assessment.rating;
+              selfRatingCount++;
+              detailedScores.push({
+                score: assessment.rating,
+                title: valueName,
+                type: 'End-Year Behavior',
+                description: assessment.reflection
+              });
+            }
+          });
+        } catch (e) {
+          console.error('Error parsing end-year behavior assessments:', e);
+        }
+      }
+      
+      // Calculate the average rating
+      const average = selfRatingCount > 0 ? Number((totalSelfRating / selfRatingCount).toFixed(1)) : 0;
+      
+      return {
+        average,
+        detailedScores,
+        scores: detailedScores.map(item => item.score)
+      };
+    })() : { average: 0, scores: [] };
 
     return {
       activeGoals,
-      completedPDRs,
-      averageRating: Number(averageRating.toFixed(1)),
-      daysUntilDue
+      pdrStatus,
+      selfAssessedScore
     };
   };
 
@@ -160,26 +297,10 @@ export default function EmployeeDashboard() {
     setShowFYDialog(false);
   };
 
-  // Handle continue PDR
+  // Handle continue PDR - Always redirects to goals page
   const handleContinuePDR = () => {
     if (currentPDR) {
-      // Navigate based on current step
-      const stepPaths = {
-        1: `/pdr/${currentPDR.id}/goals`,
-        2: `/pdr/${currentPDR.id}/behaviors`, 
-        3: `/pdr/${currentPDR.id}/review`,
-        4: `/pdr/${currentPDR.id}/mid-year`,
-        5: `/pdr/${currentPDR.id}/end-year`,
-      };
-      
-      // If current step is mid-year (4) but PDR is in SUBMITTED state, redirect to review instead
-      if (currentPDR.currentStep === 4 && currentPDR.status === 'SUBMITTED') {
-        router.push(`/pdr/${currentPDR.id}/review`);
-        return;
-      }
-      
-      const currentPath = stepPaths[currentPDR.currentStep as keyof typeof stepPaths] || `/pdr/${currentPDR.id}/goals`;
-      router.push(currentPath);
+      router.push(`/pdr/${currentPDR.id}/goals`);
     }
   };
 
@@ -221,13 +342,13 @@ export default function EmployeeDashboard() {
           <h1 className="text-3xl font-bold">
             Welcome back, {user.firstName}!
           </h1>
-          <p className="mt-2 text-muted-foreground">
+          <p className="mt-2 text-white">
             Manage your performance and development reviews
           </p>
         </div>
 
         {/* Dashboard Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -245,8 +366,14 @@ export default function EmployeeDashboard() {
               <div className="flex items-center">
                 <CheckCircle2 className="h-8 w-8 text-green-600" />
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Completed PDRs</p>
-                  <p className="text-2xl font-bold">{stats.completedPDRs}</p>
+                  <p className="text-sm font-medium text-muted-foreground">PDR Status</p>
+                  <p className="text-2xl font-bold">
+                    {!stats.pdrStatus ? '-' : 
+                     stats.pdrStatus === 'Created' ? 'In Progress' :
+                     stats.pdrStatus === 'SUBMITTED' ? 'Submitted' :
+                     stats.pdrStatus === 'OPEN_FOR_REVIEW' || stats.pdrStatus === 'PLAN_LOCKED' || stats.pdrStatus === 'UNDER_REVIEW' ? 'Under Review' :
+                     stats.pdrStatus === 'COMPLETED' ? 'Completed' : '-'}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -254,24 +381,55 @@ export default function EmployeeDashboard() {
 
           <Card>
             <CardContent className="p-6">
-              <div className="flex items-center">
-                <TrendingUp className="h-8 w-8 text-yellow-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Average Rating</p>
-                  <p className="text-2xl font-bold">{stats.averageRating > 0 ? stats.averageRating : '-'}</p>
+              <div className="flex flex-col">
+                <div className="flex items-center">
+                  <TrendingUp className="h-8 w-8 text-yellow-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-muted-foreground">Your Self-Assessed Score</p>
+                    <p className="text-2xl font-bold">{stats.selfAssessedScore.average > 0 ? `${stats.selfAssessedScore.average}/5` : '-'}</p>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Clock className="h-8 w-8 text-purple-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Days Until Due</p>
-                  <p className="text-2xl font-bold">{stats.daysUntilDue}</p>
-                </div>
+                
+                {stats.selfAssessedScore.scores.length > 0 && (
+                  <div className="mt-4">
+                    <div className="h-[60px] flex items-end justify-start space-x-2 mt-2">
+                      <TooltipProvider>
+                        {stats.selfAssessedScore.detailedScores.map((item, index) => (
+                          <Tooltip key={index}>
+                            <TooltipTrigger asChild>
+                              <div className="flex flex-col items-center cursor-help">
+                                <div 
+                                  className={`w-8 rounded-t-sm ${getScoreColor(item.score)}`} 
+                                  style={{ height: `${item.score * 10}px` }}
+                                ></div>
+                                <span className="text-xs mt-1 text-muted-foreground">{item.score}/5</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[250px] text-left p-3 bg-card border border-border shadow-lg">
+                              <div>
+                                <h4 className="font-semibold text-sm text-foreground">{item.title}</h4>
+                                <p className="text-xs text-muted-foreground">{item.type}</p>
+                                {item.description && (
+                                  <p className="text-xs mt-1 text-foreground/80 line-clamp-3">{item.description}</p>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </TooltipProvider>
+                    </div>
+                    <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+                      <span>Needs Improvement</span>
+                      <span>Outstanding</span>
+                    </div>
+                  </div>
+                )}
+                
+                {stats.selfAssessedScore.scores.length === 0 && (
+                  <div className="mt-4 text-sm text-muted-foreground">
+                    No ratings available yet. Complete your self-assessment in the Goals, Behaviors, or End-Year review sections.
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -401,20 +559,14 @@ export default function EmployeeDashboard() {
                 </Badge>
               </div>
 
-              <div className="flex space-x-3">
+              <div className="flex">
                 <Button 
-                  onClick={handleContinuePDR}
+                  onClick={() => router.push(`/pdr/${currentPDR.id}/goals`)}
                   className="flex-1"
                   variant={currentPDR.status === 'Created' ? 'default' : 'outline'}
                 >
                   {currentPDR.status === 'Created' ? 'Edit/Continue PDR' : 'View Current PDR'}
                   <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => router.push(`/pdr/${currentPDR.id}/goals`)}
-                >
-                  View Details
                 </Button>
               </div>
             </CardContent>
@@ -470,135 +622,88 @@ export default function EmployeeDashboard() {
           />
         </div>
 
-        {/* Quick Actions and PDR History - Side by Side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Quick Actions */}
+        {/* PDR History */}
+        <div className="grid grid-cols-1 gap-6">
+          {/* PDR History */}
           <Card>
             <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
+              <CardTitle>PDR History</CardTitle>
               <CardDescription>
-                Common tasks and shortcuts
+                Your previous performance reviews
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-3">
-              <div className="grid grid-cols-1 gap-2">
-                <Button 
-                  variant="outline" 
-                  className="h-10 text-sm px-3 justify-start"
-                  onClick={() => router.push(`/pdr/${currentPDR?.id}/goals`)}
-                  disabled={!currentPDR}
-                >
-                  <Target className="mr-2 h-4 w-4" />
-                  Update Goals
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="h-10 text-sm px-3 justify-start"
-                  onClick={() => router.push(`/pdr/${currentPDR?.id}/behaviors`)}
-                  disabled={!currentPDR}
-                >
-                  <TrendingUp className="mr-2 h-4 w-4" />
-                  Rate Behaviors
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="h-10 text-sm px-3 justify-start"
-                  onClick={() => router.push(`/pdr/${currentPDR?.id}/mid-year`)}
-                  disabled={!currentPDR || currentPDR.status !== 'SUBMITTED'}
-                  title={currentPDR?.status !== 'SUBMITTED' ? 'Complete and submit your PDR first' : 'Available during mid-year period'}
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Mid-Year Check-in
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  className="h-10 text-sm px-3 justify-start text-muted-foreground hover:text-foreground"
-                  onClick={() => router.push(`/pdr/${currentPDR?.id}/review`)}
-                  disabled={!currentPDR}
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Review Progress
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  className="h-10 text-sm px-3 justify-start text-muted-foreground hover:text-foreground"
-                  onClick={() => router.push(`/pdr/${currentPDR?.id}`)}
-                  disabled={!currentPDR}
-                >
-                  <ArrowRight className="mr-2 h-4 w-4" />
-                  Continue PDR
-                </Button>
+            <CardContent>
+              <div className="space-y-4">
+                {historyLoading ? (
+                  <div className="space-y-4">
+                    {Array.from({ length: 2 }).map((_, i) => (
+                      <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="space-y-2">
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-32" />
+                          <div className="h-3 bg-gray-200 rounded animate-pulse w-48" />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="h-6 bg-gray-200 rounded animate-pulse w-16" />
+                          <div className="h-8 bg-gray-200 rounded animate-pulse w-12" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  // Filter PDRs to ensure they have valid dates and required fields
+                  (() => {
+                    const validPdrs = pdrHistory.filter(pdr => 
+                      // Check that it has a valid creation date that can be parsed
+                      !isNaN(new Date(pdr.createdAt).getTime()) &&
+                      // Make sure required fields exist
+                      pdr.id && pdr.status
+                    );
+                    
+                    if (validPdrs.length === 0) {
+                      return (
+                        <div className="text-center py-8">
+                          <p className="text-muted-foreground">No PDRs to show</p>
+                        </div>
+                      );
+                    }
+                    
+                    return validPdrs.map((pdr) => (
+                      <div key={pdr.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div>
+                          <h4 className="font-medium">
+                            {pdr.fyLabel ? getPDRDisplayName(pdr.fyLabel) : 'Annual Review'}
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            {pdr.status === 'COMPLETED' ? 'Completed' : 
+                             pdr.status === 'SUBMITTED' ? 'Submitted for review' :
+                             pdr.status === 'UNDER_REVIEW' ? 'Under review' :
+                             'In Progress'} • Started {!isNaN(new Date(pdr.createdAt).getTime()) ? new Date(pdr.createdAt).toLocaleDateString() : 'recently'}
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant={
+                            pdr.status === 'SUBMITTED' ? 'secondary' : 
+                            pdr.status === 'COMPLETED' ? 'success' : 
+                            'default'
+                          }>
+                            {pdr.status === 'Created' && 'In Progress'}
+                            {pdr.status === 'SUBMITTED' && 'Submitted'}
+                            {pdr.status === 'OPEN_FOR_REVIEW' && 'Under Review'}
+                            {pdr.status === 'PLAN_LOCKED' && 'Under Review'}
+                            {pdr.status === 'UNDER_REVIEW' && 'Under Review'}
+                            {pdr.status === 'COMPLETED' && 'Completed'}
+                          </Badge>
+                          <Button size="sm" onClick={() => router.push(`/pdr/${pdr.id}`)}>
+                            {pdr.status === 'COMPLETED' || pdr.status === 'SUBMITTED' || pdr.status === 'UNDER_REVIEW' ? 'View' : 'Continue'}
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  })()
+                )}
               </div>
             </CardContent>
           </Card>
-
-          {/* PDR History */}
-          <Card>
-          <CardHeader>
-            <CardTitle>PDR History</CardTitle>
-            <CardDescription>
-              Your previous performance reviews
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {historyLoading ? (
-                <div className="space-y-4">
-                  {Array.from({ length: 2 }).map((_, i) => (
-                    <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="space-y-2">
-                        <div className="h-4 bg-gray-200 rounded animate-pulse w-32" />
-                        <div className="h-3 bg-gray-200 rounded animate-pulse w-48" />
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <div className="h-6 bg-gray-200 rounded animate-pulse w-16" />
-                        <div className="h-8 bg-gray-200 rounded animate-pulse w-12" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : pdrHistory.length > 0 ? (
-                pdrHistory.map((pdr) => (
-                  <div key={pdr.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h4 className="font-medium">
-                        {pdr.fyLabel ? getPDRDisplayName(pdr.fyLabel) : 'Annual Review'}
-                      </h4>
-                      <p className="text-sm text-muted-foreground">
-                        {pdr.status === 'COMPLETED' ? 'Completed' : 
-                         pdr.status === 'SUBMITTED' ? 'Submitted for review' :
-                         pdr.status === 'UNDER_REVIEW' ? 'Under review' :
-                         'In Progress'} • Started {new Date(pdr.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant={
-                        pdr.status === 'SUBMITTED' ? 'secondary' : 
-                        pdr.status === 'COMPLETED' ? 'success' : 
-                        'default'
-                      }>
-                        {pdr.status === 'Created' && 'In Progress'}
-                        {pdr.status === 'SUBMITTED' && 'Submitted'}
-                        {pdr.status === 'OPEN_FOR_REVIEW' && 'Under Review'}
-                        {pdr.status === 'PLAN_LOCKED' && 'Under Review'}
-                        {pdr.status === 'UNDER_REVIEW' && 'Under Review'}
-                        {pdr.status === 'COMPLETED' && 'Completed'}
-                      </Badge>
-                      <Button size="sm" onClick={() => router.push(`/pdr/${pdr.id}`)}>
-                        {pdr.status === 'COMPLETED' || pdr.status === 'SUBMITTED' || pdr.status === 'UNDER_REVIEW' ? 'View' : 'Continue'}
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No PDR history available.</p>
-                  <p className="text-sm mt-1">Create your first PDR to get started.</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
         </div>
       </div>
 

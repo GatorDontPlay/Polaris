@@ -17,7 +17,8 @@ import {
   Eye,
   Target,
   Heart,
-  FileText
+  FileText,
+  Calendar
 } from 'lucide-react';
 import { formatFYForDisplay } from '@/lib/financial-year';
 
@@ -54,6 +55,8 @@ export default function ReviewPage({ params }: ReviewPageProps) {
   const isLoading = pdrLoading || goalsLoading || behaviorsLoading || valuesLoading;
   const canSubmit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'Created');
   const canEdit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'Created');
+  // Check if employee can access Mid-Year Check-in: needs to be past step 3 and CEO must have progressed the PDR
+  const canAccessMidYear = pdr && pdr.currentStep >= 3 && (pdr.status === 'UNDER_REVIEW' || pdr.status === 'OPEN_FOR_REVIEW' || pdr.status === 'PLAN_LOCKED');
 
   // Load development data
   useEffect(() => {
@@ -196,10 +199,22 @@ export default function ReviewPage({ params }: ReviewPageProps) {
           </p>
         </div>
         <div className="flex items-center space-x-4">
-          <Button onClick={handlePrevious} variant="outline">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Behaviors
-          </Button>
+          <div className="flex items-center space-x-4">
+            <Button onClick={handlePrevious} variant="outline">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Behaviors
+            </Button>
+            
+            {canAccessMidYear && (
+              <Button 
+                onClick={() => router.push(`/pdr/${params.id}/mid-year`)}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Go to Mid Year Check-in
+              </Button>
+            )}
+          </div>
           <PDRStatusBadge status={pdr?.status || 'DRAFT'} />
           {canSubmit && isComplete && (
             <Button 

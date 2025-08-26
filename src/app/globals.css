@@ -11,6 +11,21 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  
+  .glow-effect {
+    background: linear-gradient(to right, #10b981, #34d399);
+    box-shadow: 0 0 10px 3px rgba(16, 185, 129, 0.7), 0 0 15px 5px rgba(52, 211, 153, 0.5);
+    animation: glow 1.5s infinite alternate;
+  }
+
+  @keyframes glow {
+    from {
+      box-shadow: 0 0 8px 3px rgba(16, 185, 129, 0.7), 0 0 12px 5px rgba(52, 211, 153, 0.5);
+    }
+    to {
+      box-shadow: 0 0 15px 5px rgba(16, 185, 129, 0.8), 0 0 20px 8px rgba(52, 211, 153, 0.6);
+    }
+  }
 }
 
 @layer base {
@@ -121,26 +136,26 @@
   }
 
   .dark {
-    /* Base semantic colors for dark theme - Purple/Pink inspired */
-    --background: 240 10% 3.9%;
-    --foreground: 60 9.1% 97.8%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 60 9.1% 97.8%;
-    --popover: 20 14.3% 4.1%;
-    --popover-foreground: 60 9.1% 97.8%;
-    --primary: 60 9.1% 97.8%;
-    --primary-foreground: 24 9.8% 10%;
-    --secondary: 12 6.5% 15.1%;
-    --secondary-foreground: 60 9.1% 97.8%;
-    --muted: 12 6.5% 15.1%;
-    --muted-foreground: 24 5.4% 63.9%;
-    --accent: 12 6.5% 15.1%;
-    --accent-foreground: 60 9.1% 97.8%;
+    /* Base semantic colors for dark theme - Rich Blue/Teal inspired */
+    --background: 220 14% 10%;
+    --foreground: 210 20% 98%;
+    --card: 220 12% 14%;
+    --card-foreground: 210 20% 98%;
+    --popover: 218 20% 11%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 210 100% 90%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217 19% 27%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 215 16% 18%;
+    --muted-foreground: 217 10% 64%;
+    --accent: 190 70% 18%;
+    --accent-foreground: 210 20% 98%;
     --destructive: 0 62.8% 50.6%;
     --destructive-foreground: 60 9.1% 97.8%;
-    --border: 12 6.5% 15.1%;
-    --input: 12 6.5% 15.1%;
-    --ring: 24 5.7% 82.9%;
+    --border: 215 16% 24%;
+    --input: 215 16% 24%;
+    --ring: 224 76% 70%;
 
     /* Enhanced status colors for dark theme */
     --status-success: 142 76% 50%;
@@ -201,21 +216,21 @@
     --rating-5: 142 76% 55%;
 
     /* Chart colors optimized for dark theme */
-    --chart-1: 220 70% 60%;
-    --chart-2: 160 60% 55%;
-    --chart-3: 30 80% 65%;
-    --chart-4: 280 65% 70%;
-    --chart-5: 340 75% 65%;
+    --chart-1: 195 85% 55%;
+    --chart-2: 215 75% 65%;
+    --chart-3: 275 80% 65%;
+    --chart-4: 150 70% 55%;
+    --chart-5: 330 85% 65%;
 
-    /* Sidebar colors for dark theme - Purple/Pink inspired */
-    --sidebar-background: 240 10% 3.9%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 270 91% 65%;
+    /* Sidebar colors for dark theme - Rich Blue/Teal inspired */
+    --sidebar-background: 220 20% 9%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 195 85% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 8% 12%;
+    --sidebar-accent: 200 70% 18%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 8% 12%;
-    --sidebar-ring: 270 91% 65%;
+    --sidebar-border: 215 16% 24%;
+    --sidebar-ring: 195 85% 60%;
   }
 }
 
@@ -274,6 +289,21 @@
 }
 
 @layer components {
+  /* Card styling with subtle gradient */
+  .dark .card,
+  .dark [class*='card-'],
+  .dark div[class*='shadow'] {
+    background-image: linear-gradient(to bottom right, hsl(225 14% 16%), hsl(215 12% 13%));
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.2), inset 0 1px rgba(255, 255, 255, 0.03);
+    border: 1px solid hsl(var(--border) / 0.8);
+    border-radius: var(--radius);
+  }
+  
+  .dark .card:hover,
+  .dark [class*='card-']:hover {
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.2), inset 0 1px rgba(255, 255, 255, 0.05);
+  }
+  
   /* PDR Status badges */
   .pdr-status-draft {
     @apply bg-pdr-draft/10 text-pdr-draft border-pdr-draft/20;

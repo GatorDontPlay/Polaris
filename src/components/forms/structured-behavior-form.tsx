@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Behavior, CompanyValue } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -531,7 +532,7 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
         })}
       </div>
 
-      {/* Self Reflection / Development Card */}
+      {/* Self Reflection / Development Card - Informational Only */}
       <Card className="mt-6">
         <CardHeader>
           <CardTitle className="flex items-center text-sm font-semibold">
@@ -539,18 +540,23 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
             Self Reflection / Development
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Reflect on your development goals and how you'd like to grow.
+            Reflect on your development goals and how you'd like to grow. <span className="text-status-info font-medium">These fields are informational only and do not require scoring.</span>
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Self Reflection */}
           <div className="space-y-1">
-            <label 
-              htmlFor="selfReflection"
-              className="block text-xs font-medium text-foreground"
-            >
-              Self Reflection
-            </label>
+            <div className="flex items-center justify-between">
+              <label 
+                htmlFor="selfReflection"
+                className="block text-xs font-medium text-foreground"
+              >
+                Self Reflection
+              </label>
+              <Badge variant="outline" className="text-xs bg-status-info/10 text-status-info">
+                Informational Only
+              </Badge>
+            </div>
             <p className="text-xs text-muted-foreground mb-2">
               Share your thoughts on how you could develop yourself academically or personally.
             </p>
@@ -577,12 +583,17 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
 
           {/* CodeFish 3D - Deep Dive Development */}
           <div className="space-y-1">
-            <label 
-              htmlFor="deepDiveDevelopment"
-              className="block text-xs font-medium text-foreground"
-            >
-              CodeFish 3D - Deep Dive Development
-            </label>
+            <div className="flex items-center justify-between">
+              <label 
+                htmlFor="deepDiveDevelopment"
+                className="block text-xs font-medium text-foreground"
+              >
+                CodeFish 3D - Deep Dive Development
+              </label>
+              <Badge variant="outline" className="text-xs bg-status-info/10 text-status-info">
+                Informational Only
+              </Badge>
+            </div>
             <p className="text-xs text-muted-foreground mb-2">
               You have up to $1000 per financial year to invest in your learning and growth. 
               This could include courses, tools, workshops, or any learning experience that sparks your curiosity and aligns with our goals. 
