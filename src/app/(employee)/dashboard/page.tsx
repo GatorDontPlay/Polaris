@@ -17,7 +17,8 @@ import {
   Plus,
   FileText,
   CheckCircle2,
-  ChevronRight
+  ChevronRight,
+  Lock
 } from 'lucide-react';
 import { getPDRDisplayName } from '@/lib/financial-year';
 
@@ -576,33 +577,47 @@ export default function EmployeeDashboard() {
                   <ChevronRight className="h-5 w-5 mx-0.5 text-muted-foreground/70" />
                   
                   {/* Mid-Year */}
-                  <div 
-                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                      currentPDR.currentStep >= 4 && currentPDR.status !== 'SUBMITTED'
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20' 
-                        : currentPDR.status === 'SUBMITTED'
-                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 cursor-pointer hover:bg-blue-500/20'
-                        : 'bg-muted/50 text-muted-foreground border border-border/50'
-                    }`}
-                    onClick={() => (currentPDR.currentStep >= 4 || currentPDR.status === 'SUBMITTED') && router.push(`/pdr/${currentPDR.id}/mid-year`)}
-                    role={(currentPDR.currentStep >= 4 || currentPDR.status === 'SUBMITTED') ? "button" : undefined}
-                    tabIndex={(currentPDR.currentStep >= 4 || currentPDR.status === 'SUBMITTED') ? 0 : undefined}
-                    onKeyDown={(e) => {
-                      if ((currentPDR.currentStep >= 4 || currentPDR.status === 'SUBMITTED') && (e.key === 'Enter' || e.key === ' ')) {
-                        e.preventDefault();
-                        router.push(`/pdr/${currentPDR.id}/mid-year`);
-                      }
-                    }}
-                  >
-                    {currentPDR.currentStep >= 4 && currentPDR.status !== 'SUBMITTED' ? (
-                      <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-                    ) : currentPDR.status === 'SUBMITTED' ? (
-                      <Clock className="h-4 w-4 flex-shrink-0" />
-                    ) : (
-                      <Calendar className="h-4 w-4 flex-shrink-0" />
-                    )}
-                    <span>Mid-Year</span>
-                  </div>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div 
+                          className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                            currentPDR.currentStep >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20' 
+                              : currentPDR.status === 'SUBMITTED'
+                              ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 opacity-70'
+                              : 'bg-muted/50 text-muted-foreground border border-border/50'
+                          }`}
+                          onClick={() => (currentPDR.currentStep >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) && router.push(`/pdr/${currentPDR.id}/mid-year`)}
+                          role={(currentPDR.currentStep >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) ? "button" : undefined}
+                          tabIndex={(currentPDR.currentStep >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) ? 0 : undefined}
+                          onKeyDown={(e) => {
+                            if ((currentPDR.currentStep >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) && (e.key === 'Enter' || e.key === ' ')) {
+                              e.preventDefault();
+                              router.push(`/pdr/${currentPDR.id}/mid-year`);
+                            }
+                          }}
+                        >
+                          {currentPDR.currentStep >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status) ? (
+                            <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                          ) : currentPDR.status === 'SUBMITTED' ? (
+                            <Lock className="h-4 w-4 flex-shrink-0" />
+                          ) : (
+                            <Calendar className="h-4 w-4 flex-shrink-0" />
+                          )}
+                          <span>Mid-Year</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-[250px]">
+                        {currentPDR.currentStep >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status) 
+                          ? "Click to access your Mid-Year Check-in"
+                          : currentPDR.status === 'SUBMITTED'
+                          ? "Waiting for manager review before Mid-Year Check-in becomes available"
+                          : "Complete previous steps first"
+                        }
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   
                   {/* Arrow 4 */}
                   <ChevronRight className="h-5 w-5 mx-0.5 text-muted-foreground/70" />

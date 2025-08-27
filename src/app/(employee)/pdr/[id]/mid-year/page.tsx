@@ -27,7 +27,8 @@ import {
   Eye,
   ChevronDown,
   ChevronRight,
-  User
+  User,
+  Lock
 } from 'lucide-react';
 
 interface MidYearPageProps {
@@ -40,33 +41,44 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
   const [expandedBehaviors, setExpandedBehaviors] = useState<Set<string>>(new Set());
   const [existingReviewData, setExistingReviewData] = useState<any>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
   
   const { data: pdr, isLoading: pdrLoading, updatePdr } = useDemoPDR(params.id);
   const { data: goals, isLoading: goalsLoading } = useDemoGoals(params.id);
   const { data: companyValues } = useDemoCompanyValues();
 
-  // Load existing review data if available
+  // Check if the user has access to the mid-year review and load existing review data
   useEffect(() => {
-    // Try to load existing review or draft data
-    const savedReview = localStorage.getItem(`mid_year_review_${params.id}`);
-    const savedDraft = localStorage.getItem(`mid_year_draft_${params.id}`);
-    
-    if (savedReview) {
-      try {
-        const reviewData = JSON.parse(savedReview);
-        setExistingReviewData(reviewData);
-      } catch (error) {
-        console.error('Error parsing saved mid-year review:', error);
+    if (pdr) {
+      // Check if the PDR has been reviewed by the CEO
+      const canAccess = ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(pdr.status);
+      
+      if (!canAccess) {
+        setAccessDenied(true);
+        return;
       }
-    } else if (savedDraft) {
-      try {
-        const draftData = JSON.parse(savedDraft);
-        setExistingReviewData(draftData);
-      } catch (error) {
-        console.error('Error parsing saved mid-year draft:', error);
+      
+      // Try to load existing review or draft data
+      const savedReview = localStorage.getItem(`mid_year_review_${params.id}`);
+      const savedDraft = localStorage.getItem(`mid_year_draft_${params.id}`);
+      
+      if (savedReview) {
+        try {
+          const reviewData = JSON.parse(savedReview);
+          setExistingReviewData(reviewData);
+        } catch (error) {
+          console.error('Error parsing saved mid-year review:', error);
+        }
+      } else if (savedDraft) {
+        try {
+          const draftData = JSON.parse(savedDraft);
+          setExistingReviewData(draftData);
+        } catch (error) {
+          console.error('Error parsing saved mid-year draft:', error);
+        }
       }
     }
-  }, [params.id]);
+  }, [params.id, pdr]);
   
   // Get CEO feedback data for the recap
   const getCeoFeedbackData = () => {
@@ -130,10 +142,44 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   const canEdit = pdr && !pdr.isLocked && pdr.status !== 'SUBMITTED' && pdr.status !== 'Created';
   const canUpdate = pdr && !pdr.isLocked;
   
-  // Redirect if PDR is in SUBMITTED state - employee cannot access mid-year until CEO has reviewed
-  if (pdr && pdr.status === 'SUBMITTED') {
-    router.push(`/pdr/${params.id}/review`);
-    return null;
+  // Redirect if PDR is not reviewed by CEO yet - employee cannot access mid-year until CEO has reviewed
+  if (pdr && !['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(pdr.status)) {
+    // Show access denied view
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground flex items-center">
+              <Calendar className="h-6 w-6 mr-2 text-status-info" />
+              Mid-Year Check-in
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Review your progress and set goals for the remainder of the year
+            </p>
+          </div>
+          <Button onClick={() => router.push('/dashboard')} variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
+        </div>
+        
+        <Card className="border-status-error/30 bg-status-error/5">
+          <CardContent className="p-8 text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-status-error/20 flex items-center justify-center mb-4">
+              <Lock className="h-6 w-6 text-status-error" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">Access Restricted</h2>
+            <p className="text-muted-foreground max-w-md mx-auto mb-6">
+              The Mid-Year Check-in is not available until your manager has reviewed your PDR and provided feedback.
+              Please check back after your manager has completed their review.
+            </p>
+            <Button onClick={() => router.push('/dashboard')}>
+              Return to Dashboard
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const {
