@@ -170,22 +170,6 @@ export default function ReviewsPage() {
           { label: 'Dashboard', href: '/admin' },
           { label: 'PDR Reviews' }
         ]}
-        actions={
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={refreshReviews}
-              className="bg-blue-50 border-blue-200 hover:bg-blue-100"
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh Data
-            </Button>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Review Cycle
-            </Button>
-          </div>
-        }
       />
 
       <div className="flex-1 p-6 space-y-6 overflow-y-auto">

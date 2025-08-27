@@ -183,24 +183,6 @@ export default function CEODashboard() {
         breadcrumbs={[
           { label: 'Dashboard' }
         ]}
-        actions={
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={refreshDashboard}
-              className="bg-blue-50 border-blue-200 hover:bg-blue-100"
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-            <Button asChild>
-              <Link href="/admin/reviews/new">
-                <Plus className="mr-2 h-4 w-4" />
-                New Review
-              </Link>
-            </Button>
-          </div>
-        }
       />
 
       <div className="flex-1 space-y-6 p-6 overflow-y-auto">
