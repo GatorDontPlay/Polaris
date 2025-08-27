@@ -117,14 +117,14 @@ export default function ReviewPage({ params }: ReviewPageProps) {
   const developmentFieldsCount = developmentData ? 
     (developmentData.selfReflection ? 1 : 0) + (developmentData.deepDiveDevelopment ? 1 : 0) : 0;
     
-  // Count total behaviors as all 4 company values + development fields, regardless of what's saved
-  const totalCompanyValues = companyValues?.length || 4; // Always 4 company values
-  const totalBehaviorsForDisplay = totalCompanyValues + developmentFieldsCount;
+  // Count only the 6 core values that we actually have (4 core behaviors + 2 development fields)
+  const coreValueCount = 4; // The 4 core company values
+  const totalBehaviorsForDisplay = 6; // Fixed at 6 (4 core behaviors + 2 development fields)
     
   const stats = {
     totalGoals: goals?.length || 0,
     goalsWithRating: goals?.filter(g => g.employeeRating).length || 0,
-    totalBehaviors: totalBehaviorsForDisplay, // Show all 6 fields (4 company values + 2 development)
+    totalBehaviors: totalBehaviorsForDisplay, // Fixed at 6 (4 core behaviors + 2 development fields)
     behaviorsWithRating: behaviors?.filter(b => b.employeeRating).length || 0,
     averageGoalRating: goals && goals.length > 0 
       ? goals.reduce((sum, g) => sum + (g.employeeRating || 0), 0) / goals.filter(g => g.employeeRating).length
@@ -187,107 +187,87 @@ export default function ReviewPage({ params }: ReviewPageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center">
-            <Eye className="h-6 w-6 mr-2 text-status-info" />
-            Review & Submit
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Review your goals and behaviors before submitting for manager review
-          </p>
-        </div>
-        <div className="flex items-center space-x-4">
+      {/* Page Header with integrated PDR Summary */}
+      <div className="flex flex-col space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground flex items-center">
+              <Eye className="h-6 w-6 mr-2 text-status-info" />
+              Review & Submit
+            </h1>
+            <div className="flex items-center mt-1">
+              <p className="text-muted-foreground">
+                Review your goals and behaviors before submitting for manager review
+              </p>
+              <div className="ml-4 flex items-center space-x-4 border-l border-border/50 pl-4">
+                <div className="flex items-center">
+                  <span className="text-xs text-muted-foreground mr-1">Goals:</span>
+                  <span className="text-xs font-bold text-status-error">{stats.totalGoals}</span>
+                </div>
+                <div className="flex items-center">
+                  <span className="text-xs text-muted-foreground mr-1">Values:</span>
+                  <span className="text-xs font-bold text-status-error">{stats.totalBehaviors}</span>
+                </div>
+              </div>
+            </div>
+          </div>
           <div className="flex items-center space-x-4">
-            <Button onClick={handlePrevious} variant="outline">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Behaviors
-            </Button>
-            
-            {canAccessMidYear && (
+            <div className="flex items-center space-x-4">
+              <Button onClick={handlePrevious} variant="outline">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Behaviors
+              </Button>
+              
+              {canAccessMidYear && (
+                <Button 
+                  onClick={() => router.push(`/pdr/${params.id}/mid-year`)}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Go to Mid Year Check-in
+                </Button>
+              )}
+            </div>
+            <PDRStatusBadge status={pdr?.status || 'DRAFT'} />
+            {canSubmit && isComplete && (
               <Button 
-                onClick={() => router.push(`/pdr/${params.id}/mid-year`)}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => setShowSubmitConfirm(true)}
+                disabled={isSubmitting}
+                className="bg-status-success hover:bg-status-success/90 text-status-success-foreground"
               >
-                <Calendar className="h-4 w-4 mr-2" />
-                Go to Mid Year Check-in
+                <Send className="h-4 w-4 mr-2" />
+                Submit for Review
               </Button>
             )}
           </div>
-          <PDRStatusBadge status={pdr?.status || 'DRAFT'} />
-          {canSubmit && isComplete && (
-            <Button 
-              onClick={() => setShowSubmitConfirm(true)}
-              disabled={isSubmitting}
-              className="bg-status-success hover:bg-status-success/90 text-status-success-foreground"
-            >
-              <Send className="h-4 w-4 mr-2" />
-              Submit for Review
-            </Button>
-          )}
         </div>
+
+        {/* Completion Status */}
+        <Card className={isComplete ? 'border-status-success/30 bg-status-success/5' : 'border-status-warning/30 bg-status-warning/5'}>
+          <CardContent className="py-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                {isComplete ? (
+                  <CheckCircle className="h-5 w-5 text-status-success" />
+                ) : (
+                  <AlertTriangle className="h-5 w-5 text-status-warning" />
+                )}
+              </div>
+              <div className="ml-3">
+                <h3 className={`text-sm font-medium ${isComplete ? 'text-status-success' : 'text-status-warning'}`}>
+                  {isComplete ? 'Ready for Submission' : 'Completion Required'}
+                </h3>
+                <p className={`text-sm ${isComplete ? 'text-status-success/80' : 'text-status-warning/80'}`}>
+                  {isComplete 
+                    ? 'Your PDR is complete and ready for manager review.'
+                    : 'Please complete all sections before submitting.'
+                  }
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-
-      {/* Completion Status */}
-      <Card className={isComplete ? 'border-status-success/30 bg-status-success/5' : 'border-status-warning/30 bg-status-warning/5'}>
-        <CardContent className="py-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              {isComplete ? (
-                <CheckCircle className="h-5 w-5 text-status-success" />
-              ) : (
-                <AlertTriangle className="h-5 w-5 text-status-warning" />
-              )}
-            </div>
-            <div className="ml-3">
-              <h3 className={`text-sm font-medium ${isComplete ? 'text-status-success' : 'text-status-warning'}`}>
-                {isComplete ? 'Ready for Submission' : 'Completion Required'}
-              </h3>
-              <p className={`text-sm ${isComplete ? 'text-status-success/80' : 'text-status-warning/80'}`}>
-                {isComplete 
-                  ? 'Your PDR is complete and ready for manager review.'
-                  : 'Please complete all sections before submitting.'
-                }
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Summary Statistics */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <FileText className="h-5 w-5 mr-2" />
-            PDR Summary
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-status-info">{stats.totalGoals}</div>
-              <div className="text-sm text-muted-foreground">Goals Set</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-status-error">{stats.totalBehaviors}</div>
-              <div className="text-sm text-muted-foreground">Values Assessed</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-status-success">
-                {stats.averageGoalRating > 0 ? stats.averageGoalRating.toFixed(1) : '-'}
-              </div>
-              <div className="text-sm text-muted-foreground">Avg Goal Rating</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-activity-behavior">
-                {stats.averageBehaviorRating > 0 ? stats.averageBehaviorRating.toFixed(1) : '-'}
-              </div>
-              <div className="text-sm text-muted-foreground">Avg Value Rating</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Goals Section */}
       <Card>
