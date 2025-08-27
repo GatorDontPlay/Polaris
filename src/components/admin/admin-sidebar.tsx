@@ -94,29 +94,34 @@ export function AdminSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r">
       <SidebarHeader className="border-b">
-        <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex flex-col items-center gap-2 px-4 py-3">
           <div className="group-data-[collapsible=icon]:hidden">
             <Image
               src="/company-logo.svg"
               alt="Company Logo"
-              width={160}
-              height={48}
-              className="h-10 w-auto"
+              width={180}
+              height={54}
+              className="h-12 w-auto"
             />
-            <div className="flex flex-col">
-              <span className="text-xs text-white/70">
-                CEO Dashboard
-              </span>
-            </div>
+            <span className="text-white font-black text-lg tracking-wide block text-center mt-2">
+              POLARIS
+            </span>
+            <span className="text-xs text-white/70 block text-center">
+              CEO
+            </span>
           </div>
-          <SidebarTrigger className="text-white hover:bg-white/10 ml-auto" />
+          <SidebarTrigger className="text-white hover:bg-white/10" />
         </div>
       </SidebarHeader>
 
       <SidebarContent className="px-3 py-4">
         <SidebarMenu className="space-y-2">
           {navigation.map((item) => {
-            const isActive = pathname === item.href;
+            // Special case for Dashboard to ensure it's only active on the exact route
+            // For other items, include child routes
+            const isActive = item.name === 'Dashboard'
+              ? pathname === item.href
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <SidebarMenuItem key={item.name}>
                 <SidebarMenuButton

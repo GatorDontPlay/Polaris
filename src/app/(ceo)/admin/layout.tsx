@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useDemoAuth } from '@/hooks/use-demo-auth';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AdminSidebar } from '@/components/admin/admin-sidebar';
+import { NotificationIcon } from '@/components/ui/notification-icon';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -37,7 +38,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   if (isLoading) {
     console.log('AdminLayout: Rendering loading state');
     return (
-      <div className="flex h-screen items-center justify-center bg-blue-100">
+      <div className="flex h-screen items-center justify-center bg-gray-100">
         <div className="flex flex-col items-center space-y-4 p-8 bg-white rounded shadow">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           <p className="text-sm text-muted-foreground">Loading dashboard...</p>
@@ -51,7 +52,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   if (!isAuthenticated) {
     console.log('AdminLayout: Not authenticated, redirecting...');
     return (
-      <div className="flex h-screen items-center justify-center bg-red-100">
+      <div className="flex h-screen items-center justify-center bg-gray-100">
         <div className="text-center p-8 bg-white rounded shadow">
           <p className="text-red-600 mb-2">Not authenticated</p>
           <p className="text-sm">Redirecting to login...</p>
@@ -63,7 +64,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   if (user?.role !== 'CEO') {
     console.log('AdminLayout: Not CEO role, user role:', user?.role);
     return (
-      <div className="flex h-screen items-center justify-center bg-yellow-100">
+      <div className="flex h-screen items-center justify-center bg-gray-100">
         <div className="text-center p-8 bg-white rounded shadow">
           <p className="text-yellow-600 mb-2">Access denied</p>
           <p className="text-sm">CEO role required. Your role: {user?.role}</p>
@@ -78,7 +79,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     <SidebarProvider>
       <div className="flex h-screen w-full">
         <AdminSidebar />
-        <SidebarInset className="flex-1">
+        <SidebarInset className="flex-1 relative">
+          <div className="absolute top-4 right-4 z-50">
+            <NotificationIcon />
+          </div>
           <div className="flex h-full flex-col overflow-auto">
             {children}
           </div>
