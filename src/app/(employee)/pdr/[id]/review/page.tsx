@@ -385,7 +385,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                   <div key={value.id} className="border border-border rounded-lg p-4 h-32 flex flex-col">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center">
-                        <div className="w-3 h-3 rounded-full bg-emerald-500 mr-3 flex-shrink-0 shadow-sm shadow-emerald-500/50"></div>
+                        <div className="w-3 h-3 rounded-full bg-emerald-500 mr-3 flex-shrink-0 border border-emerald-400 glow-dot"></div>
                         <h4 className="font-medium text-foreground text-sm leading-tight">
                           {value.name}
                         </h4>
@@ -424,7 +424,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                 <div className="border border-border rounded-lg p-4 h-32 flex flex-col">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-emerald-500 mr-3 flex-shrink-0 shadow-sm shadow-emerald-500/50"></div>
+                      <div className="w-3 h-3 rounded-full bg-emerald-500 mr-3 flex-shrink-0 border border-emerald-400 glow-dot"></div>
                       <h4 className="font-medium text-foreground text-sm leading-tight">Self Reflection</h4>
                     </div>
                   </div>
@@ -441,7 +441,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                 <div className="border border-border rounded-lg p-4 h-32 flex flex-col">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-emerald-500 mr-3 flex-shrink-0 shadow-sm shadow-emerald-500/50"></div>
+                      <div className="w-3 h-3 rounded-full bg-emerald-500 mr-3 flex-shrink-0 border border-emerald-400 glow-dot"></div>
                       <h4 className="font-medium text-foreground text-sm leading-tight">CodeFish 3D - Deep Dive Development</h4>
                     </div>
                   </div>
