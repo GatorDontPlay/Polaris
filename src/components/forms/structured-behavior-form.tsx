@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RatingInput } from '@/components/pdr/rating-input';
-import { Heart, CheckCircle2, AlertCircle, Save, Sparkles, HelpCircle } from 'lucide-react';
+import { Heart, CheckCircle2, AlertCircle, Save, Sparkles, HelpCircle, TrendingUp, Star, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { useState, useEffect, useCallback, useMemo, useRef, useImperativeHandle, forwardRef } from 'react';
 import toast from 'react-hot-toast';
 
@@ -59,6 +59,7 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
   const [isCurrentlySaving, setIsCurrentlySaving] = useState(false);
   const [allCompleted, setAllCompleted] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [isGrantInfoOpen, setIsGrantInfoOpen] = useState(false);
 
   // Initialize form with all company values
   const defaultValues = companyValues.map(value => {
@@ -220,8 +221,21 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
     });
   }, [fields.length, watchedBehaviors, companyValues.length, watch]);
 
-  // Calculate completion progress for all 6 fields (4 behaviors + 2 development fields)
-  const completedBehaviors = watchedBehaviors.filter(behavior => 
+  // Calculate completion progress for only the 6 required fields (4 core behaviors + 2 development fields)
+  // Filter out only the 4 core company values (excluding informational ones)
+  const coreBehaviors = watchedBehaviors.filter(behavior => {
+    // These are the 4 core company values that need to be completed
+    const coreValueIds = [
+      '550e8400-e29b-41d4-a716-446655440001', // Lean Thinking
+      '550e8400-e29b-41d4-a716-446655440002', // Craftsmanship
+      '550e8400-e29b-41d4-a716-446655440003', // Value-Centric Innovation
+      '550e8400-e29b-41d4-a716-446655440004', // Blameless Problem-Solving
+    ];
+    return coreValueIds.includes(behavior.valueId);
+  });
+  
+  // Count completed core behaviors
+  const completedBehaviors = coreBehaviors.filter(behavior => 
     behavior.description && behavior.description.trim().length > 0
   ).length;
   
@@ -234,7 +248,7 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
   ].filter(Boolean).length;
   
   const totalCompletedCount = completedBehaviors + completedDevelopmentFields;
-  const totalFieldCount = companyValues.length + 2; // 4 behaviors + 2 development fields = 6 total
+  const totalFieldCount = 6; // 4 core behaviors + 2 development fields = 6 total
   
   const progressPercentage = (totalCompletedCount / totalFieldCount) * 100;
 
@@ -379,6 +393,41 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
     }
   };
 
+  // Manual save function for the Save Progress button
+  const handleAutosave = useCallback(async () => {
+    if (!onAutoSave) {
+      toast.error('Unable to save at this time');
+      return;
+    }
+    
+    setIsAutoSaving(true);
+    
+    try {
+      const currentData = getValues();
+      const currentBehaviors = currentData.behaviors || [];
+      
+      // Save all behaviors (including empty ones) and development data
+      await onAutoSave({
+        behaviors: currentBehaviors,
+        selfReflection: currentData.selfReflection || '',
+        deepDiveDevelopment: currentData.deepDiveDevelopment || '',
+      });
+      
+      // Update the previous values ref to prevent immediate re-save
+      const behaviorsKey = currentBehaviors.map(b => `${b.valueId}:${b.description || ''}`).join('|');
+      const selfReflectionKey = currentData.selfReflection || '';
+      const deepDiveKey = currentData.deepDiveDevelopment || '';
+      previousValuesRef.current = `${behaviorsKey}::${selfReflectionKey}::${deepDiveKey}`;
+      
+      toast.success('Progress saved successfully');
+    } catch (error) {
+      console.error('Failed to save progress:', error);
+      toast.error('Failed to save progress');
+    } finally {
+      setIsAutoSaving(false);
+    }
+  }, [onAutoSave, getValues]);
+  
   // Create a force save function that can be called by parent components
   const forceSave = useCallback(async () => {
     if (!onAutoSave) {
@@ -419,64 +468,56 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
 
   return (
     <div className="space-y-6">
-      {/* Header with Progress */}
-      <Card className={`transition-all duration-500 ${showCelebration ? 'ring-2 ring-status-success shadow-lg' : ''}`}>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center justify-between text-base">
-            <div className="flex items-center">
-              <Heart className="h-4 w-4 mr-2 text-activity-behavior" />
-              Company Values & Behaviors Assessment
-              {showCelebration && (
-                <Sparkles className="h-4 w-4 ml-2 text-status-success animate-pulse" />
-              )}
-            </div>
-            <div className="flex items-center space-x-3">
-              {isAutoSaving && (
-                <div className="flex items-center text-xs text-muted-foreground">
-                  <Save className="h-3 w-3 mr-1 animate-pulse" />
-                  <span>Saving...</span>
-                </div>
-              )}
-              <div className="text-xs text-muted-foreground">
-                {totalCompletedCount} of {totalFieldCount} completed
-              </div>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="space-y-3">
-            <div>
-              <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span>Overall Progress</span>
-                <span>{Math.round(progressPercentage)}%</span>
-              </div>
-              <Progress value={progressPercentage} className="h-1.5" />
-            </div>
-            
-            <p className="text-xs text-muted-foreground">
-              Complete your assessment for each company value. Provide specific examples and reflect on your alignment with our values.
-            </p>
+      {/* Auto-save indicator - Floating in the top-right corner */}
+      {isAutoSaving && (
+        <div className="flex items-center text-xs text-muted-foreground fixed top-4 right-4 bg-background/80 backdrop-blur-sm border border-border/50 px-3 py-1.5 rounded-full shadow-sm z-10">
+          <Save className="h-3 w-3 mr-1.5 animate-pulse" />
+          <span>Saving...</span>
+        </div>
+      )}
 
-
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* All Values Form - 4 Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+      {/* Core Company Values - 2 Column Layout for Better Readability */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {fields.map((field, index) => {
           const value = companyValues.find(v => v.id === field.valueId);
           if (!value) return null;
           
+          // Skip Self Reflection and CodeFish 3D - they're handled in the dedicated section below
+          if (value.id === '550e8400-e29b-41d4-a716-446655440005' || value.id === '550e8400-e29b-41d4-a716-446655440006') {
+            return null;
+          }
+          
           const behavior = watchedBehaviors[index] || {};
           const isCompleted = behavior.description && behavior.description.trim().length > 0;
           const fieldErrors = errors?.behaviors?.[index];
+          
+          // Define icons for each value to enhance visual recognition
+          const getValueIcon = (valueId: string) => {
+            switch (valueId) {
+              case '550e8400-e29b-41d4-a716-446655440001': // Lean Thinking
+                return <TrendingUp className="h-4 w-4 text-primary" />;
+              case '550e8400-e29b-41d4-a716-446655440002': // Craftsmanship
+                return <CheckCircle2 className="h-4 w-4 text-primary" />;
+              case '550e8400-e29b-41d4-a716-446655440003': // Value-Centric Innovation
+                return <Sparkles className="h-4 w-4 text-primary" />;
+              case '550e8400-e29b-41d4-a716-446655440004': // Blameless Problem-Solving
+                return <Heart className="h-4 w-4 text-primary" />;
+              default:
+                return null;
+            }
+          };
 
           return (
-            <Card key={field.id} className={`h-fit ${isCompleted ? 'ring-1 ring-status-success/30' : ''}`}>
+            <Card 
+              key={field.id} 
+              className={`h-fit transition-all duration-200 hover:shadow-md ${
+                isCompleted ? 'ring-1 ring-status-success/30 border-status-success/20' : ''
+              }`}
+            >
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-start justify-between text-sm">
                   <div className="flex items-center gap-2">
+                    {getValueIcon(value.id)}
                     <span className="text-primary font-semibold">{value.name}</span>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -508,16 +549,16 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
                 <div className="space-y-1">
                   <label 
                     htmlFor={`description-${index}`}
-                    className="block text-xs font-medium text-foreground"
+                    className="block text-sm font-medium text-foreground"
                   >
-                    How I Can Meet The Values *
+                    How I plan to contribute *
                   </label>
                   <textarea
                     id={`description-${index}`}
                     {...register(`behaviors.${index}.description`)}
-                    placeholder="Describe how you embody this value..."
-                    className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring resize-none text-xs leading-relaxed"
-                    rows={4}
+                    placeholder="Describe how you plan to contribute to this value..."
+                    className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring resize-none text-sm leading-relaxed"
+                    rows={5}
                     disabled={isReadOnly}
                   />
                   {fieldErrors?.description && (
@@ -532,40 +573,37 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
         })}
       </div>
 
-      {/* Self Reflection / Development Card - Informational Only */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="flex items-center text-sm font-semibold">
-            <Sparkles className="h-4 w-4 mr-2 text-primary" />
-            Self Reflection / Development
+      {/* Self Reflection / Development Section - Enhanced UI */}
+      <Card className="mt-8 bg-gradient-to-b from-status-info/5 to-transparent border-status-info/10">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center text-base font-semibold">
+            <Sparkles className="h-5 w-5 mr-2 text-yellow-400" />
+            Professional Development
           </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Reflect on your development goals and how you'd like to grow. <span className="text-status-info font-medium">These fields are informational only and do not require scoring.</span>
-          </p>
+
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           {/* Self Reflection */}
-          <div className="space-y-1">
+          <div className="space-y-2 bg-background p-4 rounded-lg border border-border/80 shadow-sm">
             <div className="flex items-center justify-between">
               <label 
                 htmlFor="selfReflection"
-                className="block text-xs font-medium text-foreground"
+                className="block text-sm font-medium text-foreground flex items-center"
               >
+                <Star className="h-4 w-4 mr-2 text-status-info" />
                 Self Reflection
               </label>
-              <Badge variant="outline" className="text-xs bg-status-info/10 text-status-info">
-                Informational Only
-              </Badge>
+
             </div>
-            <p className="text-xs text-muted-foreground mb-2">
+            <p className="text-sm text-white mb-2">
               Share your thoughts on how you could develop yourself academically or personally.
             </p>
             <textarea
               id="selfReflection"
               {...register('selfReflection')}
               placeholder="Reflect on areas where you'd like to grow and develop..."
-              className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring resize-none text-xs leading-relaxed"
-              rows={3}
+              className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-status-info/30 focus:border-status-info/30 resize-none text-sm leading-relaxed"
+              rows={4}
               maxLength={500}
               disabled={isReadOnly}
             />
@@ -582,29 +620,52 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
           </div>
 
           {/* CodeFish 3D - Deep Dive Development */}
-          <div className="space-y-1">
+          <div className="space-y-2 bg-background p-4 rounded-lg border border-border/80 shadow-sm">
             <div className="flex items-center justify-between">
               <label 
                 htmlFor="deepDiveDevelopment"
-                className="block text-xs font-medium text-foreground"
+                className="block text-sm font-medium text-foreground flex items-center"
               >
+                <Sparkles className="h-4 w-4 mr-2 text-status-info" />
                 CodeFish 3D - Deep Dive Development
               </label>
-              <Badge variant="outline" className="text-xs bg-status-info/10 text-status-info">
-                Informational Only
-              </Badge>
+
             </div>
-            <p className="text-xs text-muted-foreground mb-2">
-              You have up to $1000 per financial year to invest in your learning and growth. 
-              This could include courses, tools, workshops, or any learning experience that sparks your curiosity and aligns with our goals. 
-              We encourage you to share what you learn with the team to create a culture of continuous improvement.
-            </p>
+            <div className="mb-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex items-center justify-between w-full text-left mb-2 border-dashed border-yellow-400/50 text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10"
+                onClick={() => setIsGrantInfoOpen(!isGrantInfoOpen)}
+              >
+                <div className="flex items-center">
+                  <Info className="h-4 w-4 mr-2" />
+                  What is Deep Dive Development Grant?
+                </div>
+                {isGrantInfoOpen ? (
+                  <ChevronUp className="h-4 w-4 ml-2" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                )}
+              </Button>
+              
+              {isGrantInfoOpen && (
+                <div className="bg-status-info/5 border border-status-info/10 rounded-md p-3 mb-3 animate-fadeIn">
+                  <p className="text-sm text-white">
+                    <strong>Development Budget: $1000</strong> per financial year to invest in your learning and growth. 
+                    This could include courses, tools, workshops, or any learning experience that sparks your curiosity and aligns with our goals. 
+                    We encourage you to share what you learn with the team to create a culture of continuous improvement.
+                  </p>
+                </div>
+              )}
+            </div>
             <textarea
               id="deepDiveDevelopment"
               {...register('deepDiveDevelopment')}
               placeholder="Describe what you'd like to learn or explore with your $1000 development budget..."
-              className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring resize-none text-xs leading-relaxed"
-              rows={4}
+              className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-status-info/30 focus:border-status-info/30 resize-none text-sm leading-relaxed"
+              rows={5}
               maxLength={1000}
               disabled={isReadOnly}
             />
@@ -618,6 +679,30 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
                 {watch('deepDiveDevelopment')?.length || 0}/1000
               </p>
             </div>
+          </div>
+          
+          {/* Save Progress Button - Added for better UX */}
+          <div className="flex justify-end">
+            <Button 
+              type="button"
+              variant="outline" 
+              size="sm"
+              className="text-status-info border-status-info/30 hover:bg-status-info/5"
+              onClick={handleAutosave}
+              disabled={isAutoSaving || isReadOnly}
+            >
+              {isAutoSaving ? (
+                <>
+                  <Save className="h-3 w-3 mr-2 animate-pulse" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-3 w-3 mr-2" />
+                  Save Progress
+                </>
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>

@@ -18,7 +18,7 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
   const formRef = useRef<StructuredBehaviorFormHandle>(null);
   const [hasCleanedDuplicates, setHasCleanedDuplicates] = useState(false);
   const [formCompletedCount, setFormCompletedCount] = useState(0);
-  const [formTotalCount, setFormTotalCount] = useState(6);
+  const [formTotalCount, setFormTotalCount] = useState(6); // 4 core behaviors + 2 development fields
   
   // Remove localStorage clearing to preserve existing data
   // useEffect(() => {
@@ -44,7 +44,7 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
     isFormReadOnly: !canEdit
   });
 
-  // Clean up duplicates on first load only
+  // Clean up duplicates on first load only and filter out Self Reflection and CodeFish 3D from the grid
   useEffect(() => {
     if (behaviors && behaviors.length > 0 && !hasCleanedDuplicates) {
       const valueIds = new Set();
@@ -56,12 +56,24 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
         return false;
       });
       
+      // Filter out Self Reflection and CodeFish 3D from the grid
+      // These IDs correspond to the informational-only values that should only appear in the dedicated section
+      const informationalValueIds = [
+        '550e8400-e29b-41d4-a716-446655440005', // Self Reflection
+        '550e8400-e29b-41d4-a716-446655440006'  // CodeFish 3D
+      ];
+      
       if (duplicatesExist) {
         console.log('Cleaning up duplicate behaviors...');
         const uniqueBehaviors = new Map();
         
-        // Keep only the latest behavior for each valueId
+        // Keep only the latest behavior for each valueId, excluding informational values from the grid
         behaviors.forEach(behavior => {
+          // Skip informational values - they'll be handled in the dedicated section
+          if (informationalValueIds.includes(behavior.valueId)) {
+            return;
+          }
+          
           const existing = uniqueBehaviors.get(behavior.valueId);
           if (!existing || new Date(behavior.updatedAt) > new Date(existing.updatedAt)) {
             uniqueBehaviors.set(behavior.valueId, behavior);
@@ -314,11 +326,11 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center">
-            <Heart className="h-7 w-7 mr-3 text-blue-400" />
+            <Heart className="h-7 w-7 mr-3 text-pink-500" />
             Company Values & Behaviors Assessment
           </h1>
-          <p className="text-muted-foreground mt-2">
-            Assess how you can meet our company values in your daily work.
+          <p className="text-white mt-2">
+            We encourage you to think about how you can contribute to the CodeFish Studio's Behaviours and Values during the review period.
           </p>
         </div>
         <div className="flex items-center space-x-4">
@@ -338,7 +350,7 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
                 ? 'bg-status-success hover:bg-status-success/90 text-white shadow-lg' 
                 : 'bg-muted text-muted-foreground cursor-not-allowed'
             }`}
-            title={!isAssessmentComplete ? `Complete all ${totalValues} values to continue (${completedValues}/${totalValues} done)` : 'Continue to review your PDR'}
+            title={!isAssessmentComplete ? `Complete all ${totalValues} required fields to continue (${completedValues}/${totalValues} done)` : 'Continue to review your PDR'}
           >
             {isAssessmentComplete ? 'Continue to Review' : `Complete Assessment (${completedValues}/${totalValues})`}
             <ArrowRight className="h-4 w-4 ml-2" />
