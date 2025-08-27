@@ -49,6 +49,9 @@ export function StepperIndicator({
           const isCompleted = step.number < currentStep || 
             // Special case: Force step 2 (behaviors) to be completed when on step 3 (review)
             (currentStep >= 3 && step.number === 2);
+          
+          // Special case: Make Behaviors step flash when on Review page
+          const isBehaviorsOnReviewPage = step.number === 2 && currentStep === 3;
           const isActive = step.number === currentStep;
           // Only allow clicking on steps that are completed or current
           const isClickable = onStepClick && step.number <= currentStep;
@@ -78,7 +81,8 @@ export function StepperIndicator({
                   'flex items-center justify-center w-16 h-16 rounded-full border-2 text-base font-bold transition-all duration-300 shadow-lg',
                   {
                     'bg-gradient-to-br from-primary to-primary/80 text-white border-primary shadow-primary/25 scale-110 ring-4 ring-primary/30 animate-pulse': isActive,
-                    'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-emerald-400 shadow-emerald-500/40': isCompleted,
+                    'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-emerald-400 shadow-emerald-500/40 animate-pulse': isBehaviorsOnReviewPage,
+                    'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-emerald-400 shadow-emerald-500/40': isCompleted && !isBehaviorsOnReviewPage,
                     'bg-gray-800 text-white border-gray-600 hover:border-white/80': !isActive && !isCompleted,
                     'cursor-pointer hover:scale-105 hover:shadow-xl': isClickable,
                   }
@@ -114,7 +118,8 @@ export function StepperIndicator({
                     'font-semibold leading-tight',
                     {
                       'text-lg text-white font-bold underline decoration-primary decoration-2 underline-offset-4': isActive,
-                      'text-base text-emerald-400 font-bold': isCompleted,
+                      'text-base text-emerald-400 font-bold animate-pulse': isBehaviorsOnReviewPage,
+                      'text-base text-emerald-400 font-bold': isCompleted && !isBehaviorsOnReviewPage,
                       'text-base text-white font-medium': !isActive && !isCompleted,
                     }
                   )}
