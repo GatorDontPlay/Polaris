@@ -16,7 +16,8 @@ import {
   ArrowRight,
   Plus,
   FileText,
-  CheckCircle2
+  CheckCircle2,
+  ChevronRight
 } from 'lucide-react';
 import { getPDRDisplayName } from '@/lib/financial-year';
 
@@ -361,7 +362,7 @@ export default function EmployeeDashboard() {
           
           <Card>
             <CardContent className="p-6">
-              <div className="flex items-center">
+                              <div className="flex items-center">
                 <CheckCircle2 className="h-8 w-8 text-green-600" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">PDR Status</p>
@@ -372,6 +373,9 @@ export default function EmployeeDashboard() {
                      stats.pdrStatus === 'OPEN_FOR_REVIEW' || stats.pdrStatus === 'PLAN_LOCKED' || stats.pdrStatus === 'UNDER_REVIEW' ? 'Under Review' :
                      stats.pdrStatus === 'COMPLETED' ? 'Completed' : '-'}
                   </p>
+                  {stats.pdrStatus === 'SUBMITTED' && (
+                    <p className="text-sm text-white mt-1">Pending Review with Manager & Approval</p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -460,113 +464,183 @@ export default function EmployeeDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4">
-              {/* Modern Progress and Pills */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-3 flex-1 mr-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-20 bg-muted/50 rounded-full h-1.5 overflow-hidden">
-                      <div 
-                        className="bg-gradient-to-r from-blue-500 to-blue-600 h-1.5 rounded-full transition-all duration-500 ease-out" 
-                        style={{ width: `${(currentPDR.status === 'SUBMITTED' ? 3 : currentPDR.currentStep) / 5 * 100}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-xs text-foreground/80 font-medium whitespace-nowrap">
-                      {currentPDR.status === 'SUBMITTED' ? '3' : currentPDR.currentStep}/5
-                    </span>
+              {/* Process Flow with Arrows - Centered and Prominent */}
+              <div className="flex flex-col items-center mb-6">
+                {/* Status Badge - Positioned at top */}
+                <div className="flex flex-col items-center mb-4">
+                  <Badge variant={
+                    currentPDR.status === 'SUBMITTED' ? 'secondary' : 
+                    currentPDR.status === 'COMPLETED' ? 'default' :
+                    'outline'
+                  } className="mb-2 px-3 py-1">
+                    {currentPDR.status === 'Created' && 'In Progress'}
+                    {currentPDR.status === 'SUBMITTED' && 'Submitted'}
+                    {currentPDR.status === 'OPEN_FOR_REVIEW' && 'Under Review'}
+                    {currentPDR.status === 'PLAN_LOCKED' && 'Under Review'}
+                    {currentPDR.status === 'UNDER_REVIEW' && 'Under Review'}
+                    {currentPDR.status === 'COMPLETED' && 'Completed'}
+                  </Badge>
+                  
+                  {currentPDR.status === 'SUBMITTED' && (
+                    <p className="text-sm text-white text-center max-w-lg">
+                      Your manager will review your PDR proposal for the year and book a time to discuss with you. 
+                      There is nothing else to do until you agree on the plan with your manager.
+                    </p>
+                  )}
+                </div>
+                
+                {/* Process Flow with Arrows */}
+                <div className="flex items-center justify-center flex-wrap gap-1 md:gap-0 w-full max-w-3xl">
+                  {/* Goals */}
+                  <div 
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      currentPDR.currentStep >= 1 
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20' 
+                        : 'bg-muted/50 text-muted-foreground border border-border/50'
+                    }`}
+                    onClick={() => currentPDR.currentStep >= 1 && router.push(`/pdr/${currentPDR.id}/goals`)}
+                    role={currentPDR.currentStep >= 1 ? "button" : undefined}
+                    tabIndex={currentPDR.currentStep >= 1 ? 0 : undefined}
+                    onKeyDown={(e) => {
+                      if (currentPDR.currentStep >= 1 && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        router.push(`/pdr/${currentPDR.id}/goals`);
+                      }
+                    }}
+                  >
+                    {currentPDR.currentStep >= 1 ? (
+                      <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                    ) : (
+                      <Target className="h-4 w-4 flex-shrink-0" />
+                    )}
+                    <span>Goals</span>
                   </div>
                   
-                  {/* Modern Minimal Pills - Symmetrical */}
-                  <div className="flex gap-1 flex-wrap">
-                    <div className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 min-w-[4.5rem] sm:min-w-[5.5rem] ${
-                      currentPDR.currentStep >= 1 
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                        : 'bg-muted/50 text-muted-foreground border border-border/50 hover:bg-muted/70'
-                    }`}>
-                      {currentPDR.currentStep >= 1 ? (
-                        <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
-                      ) : (
-                        <Target className="h-3 w-3 flex-shrink-0" />
-                      )}
-                      <span className="hidden sm:inline">Goals</span>
-                      <span className="sm:hidden">G</span>
-                    </div>
-                    <div className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 min-w-[4.5rem] sm:min-w-[5.5rem] ${
+                  {/* Arrow 1 */}
+                  <ChevronRight className="h-5 w-5 mx-0.5 text-muted-foreground/70" />
+                  
+                  {/* Behaviors */}
+                  <div 
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       currentPDR.currentStep >= 2 
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                        : 'bg-muted/50 text-muted-foreground border border-border/50 hover:bg-muted/70'
-                    }`}>
-                      {currentPDR.currentStep >= 2 ? (
-                        <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
-                      ) : (
-                        <TrendingUp className="h-3 w-3 flex-shrink-0" />
-                      )}
-                      <span className="hidden sm:inline">Behaviors</span>
-                      <span className="sm:hidden">B</span>
-                    </div>
-                    <div className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 min-w-[4.5rem] sm:min-w-[5.5rem] ${
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20' 
+                        : 'bg-muted/50 text-muted-foreground border border-border/50'
+                    }`}
+                    onClick={() => currentPDR.currentStep >= 2 && router.push(`/pdr/${currentPDR.id}/behaviors`)}
+                    role={currentPDR.currentStep >= 2 ? "button" : undefined}
+                    tabIndex={currentPDR.currentStep >= 2 ? 0 : undefined}
+                    onKeyDown={(e) => {
+                      if (currentPDR.currentStep >= 2 && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        router.push(`/pdr/${currentPDR.id}/behaviors`);
+                      }
+                    }}
+                  >
+                    {currentPDR.currentStep >= 2 ? (
+                      <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                    ) : (
+                      <TrendingUp className="h-4 w-4 flex-shrink-0" />
+                    )}
+                    <span>Behaviors</span>
+                  </div>
+                  
+                  {/* Arrow 2 */}
+                  <ChevronRight className="h-5 w-5 mx-0.5 text-muted-foreground/70" />
+                  
+                  {/* Review */}
+                  <div 
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       currentPDR.currentStep >= 3 
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                        : 'bg-muted/50 text-muted-foreground border border-border/50 hover:bg-muted/70'
-                    }`}>
-                      {currentPDR.currentStep >= 3 ? (
-                        <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
-                      ) : (
-                        <FileText className="h-3 w-3 flex-shrink-0" />
-                      )}
-                      <span className="hidden sm:inline">Review</span>
-                      <span className="sm:hidden">R</span>
-                    </div>
-                    <div className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 min-w-[4.5rem] sm:min-w-[5.5rem] ${
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20' 
+                        : 'bg-muted/50 text-muted-foreground border border-border/50'
+                    }`}
+                    onClick={() => currentPDR.currentStep >= 3 && router.push(`/pdr/${currentPDR.id}/review`)}
+                    role={currentPDR.currentStep >= 3 ? "button" : undefined}
+                    tabIndex={currentPDR.currentStep >= 3 ? 0 : undefined}
+                    onKeyDown={(e) => {
+                      if (currentPDR.currentStep >= 3 && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        router.push(`/pdr/${currentPDR.id}/review`);
+                      }
+                    }}
+                  >
+                    {currentPDR.currentStep >= 3 ? (
+                      <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                    ) : (
+                      <FileText className="h-4 w-4 flex-shrink-0" />
+                    )}
+                    <span>Review</span>
+                  </div>
+                  
+                  {/* Arrow 3 */}
+                  <ChevronRight className="h-5 w-5 mx-0.5 text-muted-foreground/70" />
+                  
+                  {/* Mid-Year */}
+                  <div 
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       currentPDR.currentStep >= 4 && currentPDR.status !== 'SUBMITTED'
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20' 
                         : currentPDR.status === 'SUBMITTED'
-                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                        : 'bg-muted/50 text-muted-foreground border border-border/50 hover:bg-muted/70'
-                    }`}>
-                      {currentPDR.currentStep >= 4 && currentPDR.status !== 'SUBMITTED' ? (
-                        <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
-                      ) : currentPDR.status === 'SUBMITTED' ? (
-                        <Clock className="h-3 w-3 flex-shrink-0" />
-                      ) : (
-                        <Calendar className="h-3 w-3 flex-shrink-0" />
-                      )}
-                      <span className="hidden sm:inline">Mid-Year</span>
-                      <span className="sm:hidden">M</span>
-                    </div>
-                    <div className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 min-w-[4.5rem] sm:min-w-[5.5rem] ${
+                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 cursor-pointer hover:bg-blue-500/20'
+                        : 'bg-muted/50 text-muted-foreground border border-border/50'
+                    }`}
+                    onClick={() => (currentPDR.currentStep >= 4 || currentPDR.status === 'SUBMITTED') && router.push(`/pdr/${currentPDR.id}/mid-year`)}
+                    role={(currentPDR.currentStep >= 4 || currentPDR.status === 'SUBMITTED') ? "button" : undefined}
+                    tabIndex={(currentPDR.currentStep >= 4 || currentPDR.status === 'SUBMITTED') ? 0 : undefined}
+                    onKeyDown={(e) => {
+                      if ((currentPDR.currentStep >= 4 || currentPDR.status === 'SUBMITTED') && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        router.push(`/pdr/${currentPDR.id}/mid-year`);
+                      }
+                    }}
+                  >
+                    {currentPDR.currentStep >= 4 && currentPDR.status !== 'SUBMITTED' ? (
+                      <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                    ) : currentPDR.status === 'SUBMITTED' ? (
+                      <Clock className="h-4 w-4 flex-shrink-0" />
+                    ) : (
+                      <Calendar className="h-4 w-4 flex-shrink-0" />
+                    )}
+                    <span>Mid-Year</span>
+                  </div>
+                  
+                  {/* Arrow 4 */}
+                  <ChevronRight className="h-5 w-5 mx-0.5 text-muted-foreground/70" />
+                  
+                  {/* End-Year */}
+                  <div 
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       currentPDR.currentStep >= 5 
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                        : 'bg-muted/50 text-muted-foreground border border-border/50 hover:bg-muted/70'
-                    }`}>
-                      {currentPDR.currentStep >= 5 ? (
-                        <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
-                      ) : (
-                        <FileText className="h-3 w-3 flex-shrink-0" />
-                      )}
-                      <span className="hidden sm:inline">End-Year</span>
-                      <span className="sm:hidden">E</span>
-                    </div>
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20' 
+                        : 'bg-muted/50 text-muted-foreground border border-border/50'
+                    }`}
+                    onClick={() => currentPDR.currentStep >= 5 && router.push(`/pdr/${currentPDR.id}/end-year`)}
+                    role={currentPDR.currentStep >= 5 ? "button" : undefined}
+                    tabIndex={currentPDR.currentStep >= 5 ? 0 : undefined}
+                    onKeyDown={(e) => {
+                      if (currentPDR.currentStep >= 5 && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        router.push(`/pdr/${currentPDR.id}/end-year`);
+                      }
+                    }}
+                  >
+                    {currentPDR.currentStep >= 5 ? (
+                      <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                    ) : (
+                      <FileText className="h-4 w-4 flex-shrink-0" />
+                    )}
+                    <span>End-Year</span>
                   </div>
                 </div>
-                <Badge variant={
-                  currentPDR.status === 'SUBMITTED' ? 'secondary' : 
-                  currentPDR.status === 'COMPLETED' ? 'default' :
-                  'outline'
-                } className="text-xs px-1.5 py-0.5 h-5 flex-shrink-0">
-                  {currentPDR.status === 'Created' && 'In Progress'}
-                  {currentPDR.status === 'SUBMITTED' && 'Submitted'}
-                  {currentPDR.status === 'OPEN_FOR_REVIEW' && 'Under Review'}
-                  {currentPDR.status === 'PLAN_LOCKED' && 'Under Review'}
-                  {currentPDR.status === 'UNDER_REVIEW' && 'Under Review'}
-                  {currentPDR.status === 'COMPLETED' && 'Completed'}
-                </Badge>
               </div>
 
-              <div className="flex">
+              {/* Improved Button Design */}
+              <div className="flex justify-center">
                 <Button 
                   onClick={() => router.push(`/pdr/${currentPDR.id}/goals`)}
-                  className="flex-1"
+                  className="px-6 py-2"
                   variant={currentPDR.status === 'Created' ? 'default' : 'outline'}
+                  size="sm"
                 >
                   {currentPDR.status === 'Created' ? 'Edit/Continue PDR' : 'View Current PDR'}
                   <ArrowRight className="ml-2 h-4 w-4" />
