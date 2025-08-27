@@ -26,6 +26,21 @@
       box-shadow: 0 0 15px 5px rgba(16, 185, 129, 0.8), 0 0 20px 8px rgba(52, 211, 153, 0.6);
     }
   }
+  
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
 @layer base {
