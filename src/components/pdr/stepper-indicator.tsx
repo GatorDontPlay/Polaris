@@ -50,8 +50,9 @@ export function StepperIndicator({
             // Special case: Force step 2 (behaviors) to be completed when on step 3 (review)
             (currentStep >= 3 && step.number === 2);
           
-          // Special case: Make Behaviors step flash when on Review page
-          const isBehaviorsOnReviewPage = step.number === 2 && currentStep === 3;
+          // We no longer need the flashing effect for the Behaviors step when on Review page
+          // const isBehaviorsOnReviewPage = step.number === 2 && currentStep === 3;
+          const isBehaviorsOnReviewPage = false; // Disable flashing effect
           const isActive = step.number === currentStep;
           // Only allow clicking on steps that are completed or current
           const isClickable = onStepClick && step.number <= currentStep;
