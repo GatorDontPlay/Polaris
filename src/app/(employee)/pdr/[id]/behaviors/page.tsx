@@ -347,7 +347,7 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
             disabled={!isAssessmentComplete}
             className={`flex items-center transition-all duration-300 ${
               isAssessmentComplete 
-                ? 'bg-status-success hover:bg-status-success/90 text-white shadow-lg' 
+                ? 'bg-status-success hover:bg-status-success/90 text-black shadow-lg font-medium' 
                 : 'bg-muted text-muted-foreground cursor-not-allowed'
             }`}
             title={!isAssessmentComplete ? `Complete all ${totalValues} required fields to continue (${completedValues}/${totalValues} done)` : 'Continue to review your PDR'}
