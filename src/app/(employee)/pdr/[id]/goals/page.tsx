@@ -7,7 +7,8 @@ import { GoalForm } from '@/components/forms/goal-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, ArrowRight, Target, CheckCircle } from 'lucide-react';
+import { Plus, ArrowRight, Target, CheckCircle, AlertCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { GoalFormData } from '@/types';
 
 interface GoalsPageProps {
@@ -16,6 +17,7 @@ interface GoalsPageProps {
 
 export default function GoalsPage({ params }: GoalsPageProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -73,6 +75,20 @@ export default function GoalsPage({ params }: GoalsPageProps) {
   };
 
   const handleNext = () => {
+    // Calculate total weighting
+    const totalWeighting = goals?.reduce((sum, goal) => sum + (goal.weighting || 0), 0) || 0;
+    
+    // Check if total weighting equals 100%
+    if (totalWeighting !== 100) {
+      toast({
+        title: "Goal weighting must total 100%",
+        description: `Current total: ${totalWeighting}%. Please adjust your goal weightings.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // If validation passes, navigate to behaviors page
     router.push(`/pdr/${params.id}/behaviors`);
   };
 
@@ -97,10 +113,10 @@ export default function GoalsPage({ params }: GoalsPageProps) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center">
-            <Target className="h-7 w-7 mr-3 text-blue-400" />
+            <Target className="h-7 w-7 mr-3 text-status-error" />
             Goals & Objectives
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-white mt-2">
             Define what you want to achieve this review period
           </p>
         </div>
@@ -115,7 +131,10 @@ export default function GoalsPage({ params }: GoalsPageProps) {
             </Button>
           )}
           {goals && goals.length > 0 && canEdit && (
-            <Button onClick={handleNext} variant="outline">
+            <Button 
+              onClick={handleNext} 
+              className="bg-status-success hover:bg-status-success/90 text-black font-medium"
+            >
               Continue to Behaviors
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
@@ -208,7 +227,10 @@ export default function GoalsPage({ params }: GoalsPageProps) {
       {/* Navigation */}
       {!canEdit && goals && goals.length > 0 && (
         <div className="flex justify-end">
-          <Button onClick={handleNext} variant="outline">
+          <Button 
+            onClick={handleNext}
+            className="bg-status-success hover:bg-status-success/90 text-black font-medium"
+          >
             Continue to Behaviors
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
