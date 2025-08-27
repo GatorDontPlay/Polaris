@@ -369,7 +369,13 @@ export default function ReviewPage({ params }: ReviewPageProps) {
         <CardContent>
           {companyValues && companyValues.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {companyValues.map((value) => {
+              {companyValues.filter(value => {
+                // Filter out Self Reflection and CodeFish 3D from the main map
+                // These will be handled separately with their dedicated sections
+                const isSelfReflection = value.id === '550e8400-e29b-41d4-a716-446655440005';
+                const isCodeFish3D = value.id === '550e8400-e29b-41d4-a716-446655440006';
+                return !isSelfReflection && !isCodeFish3D;
+              }).map((value) => {
                 // Find the saved behavior for this company value
                 const savedBehavior = behaviors?.find(b => b.valueId === value.id);
                 
@@ -379,7 +385,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                   <div key={value.id} className="border border-border rounded-lg p-4 h-32 flex flex-col">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center">
-                        <div className="w-3 h-3 rounded-full bg-activity-behavior mr-3 flex-shrink-0"></div>
+                        <div className="w-3 h-3 rounded-full bg-emerald-500 mr-3 flex-shrink-0 shadow-sm shadow-emerald-500/50"></div>
                         <h4 className="font-medium text-foreground text-sm leading-tight">
                           {value.name}
                         </h4>
@@ -418,7 +424,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                 <div className="border border-border rounded-lg p-4 h-32 flex flex-col">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-purple-500 mr-3 flex-shrink-0"></div>
+                      <div className="w-3 h-3 rounded-full bg-emerald-500 mr-3 flex-shrink-0 shadow-sm shadow-emerald-500/50"></div>
                       <h4 className="font-medium text-foreground text-sm leading-tight">Self Reflection</h4>
                     </div>
                   </div>
@@ -435,7 +441,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                 <div className="border border-border rounded-lg p-4 h-32 flex flex-col">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-purple-500 mr-3 flex-shrink-0"></div>
+                      <div className="w-3 h-3 rounded-full bg-emerald-500 mr-3 flex-shrink-0 shadow-sm shadow-emerald-500/50"></div>
                       <h4 className="font-medium text-foreground text-sm leading-tight">CodeFish 3D - Deep Dive Development</h4>
                     </div>
                   </div>
