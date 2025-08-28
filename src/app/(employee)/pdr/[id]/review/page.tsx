@@ -154,9 +154,10 @@ export default function ReviewPage({ params }: ReviewPageProps) {
     setIsSubmitting(true);
     try {
       // For demo mode, simulate submission by updating PDR state
+      // We submit the PDR but keep currentStep at 3 since Mid-Year is step 4
       updatePdr({
         status: 'SUBMITTED',
-        currentStep: 4,
+        currentStep: 3, // Keep at step 3, as step 4 is Mid-Year
         submittedAt: new Date(),
       });
       

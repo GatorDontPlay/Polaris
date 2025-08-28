@@ -143,7 +143,7 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   const canUpdate = pdr && !pdr.isLocked;
   
   // Redirect if PDR is not reviewed by CEO yet - employee cannot access mid-year until CEO has reviewed
-  if (pdr && !['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(pdr.status)) {
+  if (pdr && !['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW', 'SUBMITTED'].includes(pdr.status)) {
     // Show access denied view
     return (
       <div className="space-y-6">
@@ -238,8 +238,9 @@ export default function MidYearPage({ params }: MidYearPageProps) {
       }
       
       // For demo mode, simulate submission by updating PDR state
+      // When submitting Mid-Year review, advance to step 5 (End-Year)
       updatePdr({
-        currentStep: 5,
+        currentStep: 5, // Advance to End-Year step after submitting Mid-Year
         status: 'UNDER_REVIEW',
       });
       

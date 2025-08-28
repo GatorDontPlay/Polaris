@@ -21,13 +21,12 @@ export function StepperIndicator({
   className,
 }: StepperIndicatorProps) {
   // Calculate progress percentage based on the current step
-  // This matches the original application's behavior, showing a percentage of progress
   const progressPercentage = Math.round((currentStep / totalSteps) * 100);
   const normalizedProgress = progressPercentage;
 
   return (
     <div className={cn('w-full', className)}>
-      {/* Progress Bar - Moved to top for better hierarchy */}
+      {/* Progress Bar */}
       <div className="mb-6">
         <div className="flex justify-between items-center text-sm text-muted-foreground mb-3">
           <span className="font-medium">Progress</span>
@@ -41,20 +40,23 @@ export function StepperIndicator({
         </div>
       </div>
 
-      {/* Steps Container - Responsive design */}
+      {/* Steps Container */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8 lg:gap-0">
         {steps.map((step, index) => {
-          // Mark a step as completed if it's less than the current step
-          // This ensures previous steps are shown as completed
-          const isCompleted = step.number < currentStep || 
-            // Special case: Force step 2 (behaviors) to be completed when on step 3 (review)
-            (currentStep >= 3 && step.number === 2);
+          // Explicitly check special step conditions
+          const isMidYearStep = currentStep === 4;
+          const isEndYearStep = currentStep === 5;
           
-          // We no longer need the flashing effect for the Behaviors step when on Review page
-          // const isBehaviorsOnReviewPage = step.number === 2 && currentStep === 3;
-          const isBehaviorsOnReviewPage = false; // Disable flashing effect
+          // Mark steps as completed with special cases:
+          // 1. Normal rule: All previous steps are completed
+          // 2. When on Mid-Year (step 4), mark Review (step 3) as completed
+          // 3. When on End-Year (step 5), mark both Review (step 3) and Mid-Year (step 4) as completed
+          const isCompleted = 
+            step.number < currentStep ||  // Normal completion rule
+            (step.number === 3 && (isMidYearStep || isEndYearStep)) || // Mark Review as completed when on Mid-Year or End-Year
+            (step.number === 4 && isEndYearStep); // Mark Mid-Year as completed when on End-Year
+            
           const isActive = step.number === currentStep;
-          // Only allow clicking on steps that are completed or current
           const isClickable = onStepClick && step.number <= currentStep;
 
           return (
@@ -67,6 +69,7 @@ export function StepperIndicator({
                   )}
                 </div>
               )}
+              
               {/* Step Circle */}
               <div 
                 role="button"
@@ -82,8 +85,7 @@ export function StepperIndicator({
                   'flex items-center justify-center w-16 h-16 rounded-full border-2 text-base font-bold transition-all duration-300 shadow-lg',
                   {
                     'bg-gradient-to-br from-primary to-primary/80 text-white border-primary shadow-primary/25 scale-110 ring-4 ring-primary/30 animate-pulse': isActive,
-                    'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-emerald-400 shadow-emerald-500/40 animate-pulse': isBehaviorsOnReviewPage,
-                    'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-emerald-400 shadow-emerald-500/40': isCompleted && !isBehaviorsOnReviewPage,
+                    'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-emerald-400 shadow-emerald-500/40': isCompleted,
                     'bg-gray-800 text-white border-gray-600 hover:border-white/80': !isActive && !isCompleted,
                     'cursor-pointer hover:scale-105 hover:shadow-xl': isClickable,
                   }
@@ -119,8 +121,7 @@ export function StepperIndicator({
                     'font-semibold leading-tight',
                     {
                       'text-lg text-white font-bold underline decoration-primary decoration-2 underline-offset-4': isActive,
-                      'text-base text-emerald-400 font-bold animate-pulse': isBehaviorsOnReviewPage,
-                      'text-base text-emerald-400 font-bold': isCompleted && !isBehaviorsOnReviewPage,
+                      'text-base text-emerald-400 font-bold': isCompleted,
                       'text-base text-white font-medium': !isActive && !isCompleted,
                     }
                   )}
@@ -141,7 +142,7 @@ export function StepperIndicator({
                 </div>
               </div>
 
-              {/* Connector Line - Hidden on mobile, visible on desktop */}
+              {/* Connector Line */}
               {index < steps.length - 1 && (
                 <div className="hidden lg:flex items-center mx-6">
                   <div
