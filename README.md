@@ -88,7 +88,7 @@ The system includes 8 core tables:
 3. **Set up environment variables**
    ```bash
    cp env.example .env.local
-   # Edit .env.local with your database and configuration details
+   # Edit . with your database and configuration details
    ```
 
 4. **Set up the database**

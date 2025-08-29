@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDemoAuth } from '@/hooks/use-demo-auth';
+import { useAuth, useRole } from '@/providers/supabase-auth-provider';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import { NotificationIcon } from '@/components/ui/notification-icon';
@@ -13,26 +13,29 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useDemoAuth();
+  const { user, isLoading } = useAuth();
+  const { isEmployee, isCEO } = useRole();
   
   console.log('AdminLayout Debug:', { 
     user, 
-    isAuthenticated, 
+    isAuthenticated: !!user, 
     isLoading,
     userRole: user?.role,
+    isEmployee,
+    isCEO,
     pathname: typeof window !== 'undefined' ? window.location.pathname : 'server'
   });
 
   // Redirect if not authenticated or not CEO
   useEffect(() => {
     if (!isLoading) {
-      if (!isAuthenticated) {
-        router.push('/');
-      } else if (user?.role === 'EMPLOYEE') {
+      if (!user) {
+        router.push('/login');
+      } else if (isEmployee) {
         router.push('/dashboard');
       }
     }
-  }, [isLoading, isAuthenticated, user, router]);
+  }, [isLoading, user, router, isEmployee]);
 
   // Show loading state
   if (isLoading) {
@@ -49,7 +52,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   // Don't render if not authenticated
-  if (!isAuthenticated) {
+  if (!user) {
     console.log('AdminLayout: Not authenticated, redirecting...');
     return (
       <div className="flex h-screen items-center justify-center bg-gray-100">
@@ -61,7 +64,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
-  if (user?.role !== 'CEO') {
+  if (!isCEO) {
     console.log('AdminLayout: Not CEO role, user role:', user?.role);
     return (
       <div className="flex h-screen items-center justify-center bg-gray-100">

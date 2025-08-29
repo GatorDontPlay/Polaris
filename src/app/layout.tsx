@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { QueryProvider } from '@/providers/query-provider'
 import { ThemeProvider } from '@/providers/theme-provider'
+import { SupabaseAuthProvider } from '@/providers/supabase-auth-provider'
 import { Toaster } from '@/components/ui/toaster'
 
 const inter = Inter({ 
@@ -49,10 +50,12 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans h-full bg-background text-foreground antialiased`}>
         <ThemeProvider defaultTheme="dark">
           <QueryProvider>
-            <div id="root" className="min-h-screen bg-background flex flex-col">
-              {children}
-            </div>
-            <Toaster />
+            <SupabaseAuthProvider>
+              <div id="root" className="min-h-screen bg-background flex flex-col">
+                {children}
+              </div>
+              <Toaster />
+            </SupabaseAuthProvider>
           </QueryProvider>
         </ThemeProvider>
       </body>

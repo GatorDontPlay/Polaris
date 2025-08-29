@@ -11,7 +11,17 @@ export function cn(...inputs: ClassValue[]) {
  * Format date to Australian format (DD/MM/YYYY)
  */
 export function formatDateAU(date: Date | string): string {
+  if (!date) {
+    return 'Invalid Date';
+  }
+  
   const dateObj = typeof date === 'string' ? new Date(date) : date;
+  
+  // Check if the date is valid
+  if (isNaN(dateObj.getTime())) {
+    return 'Invalid Date';
+  }
+  
   return format(dateObj, 'dd/MM/yyyy');
 }
 
@@ -19,7 +29,17 @@ export function formatDateAU(date: Date | string): string {
  * Format date with time to Australian format
  */
 export function formatDateTimeAU(date: Date | string): string {
+  if (!date) {
+    return 'Invalid Date';
+  }
+  
   const dateObj = typeof date === 'string' ? new Date(date) : date;
+  
+  // Check if the date is valid
+  if (isNaN(dateObj.getTime())) {
+    return 'Invalid Date';
+  }
+  
   return format(dateObj, 'dd/MM/yyyy HH:mm');
 }
 
@@ -27,7 +47,17 @@ export function formatDateTimeAU(date: Date | string): string {
  * Get relative time string (e.g., "2 days ago")
  */
 export function getRelativeTime(date: Date | string): string {
+  if (!date) {
+    return 'Invalid Date';
+  }
+  
   const dateObj = typeof date === 'string' ? new Date(date) : date;
+  
+  // Check if the date is valid
+  if (isNaN(dateObj.getTime())) {
+    return 'Invalid Date';
+  }
+  
   const now = new Date();
   const diffInMs = now.getTime() - dateObj.getTime();
   const diffInMinutes = Math.floor(diffInMs / (1000 * 60));

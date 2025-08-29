@@ -1422,7 +1422,7 @@ export default function CEOPDRReviewPage() {
                 <div className="text-xs text-muted-foreground">Financial Year</div>
                 <div className="font-medium text-sm">{pdr.fyLabel}</div>
                 <div className="text-xs text-muted-foreground">
-                  {formatDateAU(new Date(pdr.fyStartDate))} - {formatDateAU(new Date(pdr.fyEndDate))}
+                  {pdr.fyStartDate ? formatDateAU(pdr.fyStartDate) : 'Invalid Date'} - {pdr.fyEndDate ? formatDateAU(pdr.fyEndDate) : 'Invalid Date'}
                 </div>
               </div>
             </CardHeader>
@@ -1444,7 +1444,7 @@ export default function CEOPDRReviewPage() {
                   <div className="min-w-0">
                     <div className="font-medium text-sm">PDR Created</div>
                     <div className="text-xs text-muted-foreground">
-                      {formatDateAU(new Date(pdr.createdAt))}
+                      {pdr.createdAt ? formatDateAU(pdr.createdAt) : 'Invalid Date'}
                     </div>
                   </div>
                 </div>

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDemoAuth } from '@/hooks/use-demo-auth';
+import { useAuth, useRole } from '@/providers/supabase-auth-provider';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { EmployeeSidebar } from '@/components/dashboard/employee-sidebar';
 import { NotificationIcon } from '@/components/ui/notification-icon';
@@ -13,34 +13,37 @@ interface EmployeeLayoutProps {
 
 export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useDemoAuth();
+  const { user, isLoading } = useAuth();
+  const { isEmployee, isCEO } = useRole();
   
   // Debug logs (can be removed in production)
   console.log('EmployeeLayout:', { 
-    isAuthenticated, 
+    isAuthenticated: !!user, 
     isLoading,
-    userRole: user?.role
+    userRole: user?.role,
+    isEmployee,
+    isCEO
   });
 
   // Redirect if not authenticated or wrong role
   useEffect(() => {
-    console.log('EmployeeLayout useEffect triggered:', { isLoading, isAuthenticated, userRole: user?.role });
+    console.log('EmployeeLayout useEffect triggered:', { isLoading, isAuthenticated: !!user, userRole: user?.role });
     
     if (!isLoading) {
-      if (!isAuthenticated) {
-        console.log('Not authenticated, redirecting to home');
-        window.location.href = '/';
+      if (!user) {
+        console.log('Not authenticated, redirecting to login');
+        router.push('/login');
         return;
       } 
-      if (user?.role === 'CEO') {
+      if (isCEO) {
         console.log('CEO user detected, redirecting to admin');
-        window.location.href = '/admin';
+        router.push('/admin');
         return;
       }
       
       console.log('Employee layout: User authenticated as', user?.role);
     }
-  }, [isLoading, isAuthenticated, user, router]);
+  }, [isLoading, user, router, isCEO]);
 
   // Show loading state
   if (isLoading) {
@@ -57,7 +60,7 @@ export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
   }
 
   // Don't render if not authenticated or redirecting
-  if (!isAuthenticated) {
+  if (!user) {
     console.log('EmployeeLayout: Not authenticated, showing redirect message');
     return (
       <div className="flex h-screen items-center justify-center bg-red-50">
@@ -71,7 +74,7 @@ export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
   }
 
   // Don't render if wrong role
-  if (user?.role !== 'EMPLOYEE') {
+  if (!isEmployee) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
