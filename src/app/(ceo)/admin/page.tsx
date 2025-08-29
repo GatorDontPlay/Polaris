@@ -348,7 +348,10 @@ export default function CEODashboard() {
                                   }
                                   className="text-xs h-5 px-1"
                                 >
-                                  {activity.type.replace('_', ' ')}
+                                  {activity.type === 'MID_YEAR_COMPLETED' ? 'MID-YEAR DONE' :
+                                   activity.type === 'FINAL_REVIEW_COMPLETED' ? 'FINAL REVIEW' :
+                                   activity.type === 'PDR_SUBMITTED' ? 'PDR SUBMITTED' :
+                                   activity.type.replace('_', ' ')}
                                 </Badge>
                                 {activity.pdr && (
                                   <Button variant="ghost" size="sm" asChild className="h-6 w-6 p-0">

@@ -143,18 +143,71 @@ export function useDemoAdminDashboard() {
                 });
               };
               
-              // PDR Submitted activity
-              if (pdr.submittedAt) {
+              // Generate activity based on current PDR status - show the most recent/relevant activity
+              const getStatusLabel = (status: string) => {
+                switch (status) {
+                  case 'OPEN_FOR_REVIEW': return 'Open for Review';
+                  case 'MID_YEAR_CHECK': return 'Mid-Year Check';
+                  case 'CALIBRATION': return 'Calibration';
+                  case 'PLAN_LOCKED': return 'Plan Locked';
+                  case 'COMPLETED': return 'Completed';
+                  default: return status;
+                }
+              };
+
+              // Show activity based on current status
+              if (pdr.status === 'MID_YEAR_CHECK' && pdr.midYearSubmittedAt) {
+                activities.push({
+                  id: `real-${pdr.id}-midyear`,
+                  type: 'MID_YEAR_COMPLETED' as const,
+                  employeeName: 'Employee Demo',
+                  action: 'Mid-Year Check-in Completed',
+                  performedBy: 'Employee Demo',
+                  statusChange: 'OPEN_FOR_REVIEW → Mid-Year Check',
+                  dateTime: formatAdelaideTime(pdr.midYearSubmittedAt),
+                  description: `Employee Demo completed their mid-year check-in`,
+                  message: `Mid-year check-in completed by Employee Demo\nStatus: ${getStatusLabel(pdr.status)}\n${formatAdelaideTime(pdr.midYearSubmittedAt)} (Adelaide)`,
+                  timestamp: pdr.midYearSubmittedAt,
+                  userId: pdr.userId,
+                  user: {
+                    firstName: 'Employee',
+                    lastName: 'Demo',
+                  },
+                  priority: 'medium' as const,
+                  pdr: { id: pdr.id },
+                });
+              } else if (pdr.status === 'CALIBRATION' && pdr.finalReviewCompletedAt) {
+                activities.push({
+                  id: `real-${pdr.id}-calibration`,
+                  type: 'FINAL_REVIEW_COMPLETED' as const,
+                  employeeName: 'Employee Demo',
+                  action: 'Final Review Completed',
+                  performedBy: 'CEO Admin',
+                  statusChange: 'Mid-Year Check → Calibration',
+                  dateTime: formatAdelaideTime(pdr.finalReviewCompletedAt),
+                  description: `CEO completed final review for Employee Demo`,
+                  message: `Final review completed by CEO Admin\nEmployee: Employee Demo\nStatus: ${getStatusLabel(pdr.status)}\n${formatAdelaideTime(pdr.finalReviewCompletedAt)} (Adelaide)`,
+                  timestamp: pdr.finalReviewCompletedAt,
+                  userId: 'ceo-user',
+                  user: {
+                    firstName: 'CEO',
+                    lastName: 'Admin',
+                  },
+                  priority: 'high' as const,
+                  pdr: { id: pdr.id },
+                });
+              } else if (pdr.submittedAt) {
+                // Fallback to submission activity if no other recent activity
                 activities.push({
                   id: `real-${pdr.id}-submitted`,
                   type: 'PDR_SUBMITTED' as const,
                   employeeName: 'Employee Demo',
                   action: 'PDR Submitted for Review',
                   performedBy: 'Employee Demo',
-                  statusChange: 'Created → Submitted',
+                  statusChange: 'Created → Open for Review',
                   dateTime: formatAdelaideTime(pdr.submittedAt),
                   description: `Employee Demo submitted their PDR for review`,
-                  message: `PDR submitted by Employee Demo\nStatus: Created → Submitted\n${formatAdelaideTime(pdr.submittedAt)} (Adelaide)`,
+                  message: `PDR submitted by Employee Demo\nStatus: ${getStatusLabel(pdr.status)}\n${formatAdelaideTime(pdr.submittedAt)} (Adelaide)`,
                   timestamp: pdr.submittedAt,
                   userId: pdr.userId,
                   user: {
@@ -165,52 +218,7 @@ export function useDemoAdminDashboard() {
                   pdr: { id: pdr.id },
                 });
               }
-              
-              // CEO Review Completed activity
-              if (pdr.status === 'PLAN_LOCKED' && pdr.isLocked) {
-                activities.push({
-                  id: `real-${pdr.id}-locked`,
-                  type: 'PDR_LOCKED' as const,
-                  employeeName: 'Employee Demo',
-                  action: 'PDR Review Completed & Locked',
-                  performedBy: 'CEO Admin',
-                  statusChange: 'Submitted → Plan Locked',
-                  dateTime: formatAdelaideTime(pdr.updatedAt),
-                  description: `CEO completed review and locked PDR for Employee Demo`,
-                  message: `PDR reviewed and locked by CEO Admin\nEmployee: Employee Demo\nStatus: Submitted → Plan Locked\n${formatAdelaideTime(pdr.updatedAt)} (Adelaide)`,
-                  timestamp: pdr.updatedAt,
-                  userId: 'ceo-user',
-                  user: {
-                    firstName: 'CEO',
-                    lastName: 'Admin',
-                  },
-                  priority: 'medium' as const,
-                  pdr: { id: pdr.id },
-                });
-              }
 
-              // Meeting Booked activity
-              if ((pdr.status === 'PDR_BOOKED' || pdr.status === 'PDR_Booked') && pdr.meetingBooked) {
-                activities.push({
-                  id: `real-${pdr.id}-meeting-booked`,
-                  type: 'MEETING_BOOKED' as const,
-                  employeeName: 'Employee Demo',
-                  action: 'PDR Meeting Scheduled',
-                  performedBy: 'CEO Admin',
-                  statusChange: 'Plan Locked → Meeting Booked',
-                  dateTime: formatAdelaideTime(pdr.meetingBookedAt || pdr.updatedAt),
-                  description: `CEO scheduled PDR meeting for Employee Demo`,
-                  message: `PDR meeting scheduled by CEO Admin\nEmployee: Employee Demo\nStatus: Plan Locked → Meeting Booked\n${formatAdelaideTime(pdr.meetingBookedAt || pdr.updatedAt)} (Adelaide)`,
-                  timestamp: pdr.meetingBookedAt || pdr.updatedAt,
-                  userId: 'ceo-user',
-                  user: {
-                    firstName: 'CEO',
-                    lastName: 'Admin',
-                  },
-                  priority: 'low' as const,
-                  pdr: { id: pdr.id },
-                });
-              }
               
               return activities;
             }),
@@ -260,6 +268,7 @@ export function useDemoAdminDashboard() {
         
         console.log('useDemoAdminDashboard: Setting dashboard data:', dynamicData);
         console.log('useDemoAdminDashboard: Pending reviews details:', dynamicData.pendingReviews);
+        console.log('useDemoAdminDashboard: Recent activity details:', dynamicData.recentActivity);
         console.log('useDemoAdminDashboard: Stats:', dynamicData.stats);
         setDashboardData(dynamicData);
         setIsLoading(false);
