@@ -28,12 +28,12 @@ import {
   LayoutDashboard,
   Users,
   FileText,
-  BarChart3,
   Settings,
   LogOut,
   Crown,
   ChevronDown,
   HelpCircle,
+  Calculator,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -57,15 +57,9 @@ const navigation = [
     badge: null,
   },
   {
-    name: 'PDR Reviews',
-    href: '/admin/reviews',
-    icon: FileText,
-    badge: 'New',
-  },
-  {
-    name: 'Analytics',
-    href: '/admin/analytics',
-    icon: BarChart3,
+    name: 'Calibration',
+    href: '/admin/calibration',
+    icon: Calculator,
     badge: null,
   },
   {

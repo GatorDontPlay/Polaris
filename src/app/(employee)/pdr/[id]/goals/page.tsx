@@ -26,7 +26,7 @@ export default function GoalsPage({ params }: GoalsPageProps) {
 
   const isLoading = pdrLoading || goalsLoading;
   const isReadOnly = pdr?.isLocked || false;
-  const canEdit = pdr && !isReadOnly && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'Created');
+  const canEdit = pdr && !isReadOnly && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'OPEN_FOR_REVIEW' || pdr.status === 'Created');
 
   console.log('Goals page debug:', {
     pdr: pdr,

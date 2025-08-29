@@ -32,7 +32,7 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
 
   const isLoading = pdrLoading || behaviorsLoading || valuesLoading;
   const isReadOnly = pdr?.isLocked || false;
-  const canEdit = pdr && !isReadOnly && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'Created');
+  const canEdit = pdr && !isReadOnly && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'OPEN_FOR_REVIEW' || pdr.status === 'Created');
 
   // Debug PDR permissions
   console.log('🔧 PDR Permissions Debug:', {

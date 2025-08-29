@@ -282,9 +282,7 @@ export function useDemoBehaviors(pdrId: string) {
         try {
           const parsed = JSON.parse(savedBehaviors);
           setBehaviors(parsed);
-          console.log('🔍 useDemoBehaviors loaded:', parsed.length, 'behaviors from key:', `demo_behaviors_${pdrId}`);
-          console.log('🔍 Full behaviors data:', parsed);
-          console.log('🔍 Behavior descriptions:', parsed.map(b => ({ valueId: b.valueId, description: b.description })));
+
         } catch {
           setBehaviors([]);
         }

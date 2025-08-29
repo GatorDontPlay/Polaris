@@ -41,6 +41,11 @@
       transform: translateY(0);
     }
   }
+  
+  .glow-dot {
+    background: #10b981;
+    box-shadow: 0 0 4px 1px rgba(16, 185, 129, 0.7), 0 0 6px 2px rgba(52, 211, 153, 0.5);
+  }
 }
 
 @layer base {

@@ -10,16 +10,16 @@ const Card = React.forwardRef<
     ref={ref}
     className={cn(
       "rounded-lg border bg-card text-card-foreground shadow-sm",
-      // Purple/pink gradient background inspired by reference image
-      "bg-gradient-to-br from-purple-950/30 via-slate-900/90 to-pink-950/20",
-      // Enhanced border glow with purple/pink gradient
-      "border-purple-800/40 shadow-lg shadow-purple-900/25",
-      // Hover effects with purple/pink accent glow
-      "hover:shadow-xl hover:shadow-purple-700/30 hover:border-purple-600/50",
-      "hover:shadow-[0_0_30px_-5px_rgba(139,92,246,0.3)]",
-      "transition-all duration-300 ease-in-out",
-      // Subtle inner glow with purple/pink gradient
-      "before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-br before:from-purple-500/10 before:via-transparent before:to-pink-500/8 before:pointer-events-none",
+      // Clean, minimal gradient for dark mode
+      "dark:bg-gradient-to-br dark:from-[#1e293b]/80 dark:via-[#141e2e]/90 dark:to-[#182335]/80",
+      // Refined border with subtle highlight
+      "dark:border-sky-900/20 dark:shadow-md dark:shadow-sky-900/10",
+      // Clean hover effect with minimal enhancement
+      "dark:hover:shadow-lg dark:hover:shadow-sky-800/10 dark:hover:border-sky-800/30",
+      "hover:shadow-[0_0_15px_-5px_rgba(56,189,248,0.15)]",
+      "transition-all duration-200 ease-out",
+      // Very subtle top highlight
+      "dark:after:absolute dark:after:top-0 dark:after:left-0 dark:after:right-0 dark:after:h-[1px] dark:after:bg-gradient-to-r dark:after:from-transparent dark:after:via-sky-500/20 dark:after:to-transparent dark:after:pointer-events-none",
       "relative overflow-hidden",
       className
     )}

@@ -53,10 +53,12 @@ export default function ReviewPage({ params }: ReviewPageProps) {
   const { data: companyValues, isLoading: valuesLoading } = useDemoCompanyValues();
 
   const isLoading = pdrLoading || goalsLoading || behaviorsLoading || valuesLoading;
-  const canSubmit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'Created');
-  const canEdit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'Created');
-  // Check if employee can access Mid-Year Check-in: needs to be past step 3 and CEO must have progressed the PDR
-  const canAccessMidYear = pdr && pdr.currentStep >= 3 && (pdr.status === 'UNDER_REVIEW' || pdr.status === 'OPEN_FOR_REVIEW' || pdr.status === 'PLAN_LOCKED');
+  const canSubmit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'Created' || pdr.status === 'OPEN_FOR_REVIEW');
+  const canEdit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'OPEN_FOR_REVIEW' || pdr.status === 'Created');
+  // Check if employee can access Mid-Year Check-in: needs to be past step 3
+  // Allow Mid-Year access when currentStep >= 4 regardless of status
+  const canAccessMidYear = pdr && ((pdr.currentStep >= 4) || 
+                          (pdr.currentStep >= 3 && (pdr.status === 'UNDER_REVIEW' || pdr.status === 'OPEN_FOR_REVIEW' || pdr.status === 'PLAN_LOCKED' || pdr.status === 'SUBMITTED')));
 
   // Load development data
   useEffect(() => {
@@ -88,26 +90,6 @@ export default function ReviewPage({ params }: ReviewPageProps) {
     }
   }, [pdr, updatePdr]);
 
-  console.log('Review page debug:', {
-    pdrId: params.id,
-    pdr: pdr,
-    pdrStatus: pdr?.status,
-    canSubmit,
-    canEdit,
-    isLoading,
-    submittedAt: pdr?.submittedAt
-  });
-
-  // Debug: Check what behaviors are loaded and what company values exist
-  console.log('🔍 Behaviors vs Company Values Debug:', {
-    behaviors: behaviors,
-    companyValues: companyValues,
-    behaviorsCount: behaviors?.length || 0,
-    companyValuesCount: companyValues?.length || 0,
-    behaviorValueIds: behaviors?.map(b => ({ id: b.valueId, name: 'unknown' })) || [],
-    companyValueIds: companyValues?.map(v => ({ id: v.id, name: v.name })) || []
-  });
-
   // Helper function to get company value name
   const getValueName = (valueId: string) => {
     return companyValues?.find(value => value.id === valueId)?.name || 'Unknown Value';
@@ -126,6 +108,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
     goalsWithRating: goals?.filter(g => g.employeeRating).length || 0,
     totalBehaviors: totalBehaviorsForDisplay, // Fixed at 6 (4 core behaviors + 2 development fields)
     behaviorsWithRating: behaviors?.filter(b => b.employeeRating).length || 0,
+    actualBehaviorsCount: (behaviors?.length || 0) + developmentFieldsCount, // Actual completed behaviors + development fields
     averageGoalRating: goals && goals.length > 0 
       ? goals.reduce((sum, g) => sum + (g.employeeRating || 0), 0) / goals.filter(g => g.employeeRating).length
       : 0,
@@ -134,7 +117,33 @@ export default function ReviewPage({ params }: ReviewPageProps) {
       : 0,
   };
 
-  const isComplete = stats.totalGoals > 0 && stats.totalBehaviors > 0;
+  // For completion, require at least 1 goal and some behaviors (not necessarily all 6)
+  const isComplete = stats.totalGoals > 0 && stats.actualBehaviorsCount > 0;
+
+  // Debug logging after all variables are declared
+  console.log('Review page debug:', {
+    pdrId: params.id,
+    pdr: pdr,
+    pdrStatus: pdr?.status,
+    pdrCurrentStep: pdr?.currentStep,
+    pdrIsLocked: pdr?.isLocked,
+    canSubmit,
+    canEdit,
+    isComplete,
+    isLoading,
+    submittedAt: pdr?.submittedAt,
+    stats: stats
+  });
+
+  // Debug: Check what behaviors are loaded and what company values exist
+  console.log('🔍 Behaviors vs Company Values Debug:', {
+    behaviors: behaviors,
+    companyValues: companyValues,
+    behaviorsCount: behaviors?.length || 0,
+    companyValuesCount: companyValues?.length || 0,
+    behaviorValueIds: behaviors?.map(b => ({ id: b.valueId, name: 'unknown' })) || [],
+    companyValueIds: companyValues?.map(v => ({ id: v.id, name: v.name })) || []
+  });
 
   const handlePrevious = () => {
     router.push(`/pdr/${params.id}/behaviors`);
@@ -154,9 +163,9 @@ export default function ReviewPage({ params }: ReviewPageProps) {
     setIsSubmitting(true);
     try {
       // For demo mode, simulate submission by updating PDR state
-      // We submit the PDR but keep currentStep at 3 since Mid-Year is step 4
+      // Use the correct status from the state machine: Created -> OPEN_FOR_REVIEW
       updatePdr({
-        status: 'SUBMITTED',
+        status: 'OPEN_FOR_REVIEW',
         currentStep: 3, // Keep at step 3, as step 4 is Mid-Year
         submittedAt: new Date(),
       });
@@ -219,13 +228,22 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                 Back to Behaviors
               </Button>
               
-              {canAccessMidYear && (
+              {/* Always show Next button when on Review page */}
+              <Button 
+                onClick={() => router.push(`/pdr/${params.id}/mid-year`)}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <ArrowRight className="h-4 w-4 mr-2" />
+                Next: Mid-Year Check-in
+              </Button>
+              
+              {pdr && pdr.currentStep >= 5 && (
                 <Button 
-                  onClick={() => router.push(`/pdr/${params.id}/mid-year`)}
-                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => router.push(`/pdr/${params.id}/end-year`)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Go to Mid Year Check-in
+                  <FileText className="h-4 w-4 mr-2" />
+                  Go to End Year Review
                 </Button>
               )}
             </div>
@@ -237,7 +255,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                 className="bg-status-success hover:bg-status-success/90 text-status-success-foreground"
               >
                 <Send className="h-4 w-4 mr-2" />
-                Submit for Review
+                {pdr?.status === 'OPEN_FOR_REVIEW' ? 'Update Submission' : 'Submit for Review'}
               </Button>
             )}
           </div>
@@ -360,11 +378,21 @@ export default function ReviewPage({ params }: ReviewPageProps) {
               <Heart className="h-5 w-5 mr-2 text-activity-behavior" />
               Company Values & Behaviors ({stats.totalBehaviors})
             </CardTitle>
-            {canEdit && (
-              <Button variant="outline" size="sm" onClick={handleEditBehaviors}>
-                Edit Behaviors
+            <div className="flex items-center space-x-2">
+              {canEdit && (
+                <Button variant="outline" size="sm" onClick={handleEditBehaviors}>
+                  Edit Behaviors
+                </Button>
+              )}
+              <Button 
+                size="sm"
+                onClick={() => router.push(`/pdr/${params.id}/mid-year`)}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <ArrowRight className="h-4 w-4 mr-2" />
+                Continue to Mid-Year
               </Button>
-            )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -474,18 +502,33 @@ export default function ReviewPage({ params }: ReviewPageProps) {
         </CardContent>
       </Card>
 
-
+      {/* Bottom Navigation */}
+      <div className="mt-12 mb-8 flex justify-center">
+        <Button 
+          onClick={() => router.push(`/pdr/${params.id}/mid-year`)}
+          className="bg-green-600 hover:bg-green-700 text-white px-10 py-8 text-xl shadow-lg animate-pulse"
+          size="lg"
+        >
+          <ArrowRight className="h-6 w-6 mr-3" />
+          Continue to Mid-Year Check-in
+        </Button>
+      </div>
 
       {/* Submit Confirmation Modal */}
       {showSubmitConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md">
             <CardHeader>
-              <CardTitle className="text-status-success">Submit PDR for Review</CardTitle>
+              <CardTitle className="text-status-success">
+                {pdr?.status === 'OPEN_FOR_REVIEW' ? 'Update PDR Submission' : 'Submit PDR for Review'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground mb-4">
-                You are about to submit your plan for review
+                {pdr?.status === 'OPEN_FOR_REVIEW' 
+                  ? 'You are about to update your submission with the latest changes'
+                  : 'You are about to submit your plan for review'
+                }
               </p>
               <div className="bg-status-info/10 border border-status-info/20 p-3 rounded-lg mb-4">
                 <h4 className="font-medium text-status-info mb-1">What happens next:</h4>
@@ -510,7 +553,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                   className="bg-status-success hover:bg-status-success/90 text-status-success-foreground"
                 >
                   <Send className="h-4 w-4 mr-2" />
-                  {isSubmitting ? 'Submitting...' : 'Submit PDR'}
+                  {isSubmitting ? 'Submitting...' : (pdr?.status === 'OPEN_FOR_REVIEW' ? 'Update PDR' : 'Submit PDR')}
                 </Button>
               </div>
             </CardContent>

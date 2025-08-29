@@ -132,15 +132,42 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
     }
   }, [organizedData, ceoFeedback, pdr.id]);
 
-  // Update local CEO feedback state
+  // Update local CEO feedback state and save to localStorage immediately
   const updateCeoFeedback = (valueId: string, field: string, value: string | number) => {
-    setCeoFeedback(prev => ({
-      ...prev,
-      [valueId]: {
-        ...prev[valueId],
-        [field]: value
+    // Update local state
+    setCeoFeedback(prev => {
+      const updated = {
+        ...prev,
+        [valueId]: {
+          ...prev[valueId],
+          [field]: value
+        }
+      };
+      
+      // In demo mode, also save to localStorage immediately
+      if (typeof window !== 'undefined' && pdr.id.startsWith('demo-pdr-')) {
+        try {
+          // Get existing feedback from localStorage
+          const storageKey = `ceo_behavior_feedback_${pdr.id}`;
+          const existingFeedback = JSON.parse(localStorage.getItem(storageKey) || '{}');
+          
+          // Update with new value
+          existingFeedback[valueId] = {
+            ...(existingFeedback[valueId] || {}),
+            [field]: value,
+            savedAt: new Date().toISOString()
+          };
+          
+          // Save back to localStorage
+          localStorage.setItem(storageKey, JSON.stringify(existingFeedback));
+          console.log(`Auto-saved CEO behavior feedback field "${field}" for value ${valueId}`);
+        } catch (error) {
+          console.error('Error auto-saving CEO behavior feedback:', error);
+        }
       }
-    }));
+      
+      return updated;
+    });
   };
 
   // Save CEO review for a specific company value
@@ -212,32 +239,23 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
 
   // Save all CEO reviews at once (for navigation)
   const saveAllReviews = async (): Promise<boolean> => {
-    if (!organizedData || organizedData.length === 0) {
-      console.log('No organized data available to save');
-      return true; // Consider it successful if there's nothing to save
-    }
-
-    let allSaved = true;
-    const savePromises = organizedData.map(async (valueData) => {
-      // Only save if there's feedback for this value
-      const feedback = ceoFeedback[valueData.companyValue.id];
-      if (feedback && (feedback.description || feedback.comments)) {
-        try {
-          await saveCeoReview(valueData);
-          return true;
-        } catch (error) {
-          console.error(`Failed to save CEO review for ${valueData.companyValue.name}:`, error);
-          return false;
-        }
+    // IMPORTANT: We don't need this function anymore as we're handling saving directly
+    // in the parent component. This is kept as a no-op for compatibility.
+    console.log('saveAllReviews called - this is now handled in the parent component');
+    
+    // Return the current feedback state to the parent for reference
+    if (typeof window !== 'undefined' && pdr.id.startsWith('demo-pdr-')) {
+      try {
+        // Save the current state to localStorage one more time to be safe
+        const storageKey = `ceo_behavior_feedback_${pdr.id}`;
+        localStorage.setItem(storageKey, JSON.stringify(ceoFeedback));
+        console.log('Current behavior feedback state saved to localStorage from saveAllReviews');
+      } catch (error) {
+        console.error('Error saving behavior feedback from saveAllReviews:', error);
       }
-      return true; // No feedback to save, consider successful
-    });
-
-    const results = await Promise.all(savePromises);
-    allSaved = results.every(result => result);
-
-    console.log(`Save all reviews completed. Success: ${allSaved}`);
-    return allSaved;
+    }
+    
+    return true; // Always return success as the parent component handles the actual saving
   };
 
   // Expose the saveAllReviews function via ref
@@ -285,11 +303,11 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
               <Card key={valueData.companyValue.id} className="p-4">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Employee Side */}
-                  <div className="space-y-3">
+                  <div className="space-y-3 border border-red-500/20 rounded-md p-4 bg-red-500/5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-blue-600" />
-                        <h4 className="font-semibold text-blue-600">Employee Assessment</h4>
+                        <User className="h-4 w-4 text-red-500" />
+                        <h4 className="font-semibold text-red-500">Employee Assessment</h4>
                       </div>
                       {valueData.hasEmployeeEntry && (
                         <Badge variant="secondary" className="text-xs">
@@ -367,7 +385,7 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
                   </div>
 
                   {/* CEO Side */}
-                  <div className="space-y-3 border-l border-green-600/30 pl-4">
+                  <div className="space-y-3 border border-green-600/20 rounded-md p-4 bg-green-600/5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <TrendingUp className="h-4 w-4 text-green-600" />

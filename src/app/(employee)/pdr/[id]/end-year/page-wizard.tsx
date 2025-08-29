@@ -26,8 +26,7 @@ import {
   Target,
   TrendingUp,
   MessageSquare,
-  PartyPopper,
-  FileText
+  PartyPopper
 } from 'lucide-react';
 
 interface EndYearPageProps {
@@ -59,9 +58,8 @@ export default function EndYearPage({ params }: EndYearPageProps) {
   const [ceoFeedback, setCeoFeedback] = useState('');
 
   const isLoading = pdrLoading || reviewLoading || goalsLoading || behaviorsLoading;
-  // Allow editing for all steps of the wizard until final submission
-  const canEdit = pdr && !pdr.isLocked;
-  const canUpdate = pdr && !pdr.isLocked && pdr.status !== 'COMPLETED';
+  const canEdit = pdr && !pdr.isLocked && !endYearReview;
+  const canUpdate = pdr && !pdr.isLocked && endYearReview && pdr.status !== 'COMPLETED';
 
   // Load saved self-assessments from localStorage
   useEffect(() => {
@@ -253,9 +251,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
           <div className="space-y-6">
             <div className="border-b border-border pb-2">
               <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-400">
-                  <Target className="h-4 w-4 text-emerald-400" />
-                </div>
+                <Target className="h-5 w-5 text-pdr-endyear" />
                 Goal Self-Assessment
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
@@ -263,7 +259,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
               </p>
             </div>
             
-            <Card key={goal.id} className="border-l-4 border-l-emerald-500">
+            <Card key={goal.id} className="border-l-4 border-l-pdr-endyear">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -272,7 +268,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
                       {goal.description}
                     </CardDescription>
                   </div>
-                  <Badge className="ml-4 shrink-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Goal {currentStep + 1}</Badge>
+                  <Badge className="ml-4 shrink-0">Goal {currentStep + 1}</Badge>
                 </div>
               </CardHeader>
               <CardContent>
@@ -318,7 +314,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
                               JSON.stringify(updatedAssessments)
                             );
                           }}
-                          disabled={false}
+                          disabled={!canEdit && !canUpdate}
                         />
                         {goalAssessment.rating && (
                           <Badge className="px-2 py-1 text-xs">
@@ -355,7 +351,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
                             JSON.stringify(updatedAssessments)
                           );
                         }}
-                        disabled={false}
+                        disabled={!canEdit && !canUpdate}
                       />
                     </div>
                   </div>
@@ -378,9 +374,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
           <div className="space-y-6">
             <div className="border-b border-border pb-2">
               <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-400">
-                  <TrendingUp className="h-4 w-4 text-emerald-400" />
-                </div>
+                <TrendingUp className="h-5 w-5 text-pdr-endyear" />
                 Value & Behavior Self-Assessment
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
@@ -388,7 +382,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
               </p>
             </div>
             
-            <Card className="border-l-4 border-l-emerald-500">
+            <Card className="border-l-4 border-l-pdr-endyear">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -399,7 +393,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
                       {value.description}
                     </CardDescription>
                   </div>
-                  <Badge className="ml-4 shrink-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Value {currentStep + 1 - (goals?.length || 0)}</Badge>
+                  <Badge className="ml-4 shrink-0">Value {currentStep + 1 - (goals?.length || 0)}</Badge>
                 </div>
               </CardHeader>
               <CardContent>
@@ -445,7 +439,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
                               JSON.stringify(updatedAssessments)
                             );
                           }}
-                          disabled={false}
+                          disabled={!canEdit && !canUpdate}
                         />
                         {behaviorAssessment.rating && (
                           <Badge className="px-2 py-1 text-xs">
@@ -482,7 +476,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
                             JSON.stringify(updatedAssessments)
                           );
                         }}
-                        disabled={false}
+                        disabled={!canEdit && !canUpdate}
                       />
                     </div>
                   </div>
@@ -498,9 +492,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
           <div className="space-y-6">
             <div className="border-b border-border pb-2">
               <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-400">
-                  <MessageSquare className="h-4 w-4 text-emerald-400" />
-                </div>
+                <MessageSquare className="h-5 w-5 text-pdr-endyear" />
                 Overall Reflection
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
@@ -560,7 +552,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
                 rows={4}
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Provide constructive feedback about leadership, support, communication, and overall direction..."
-                disabled={false}
+                disabled={!canEdit && !canUpdate}
               />
             </div>
             
@@ -573,7 +565,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
                 <RatingInput
                   value={employeeOverallRating || 0}
                   onChange={handleRatingChange}
-                  disabled={false}
+                  disabled={!canEdit && !canUpdate}
                   size="lg"
                 />
               </div>
@@ -768,9 +760,9 @@ export default function EndYearPage({ params }: EndYearPageProps) {
             <p className="text-sm text-muted-foreground">
               Step {currentStep + 1} of {wizardSteps.length}
             </p>
-            <div className="h-2 bg-gray-800 rounded-full w-full max-w-xs ml-4 border border-gray-700 overflow-hidden">
+            <div className="h-2 bg-gray-200 rounded-full w-full max-w-xs ml-4">
               <div 
-                className="h-full rounded-full transition-all duration-500 ease-out glow-effect"
+                className="h-full bg-pdr-endyear rounded-full transition-all duration-300"
                 style={{ width: `${((currentStep + 1) / wizardSteps.length) * 100}%` }}
               />
             </div>
@@ -789,14 +781,14 @@ export default function EndYearPage({ params }: EndYearPageProps) {
               </Button>
               
               {currentStep < wizardSteps.length - 1 ? (
-                <Button type="button" onClick={handleNext} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Button type="button" onClick={handleNext} className="bg-pdr-endyear hover:bg-pdr-endyear/90 text-pdr-endyear-foreground">
                   Next <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               ) : (
                 <Button 
                   type="submit" 
-                  disabled={isSubmitting} 
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  disabled={isSubmitting || (endYearReview && !canUpdate)} 
+                  className="bg-pdr-endyear hover:bg-pdr-endyear/90 text-pdr-endyear-foreground"
                 >
                   <Send className="h-4 w-4 mr-2" />
                   Submit for Final Review
@@ -842,3 +834,4 @@ export default function EndYearPage({ params }: EndYearPageProps) {
     </div>
   );
 }
+

@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useDemoPDR, useDemoGoals, useDemoCompanyValues } from '@/hooks/use-demo-pdr';
 import { midYearReviewSchema } from '@/lib/validations';
 import { MidYearFormData } from '@/types';
+import { toast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +15,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { 
   ArrowLeft, 
-  ArrowRight, 
   Save, 
   Send,
   Calendar,
@@ -37,50 +37,93 @@ interface MidYearPageProps {
 
 export default function MidYearPage({ params }: MidYearPageProps) {
   const router = useRouter();
+  
+  // Add global helper for debugging localStorage
+  useEffect(() => {
+    (window as any).checkMidYearData = () => {
+      const data = localStorage.getItem(`demo_midyear_${params.id}`);
+      console.log('📋 Mid-year data check:', data ? JSON.parse(data) : 'No data found');
+      return data ? JSON.parse(data) : null;
+    };
+  }, [params.id]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
   const [expandedBehaviors, setExpandedBehaviors] = useState<Set<string>>(new Set());
   const [existingReviewData, setExistingReviewData] = useState<any>(null);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [showAccessDeniedView, setShowAccessDeniedView] = useState(false);
   
   const { data: pdr, isLoading: pdrLoading, updatePdr } = useDemoPDR(params.id);
   const { data: goals, isLoading: goalsLoading } = useDemoGoals(params.id);
   const { data: companyValues } = useDemoCompanyValues();
+  
+  // Initialize form
+  const { 
+    register, 
+    handleSubmit, 
+    setValue, 
+    watch, 
+    reset,
+    formState: { errors, isDirty } 
+  } = useForm<MidYearFormData>({
+    resolver: zodResolver(midYearReviewSchema),
+    defaultValues: {
+      progressSummary: existingReviewData?.progressSummary || '',
+      blockersChallenges: existingReviewData?.blockersChallenges || '',
+      supportNeeded: existingReviewData?.supportNeeded || '',
+      employeeComments: existingReviewData?.employeeComments || '',
+    }
+  });
 
-  // Check if the user has access to the mid-year review and load existing review data
+  const isLoading = pdrLoading || goalsLoading;
+
+  // Load draft data on component mount
   useEffect(() => {
-    if (pdr) {
-      // Check if the PDR has been reviewed by the CEO
-      const canAccess = ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(pdr.status);
+    if (typeof window !== 'undefined') {
+      // Check for existing draft
+      const draftData = localStorage.getItem(`mid_year_draft_${params.id}`);
       
-      if (!canAccess) {
-        setAccessDenied(true);
-        return;
+      if (draftData) {
+        try {
+          const parsed = JSON.parse(draftData);
+          // Load draft data into form
+          reset({
+            progressSummary: parsed.progressSummary || '',
+            blockersChallenges: parsed.blockersChallenges || '',
+            supportNeeded: parsed.supportNeeded || '',
+            employeeComments: parsed.employeeComments || '',
+          });
+          
+          toast({
+            title: "📝 Draft Loaded",
+            description: "Your previously saved draft has been loaded.",
+            variant: "default",
+          });
+        } catch (error) {
+          console.error('Failed to load draft data:', error);
+        }
       }
       
-      // Try to load existing review or draft data
-      const savedReview = localStorage.getItem(`mid_year_review_${params.id}`);
-      const savedDraft = localStorage.getItem(`mid_year_draft_${params.id}`);
-      
-      if (savedReview) {
+      // Check for existing submitted review
+      const existingReview = localStorage.getItem(`demo_midyear_${params.id}`);
+      if (existingReview) {
         try {
-          const reviewData = JSON.parse(savedReview);
-          setExistingReviewData(reviewData);
+          const parsed = JSON.parse(existingReview);
+          if (parsed.status === 'SUBMITTED' || parsed.status === 'OPEN_FOR_REVIEW') {
+            // Clear the old submitted data to allow new submission
+            localStorage.removeItem(`demo_midyear_${params.id}`);
+            localStorage.removeItem(`mid_year_review_${params.id}`);
+          }
         } catch (error) {
-          console.error('Error parsing saved mid-year review:', error);
-        }
-      } else if (savedDraft) {
-        try {
-          const draftData = JSON.parse(savedDraft);
-          setExistingReviewData(draftData);
-        } catch (error) {
-          console.error('Error parsing saved mid-year draft:', error);
+          console.error('Failed to load existing review data:', error);
         }
       }
     }
-  }, [params.id, pdr]);
-  
-  // Get CEO feedback data for the recap
+  }, [params.id, reset]);
+
+
+
+  // Utility functions
   const getCeoFeedbackData = () => {
     if (typeof window === 'undefined') return { goals: {}, behaviors: {} };
     
@@ -92,15 +135,13 @@ export default function MidYearPage({ params }: MidYearPageProps) {
       behaviors: ceoBehaviorFeedback ? JSON.parse(ceoBehaviorFeedback) : {},
     };
   };
-  
-  // Get employee behavior data
+
   const getEmployeeBehaviorData = () => {
     if (typeof window === 'undefined') return {};
     const employeeBehaviors = localStorage.getItem(`demo_behaviors_${params.id}`);
     if (employeeBehaviors) {
       try {
         const behaviorsArray = JSON.parse(employeeBehaviors);
-        // Convert array to object keyed by valueId for easier lookup
         const behaviorsMap: { [key: string]: any } = {};
         behaviorsArray.forEach((behavior: any) => {
           behaviorsMap[behavior.valueId] = behavior;
@@ -113,11 +154,11 @@ export default function MidYearPage({ params }: MidYearPageProps) {
     }
     return {};
   };
-  
+
   const ceoFeedback = getCeoFeedbackData();
   const employeeBehaviors = getEmployeeBehaviorData();
 
-  // Toggle functions for expanding/collapsing items
+  // Toggle functions
   const toggleGoal = (goalId: string) => {
     const newExpanded = new Set(expandedGoals);
     if (newExpanded.has(goalId)) {
@@ -138,123 +179,72 @@ export default function MidYearPage({ params }: MidYearPageProps) {
     setExpandedBehaviors(newExpanded);
   };
 
-  const isLoading = pdrLoading || goalsLoading;
-  const canEdit = pdr && !pdr.isLocked && pdr.status !== 'SUBMITTED' && pdr.status !== 'Created';
-  const canUpdate = pdr && !pdr.isLocked;
-  
-  // Redirect if PDR is not reviewed by CEO yet - employee cannot access mid-year until CEO has reviewed
-  if (pdr && !['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW', 'SUBMITTED'].includes(pdr.status)) {
-    // Show access denied view
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center">
-              <Calendar className="h-6 w-6 mr-2 text-status-info" />
-              Mid-Year Check-in
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Review your progress and set goals for the remainder of the year
-            </p>
-          </div>
-          <Button onClick={() => router.push('/dashboard')} variant="outline">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </div>
-        
-        <Card className="border-status-error/30 bg-status-error/5">
-          <CardContent className="p-8 text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-status-error/20 flex items-center justify-center mb-4">
-              <Lock className="h-6 w-6 text-status-error" />
-            </div>
-            <h2 className="text-xl font-semibold mb-2">Access Restricted</h2>
-            <p className="text-muted-foreground max-w-md mx-auto mb-6">
-              The Mid-Year Check-in is not available until your manager has reviewed your PDR and provided feedback.
-              Please check back after your manager has completed their review.
-            </p>
-            <Button onClick={() => router.push('/dashboard')}>
-              Return to Dashboard
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isDirty },
-    watch,
-    reset,
-  } = useForm<MidYearFormData>({
-    resolver: zodResolver(midYearReviewSchema),
-    defaultValues: {
-      progressSummary: '',
-      blockersChallenges: '',
-      supportNeeded: '',
-      employeeComments: '',
-    },
-  });
-  
-  // Load saved values if they exist
-  useEffect(() => {
-    if (existingReviewData) {
-      reset({
-        progressSummary: existingReviewData.progressSummary || '',
-        blockersChallenges: existingReviewData.blockersChallenges || '',
-        supportNeeded: existingReviewData.supportNeeded || '',
-        employeeComments: existingReviewData.employeeComments || '',
-      });
-    }
-  }, [existingReviewData, reset]);
-
-  const handlePrevious = () => {
-    router.push(`/pdr/${params.id}/review`);
-  };
-
-  const handleNext = () => {
-    router.push(`/pdr/${params.id}/end-year`);
-  };
-
+  // Form handlers
   const onSubmit = async (data: MidYearFormData) => {
     setIsSubmitting(true);
     try {
-      // Save the mid-year review data to localStorage
-      localStorage.setItem(`mid_year_review_${params.id}`, JSON.stringify({
+      // Save the mid-year review data
+      const reviewData = {
         ...data,
         submittedAt: new Date().toISOString(),
-      }));
+        pdrId: params.id,
+        status: 'SUBMITTED'
+      };
+
+      // Save to localStorage for demo mode
+      localStorage.setItem(`mid_year_review_${params.id}`, JSON.stringify(reviewData));
       
-      // Also save individual field comments for goal and behavior tracking
-      const goalComments = {};
-      const behaviorComments = {};
+      // Also save to a separate key for easier retrieval
+      localStorage.setItem(`demo_midyear_${params.id}`, JSON.stringify(reviewData));
       
-      // If there are specific comments for goals or behaviors, we could save those here
-      if (data.progressSummary) {
-        localStorage.setItem(`mid_year_goal_comments_${params.id}`, JSON.stringify(goalComments));
-        localStorage.setItem(`mid_year_behavior_comments_${params.id}`, JSON.stringify(behaviorComments));
+      // Verify data was saved
+      const verifyData = localStorage.getItem(`demo_midyear_${params.id}`);
+      console.log('✅ Data verification - saved to localStorage:', verifyData ? 'SUCCESS' : 'FAILED');
+      if (verifyData) {
+        const parsed = JSON.parse(verifyData);
+        console.log('✅ Saved data contents:', {
+          progressSummary: parsed.progressSummary,
+          blockersChallenges: parsed.blockersChallenges,
+          supportNeeded: parsed.supportNeeded,
+          employeeComments: parsed.employeeComments,
+          submittedAt: parsed.submittedAt
+        });
       }
       
-      // For demo mode, simulate submission by updating PDR state
-      // When submitting Mid-Year review, advance to step 5 (End-Year)
+      // Update PDR status and step
       updatePdr({
-        currentStep: 5, // Advance to End-Year step after submitting Mid-Year
-        status: 'UNDER_REVIEW',
+        currentStep: 5,
+        status: 'MID_YEAR_CHECK',
+        midYearCompleted: true,
+        midYearSubmittedAt: new Date().toISOString()
       });
       
-      // Simulate network delay
+      // Clear any draft data
+      localStorage.removeItem(`mid_year_draft_${params.id}`);
+      
+      // Simulate API call delay and show success
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Show success message to user
-      console.log('Mid-year review submitted successfully!', data);
+      // Show success message
+      toast({
+        title: "✅ Mid-Year Review Submitted",
+        description: "Your mid-year check-in has been saved successfully! Moving to the end-year review phase.",
+        variant: "default",
+      });
       
-      // Redirect to next step after successful submission
+
+      
+      // Navigate to end-year review
       router.push(`/pdr/${params.id}/end-year`);
     } catch (error) {
-      console.error('Failed to submit mid-year review:', error);
-      // TODO: Show error toast
+      console.error('❌ Failed to submit mid-year review:', error);
+      
+      // Show error message
+      toast({
+        title: "❌ Submission Failed",
+        description: "There was an error submitting your mid-year review. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -262,114 +252,47 @@ export default function MidYearPage({ params }: MidYearPageProps) {
 
   const handleSaveDraft = async () => {
     try {
-      // Get the current form data
       const formData = watch();
-      
-      // Save draft data to localStorage
-      localStorage.setItem(`mid_year_draft_${params.id}`, JSON.stringify({
+      const draftData = {
         ...formData,
         lastSaved: new Date().toISOString(),
-      }));
+        pdrId: params.id
+      };
       
-      // For demo mode, show feedback
-      console.log('Mid-year review draft saved successfully!', formData);
-      // TODO: Show success toast
+      localStorage.setItem(`mid_year_draft_${params.id}`, JSON.stringify(draftData));
+      
+      // Show success toast
+      toast({
+        title: "💾 Draft Saved",
+        description: "Your progress has been saved as a draft.",
+        variant: "default",
+      });
+      
+
     } catch (error) {
       console.error('Failed to save mid-year review draft:', error);
-      // TODO: Show error toast
+      
+      // Show error toast
+      toast({
+        title: "❌ Save Failed",
+        description: "There was an error saving your draft. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
-  // Loading state
+  const handlePrevious = () => {
+    router.push(`/pdr/${params.id}/review`);
+  };
+
+  // Mid-year should be editable once initial PDR is submitted (OPEN_FOR_REVIEW or later stages)
+  const canEdit = pdr && !pdr.isLocked && pdr.status !== 'Created' && pdr.status !== 'DRAFT';
+  const canUpdate = pdr && !pdr.isLocked;
+
   if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="h-8 bg-gray-200 rounded animate-pulse" />
-        <div className="h-32 bg-gray-200 rounded animate-pulse" />
-        <div className="h-32 bg-gray-200 rounded animate-pulse" />
-      </div>
-    );
-  }
-
-  // Skip read-only view in demo mode
-  if (false) {
-    return (
-      <div className="space-y-6">
-        {/* Page Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center">
-              <Calendar className="h-7 w-7 mr-3 text-green-400" />
-              Mid-Year Check-In
-            </h1>
-            <p className="text-muted-foreground mt-2 text-lg">
-              Review your progress and reflect on the first half of the year
-            </p>
-          </div>
-          <Badge className="bg-green-100 text-green-800">
-            <CheckCircle className="h-4 w-4 mr-1" />
-            Completed
-          </Badge>
-        </div>
-
-        {/* Review Content */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Mid-Year Reflection</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Submitted on {new Date(midYearReview.submittedAt).toLocaleDateString('en-AU')}
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              <h4 className="font-semibold text-foreground mb-3 text-base">Progress Summary</h4>
-              <p className="text-foreground whitespace-pre-wrap">{midYearReview.progressSummary}</p>
-            </div>
-
-            {midYearReview.blockersChallenges && (
-              <div>
-                <h4 className="font-semibold text-foreground mb-3 text-base">Blockers & Challenges</h4>
-                <p className="text-foreground whitespace-pre-wrap">{midYearReview.blockersChallenges}</p>
-              </div>
-            )}
-
-            {midYearReview.supportNeeded && (
-              <div>
-                <h4 className="font-semibold text-foreground mb-3 text-base">Support Needed</h4>
-                <p className="text-foreground whitespace-pre-wrap">{midYearReview.supportNeeded}</p>
-              </div>
-            )}
-
-            {midYearReview.employeeComments && (
-              <div>
-                <h4 className="font-semibold text-foreground mb-3 text-base">Additional Comments</h4>
-                <p className="text-foreground whitespace-pre-wrap">{midYearReview.employeeComments}</p>
-              </div>
-            )}
-
-            {midYearReview.ceoFeedback && (
-              <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
-                <h4 className="font-medium text-foreground mb-2 flex items-center">
-                  <MessageSquare className="h-4 w-4 mr-2 text-primary" />
-                  Manager Feedback
-                </h4>
-                <p className="text-foreground whitespace-pre-wrap">{midYearReview.ceoFeedback}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Navigation */}
-        <div className="flex justify-between">
-          <Button onClick={handlePrevious} variant="outline">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Review
-          </Button>
-          <Button onClick={handleNext}>
-            Continue to End-Year
-            <ArrowRight className="h-4 w-4 ml-2" />
-          </Button>
-        </div>
       </div>
     );
   }
@@ -413,344 +336,194 @@ export default function MidYearPage({ params }: MidYearPageProps) {
         </CardContent>
       </Card>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* PDR Recap Card */}
-        <div className="xl:col-span-1">
-          <Card className="h-fit">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center">
-                <Eye className="h-5 w-5 mr-2 text-primary" />
-                PDR Recap
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Agreed goals and behaviors from planning stage
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Goals Section */}
-              {goals && goals.length > 0 && (
-                <div>
-                  <div className="flex items-center mb-2">
-                    <Target className="h-4 w-4 mr-1 text-green-600" />
-                    <h4 className="font-medium text-sm">Goals ({goals.length})</h4>
-                  </div>
-                  <div className="space-y-1">
-                    {goals.map((goal) => (
-                      <div key={goal.id} className="border border-border/50 rounded">
-                        {/* Goal Header - Clickable */}
-                        <button
-                          onClick={() => toggleGoal(goal.id)}
-                          className="w-full p-2 text-left hover:bg-muted/50 rounded transition-colors flex items-center justify-between"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-xs text-foreground truncate">
-                              {ceoFeedback.goals[goal.id]?.ceoTitle || goal.title}
-                            </div>
-                          </div>
-                          {expandedGoals.has(goal.id) ? (
-                            <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0 ml-2" />
-                          ) : (
-                            <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0 ml-2" />
-                          )}
-                        </button>
-                        
-                        {/* Goal Content - Expandable */}
-                        {expandedGoals.has(goal.id) && (
-                          <div className="px-3 pb-3 space-y-3 border-t border-border/50 bg-muted/20">
-                            {/* Employee Original */}
-                            <div className="bg-card border border-blue-200 rounded-md p-3 shadow-sm">
-                              <div className="flex items-center mb-2">
-                                <User className="h-4 w-4 mr-2 text-blue-600" />
-                                <span className="font-semibold text-sm text-blue-700">Employee Original</span>
-                              </div>
-                              <div className="space-y-2">
-                                <div>
-                                  <div className="text-xs font-medium text-muted-foreground mb-1">Title</div>
-                                  <div className="text-sm text-foreground font-medium">{goal.title}</div>
-                                </div>
-                                {goal.description && (
-                                  <div>
-                                    <div className="text-xs font-medium text-muted-foreground mb-1">Description</div>
-                                    <div className="text-sm text-foreground leading-relaxed">{goal.description}</div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            
-                            {/* CEO Modifications */}
-                            {ceoFeedback.goals[goal.id] && (
-                              <div className="bg-card border border-green-200 rounded-md p-3 shadow-sm">
-                                <div className="flex items-center mb-2">
-                                  <TrendingUp className="h-4 w-4 mr-2 text-green-600" />
-                                  <span className="font-semibold text-sm text-green-700">CEO Planning Input</span>
-                                </div>
-                                <div className="space-y-2">
-                                  {ceoFeedback.goals[goal.id].ceoTitle && (
-                                    <div>
-                                      <div className="text-xs font-medium text-muted-foreground mb-1">Modified Title</div>
-                                      <div className="text-sm text-foreground font-medium">{ceoFeedback.goals[goal.id].ceoTitle}</div>
-                                    </div>
-                                  )}
-                                  {ceoFeedback.goals[goal.id].ceoDescription && (
-                                    <div>
-                                      <div className="text-xs font-medium text-muted-foreground mb-1">Modified Description</div>
-                                      <div className="text-sm text-foreground leading-relaxed">{ceoFeedback.goals[goal.id].ceoDescription}</div>
-                                    </div>
-                                  )}
-                                  {ceoFeedback.goals[goal.id].ceoComments && (
-                                    <div>
-                                      <div className="text-xs font-medium text-muted-foreground mb-1">CEO Comments</div>
-                                      <div className="text-sm text-foreground leading-relaxed">{ceoFeedback.goals[goal.id].ceoComments}</div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Behaviors Section */}
-              <div>
-                <div className="flex items-center mb-2">
-                  <TrendingUp className="h-4 w-4 mr-1 text-blue-600" />
-                  <h4 className="font-medium text-sm">Behaviors ({Object.entries(ceoFeedback.behaviors).filter(([valueId, feedback]) => {
-                    const companyValueName = (feedback as any).companyValueName;
-                    return companyValueName && companyValueName !== 'Company Value';
-                  }).length})</h4>
-                </div>
-                <div className="space-y-1">
-                  {Object.entries(ceoFeedback.behaviors)
-                    .filter(([valueId, feedback]) => {
-                      // Filter out entries that don't have a proper company value name
-                      const companyValueName = (feedback as any).companyValueName;
-                      return companyValueName && companyValueName !== 'Company Value';
-                    })
-                    .map(([valueId, feedback]) => (
-                    <div key={valueId} className="border border-border/50 rounded">
-                      {/* Behavior Header - Clickable */}
-                      <button
-                        onClick={() => toggleBehavior(valueId)}
-                        className="w-full p-2 text-left hover:bg-muted/50 rounded transition-colors flex items-center justify-between"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-xs text-foreground truncate">
-                            {(feedback as any).companyValueName || 'Company Value'}
-                          </div>
-                        </div>
-                        {expandedBehaviors.has(valueId) ? (
-                          <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0 ml-2" />
-                        ) : (
-                          <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0 ml-2" />
-                        )}
-                      </button>
-                      
-                      {/* Behavior Content - Expandable */}
-                      {expandedBehaviors.has(valueId) && (
-                        <div className="px-3 pb-3 space-y-3 border-t border-border/50 bg-muted/20">
-                          {/* Employee Original - Note: Employee behaviors would come from separate data source */}
-                          <div className="bg-card border border-blue-200 rounded-md p-3 shadow-sm">
-                            <div className="flex items-center mb-2">
-                              <User className="h-4 w-4 mr-2 text-blue-600" />
-                              <span className="font-semibold text-sm text-blue-700">Employee Assessment</span>
-                            </div>
-                            <div className="space-y-2">
-                              <div>
-                                <div className="text-xs font-medium text-muted-foreground mb-1">Company Value</div>
-                                <div className="text-sm text-foreground font-medium">{(feedback as any).companyValueName}</div>
-                              </div>
-                              <div>
-                                <div className="text-xs font-medium text-muted-foreground mb-1">Behavior Description</div>
-                                <div className="text-sm text-foreground leading-relaxed">
-                                  {employeeBehaviors[valueId]?.description || 
-                                   companyValues?.find(cv => cv.id === valueId)?.description ||
-                                   'Employee assessment pending'}
-                                </div>
-                              </div>
-                              {employeeBehaviors[valueId]?.examples && (
-                                <div>
-                                  <div className="text-xs font-medium text-muted-foreground mb-1">Examples</div>
-                                  <div className="text-sm text-foreground leading-relaxed">
-                                    {employeeBehaviors[valueId].examples}
-                                  </div>
-                                </div>
-                              )}
-                              {employeeBehaviors[valueId]?.employeeSelfAssessment && (
-                                <div>
-                                  <div className="text-xs font-medium text-muted-foreground mb-1">Self Assessment</div>
-                                  <div className="text-sm text-foreground leading-relaxed">
-                                    {employeeBehaviors[valueId].employeeSelfAssessment}
-                                  </div>
-                                </div>
-                              )}
-                              {employeeBehaviors[valueId]?.employeeRating && (
-                                <div>
-                                  <div className="text-xs font-medium text-muted-foreground mb-1">Employee Rating</div>
-                                  <div className="text-sm text-foreground font-medium">
-                                    {employeeBehaviors[valueId].employeeRating}/5
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          
-                          {/* CEO Modifications */}
-                          <div className="bg-card border border-green-200 rounded-md p-3 shadow-sm">
-                            <div className="flex items-center mb-2">
-                              <TrendingUp className="h-4 w-4 mr-2 text-green-600" />
-                              <span className="font-semibold text-sm text-green-700">CEO Planning Input</span>
-                            </div>
-                            <div className="space-y-2">
-                              {(feedback as any).description && (
-                                <div>
-                                  <div className="text-xs font-medium text-muted-foreground mb-1">Modified Description</div>
-                                  <div className="text-sm text-foreground leading-relaxed">{(feedback as any).description}</div>
-                                </div>
-                              )}
-                              {(feedback as any).comments && (
-                                <div>
-                                  <div className="text-xs font-medium text-muted-foreground mb-1">CEO Feedback</div>
-                                  <div className="text-sm text-foreground leading-relaxed">{(feedback as any).comments}</div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+      {/* Main Content */}
+      <div className="space-y-8">
+        {/* Enhanced Mid-Year Reflection Form */}
+        <div className="space-y-6">
+          <div className="flex items-center space-x-3">
+            <div className="flex-shrink-0">
+              <div className="w-10 h-10 bg-green-500/10 rounded-full flex items-center justify-center">
+                <MessageSquare className="h-5 w-5 text-green-600" />
               </div>
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">Mid-Year Reflection</h2>
+              <p className="text-sm text-muted-foreground">Share your thoughts on progress, challenges, and support needs</p>
+            </div>
+          </div>
+
+          <Card className="border-l-4 border-l-green-500/50">
+            <CardContent className="p-6">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+                {/* Progress Summary */}
+                <div className="space-y-4 p-6 bg-green-50/50 dark:bg-green-900/10 rounded-lg border border-green-200/50 dark:border-green-800/50">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <Label htmlFor="progressSummary" className="text-base font-semibold text-foreground">
+                        Progress Summary *
+                      </Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Summarize your key achievements and progress toward your goals
+                      </p>
+                    </div>
+                  </div>
+                  <Textarea
+                    id="progressSummary"
+                    {...register('progressSummary')}
+                    rows={4}
+                    className="border-green-200 dark:border-green-800 focus:border-green-500 focus:ring-green-500/20"
+                    placeholder="Describe the progress you've made on your goals and key accomplishments..."
+                  />
+                  {errors.progressSummary && (
+                    <p className="text-sm text-destructive flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {errors.progressSummary.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Blockers & Challenges */}
+                <div className="space-y-4 p-6 bg-orange-50/50 dark:bg-orange-900/10 rounded-lg border border-orange-200/50 dark:border-orange-800/50">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center">
+                        <AlertCircle className="h-4 w-4 text-orange-600" />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <Label htmlFor="blockersChallenges" className="text-base font-semibold text-foreground">
+                        Blockers & Challenges
+                      </Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        What obstacles or challenges have you encountered?
+                      </p>
+                    </div>
+                  </div>
+                  <Textarea
+                    id="blockersChallenges"
+                    {...register('blockersChallenges')}
+                    rows={3}
+                    className="border-orange-200 dark:border-orange-800 focus:border-orange-500 focus:ring-orange-500/20"
+                    placeholder="Describe any blockers, challenges, or obstacles you've faced..."
+                  />
+                  {errors.blockersChallenges && (
+                    <p className="text-sm text-destructive flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {errors.blockersChallenges.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Support Needed */}
+                <div className="space-y-4 p-6 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-200/50 dark:border-blue-800/50">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
+                        <User className="h-4 w-4 text-blue-600" />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <Label htmlFor="supportNeeded" className="text-base font-semibold text-foreground">
+                        Support Needed
+                      </Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        What support or resources would help you succeed?
+                      </p>
+                    </div>
+                  </div>
+                  <Textarea
+                    id="supportNeeded"
+                    {...register('supportNeeded')}
+                    rows={3}
+                    className="border-blue-200 dark:border-blue-800 focus:border-blue-500 focus:ring-blue-500/20"
+                    placeholder="What support, resources, or assistance would be most helpful..."
+                  />
+                  {errors.supportNeeded && (
+                    <p className="text-sm text-destructive flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {errors.supportNeeded.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Additional Comments */}
+                <div className="space-y-4 p-6 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg border border-purple-200/50 dark:border-purple-800/50">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center">
+                        <MessageSquare className="h-4 w-4 text-purple-600" />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <Label htmlFor="employeeComments" className="text-base font-semibold text-foreground">
+                        Additional Comments
+                      </Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Any other thoughts or feedback you'd like to share
+                      </p>
+                    </div>
+                  </div>
+                  <Textarea
+                    id="employeeComments"
+                    {...register('employeeComments')}
+                    rows={3}
+                    className="border-purple-200 dark:border-purple-800 focus:border-purple-500 focus:ring-purple-500/20"
+                    placeholder="Share any additional thoughts, concerns, or feedback..."
+                  />
+                  {errors.employeeComments && (
+                    <p className="text-sm text-destructive flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {errors.employeeComments.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-border">
+                  <div className="flex-1">
+                    {(canEdit || canUpdate) && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleSaveDraft}
+                        disabled={!isDirty}
+                        className="w-full sm:w-auto"
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Draft
+                      </Button>
+                    )}
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+
+                    className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto px-8"
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    {isSubmitting ? 'Submitting...' : 'Submit Review'}
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Review Form */}
-        <div className="xl:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Mid-Year Reflection</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Share your thoughts on progress, challenges, and support needs
-              </p>
-            </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Progress Summary */}
-            <div className="space-y-2">
-              <Label htmlFor="progressSummary">
-                Progress Summary *
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Summarize your key achievements and progress toward your goals
-              </p>
-              <Textarea
-                id="progressSummary"
-                {...register('progressSummary')}
-                rows={4}
-                placeholder="Describe the progress you've made on your goals and key accomplishments..."
-              />
-              {errors.progressSummary && (
-                <p className="text-sm text-destructive">{errors.progressSummary.message}</p>
-              )}
-            </div>
-
-            {/* Blockers & Challenges */}
-            <div className="space-y-2">
-              <Label htmlFor="blockersChallenges">
-                Blockers & Challenges
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                What obstacles or challenges have you encountered?
-              </p>
-              <Textarea
-                id="blockersChallenges"
-                {...register('blockersChallenges')}
-                rows={3}
-                placeholder="Describe any blockers, challenges, or obstacles you've faced..."
-              />
-              {errors.blockersChallenges && (
-                <p className="text-sm text-destructive">{errors.blockersChallenges.message}</p>
-              )}
-            </div>
-
-            {/* Support Needed */}
-            <div className="space-y-2">
-              <Label htmlFor="supportNeeded">
-                Support Needed
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                What support or resources would help you succeed?
-              </p>
-              <Textarea
-                id="supportNeeded"
-                {...register('supportNeeded')}
-                rows={3}
-                placeholder="What support, resources, or assistance would be most helpful..."
-              />
-              {errors.supportNeeded && (
-                <p className="text-sm text-destructive">{errors.supportNeeded.message}</p>
-              )}
-            </div>
-
-            {/* Additional Comments */}
-            <div className="space-y-2">
-              <Label htmlFor="employeeComments">
-                Additional Comments
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Any other thoughts or feedback you'd like to share
-              </p>
-              <Textarea
-                id="employeeComments"
-                {...register('employeeComments')}
-                rows={3}
-                placeholder="Share any additional thoughts, concerns, or feedback..."
-              />
-              {errors.employeeComments && (
-                <p className="text-sm text-destructive">{errors.employeeComments.message}</p>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="flex justify-end space-x-2 pt-4">
-              {(canEdit || canUpdate) && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleSaveDraft}
-                  disabled={!isDirty}
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Draft
-                </Button>
-              )}
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <Send className="h-4 w-4 mr-2" />
-                {isSubmitting ? 'Submitting...' : 'Submit Review'}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
         </div>
       </div>
 
       {/* Navigation */}
-      <div className="flex justify-between">
-        <Button onClick={handlePrevious} variant="outline">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Review
+      <div className="flex justify-between items-center pt-6">
+        <Button onClick={handlePrevious} variant="outline" className="flex items-center space-x-2">
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back to Review</span>
         </Button>
+        <div className="text-sm text-muted-foreground">
+          Step 4 of 5 - Mid-Year Check-In
+        </div>
       </div>
     </div>
   );

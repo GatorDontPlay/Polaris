@@ -138,11 +138,15 @@ export function ThemeProvider({
 
   /**
    * Set theme with persistence and transitions
+   * Modified to only allow dark theme
    */
   const setTheme = useCallback((newTheme: Theme) => {
-    setThemeState(newTheme);
-    saveTheme(newTheme);
-    applyTheme(newTheme);
+    // Always force dark mode regardless of the requested theme
+    const forcedTheme: Theme = 'dark';
+    
+    setThemeState(forcedTheme);
+    saveTheme(forcedTheme);
+    applyTheme(forcedTheme);
     
     // Announce theme change to screen readers
     if (typeof window !== 'undefined') {
@@ -150,23 +154,22 @@ export function ThemeProvider({
       announcement.setAttribute('aria-live', 'polite');
       announcement.setAttribute('aria-atomic', 'true');
       announcement.className = 'sr-only';
-      announcement.textContent = `Theme changed to ${newTheme === 'system' ? `system (${getResolvedTheme(newTheme)})` : newTheme} mode`;
+      announcement.textContent = `Theme is set to dark mode`;
       document.body.appendChild(announcement);
       
       setTimeout(() => {
         document.body.removeChild(announcement);
       }, 1000);
     }
-  }, [saveTheme, applyTheme, getResolvedTheme]);
+  }, [saveTheme, applyTheme]);
 
   /**
-   * Toggle between light and dark mode
+   * Toggle is disabled - always use dark mode
    */
   const toggleTheme = useCallback(() => {
-    const currentResolved = getResolvedTheme(theme);
-    const newTheme: Theme = currentResolved === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-  }, [theme, getResolvedTheme, setTheme]);
+    // Only allow dark theme
+    setTheme('dark');
+  }, [setTheme]);
 
   /**
    * Refresh system theme detection
@@ -191,13 +194,22 @@ export function ThemeProvider({
     const detected = detectSystemTheme();
     setSystemTheme(detected);
 
-    // Load stored theme preference
-    const stored = loadStoredTheme();
-    setThemeState(stored);
+    // Force dark theme instead of using stored preference
+    const forcedTheme: Theme = 'dark';
+    setThemeState(forcedTheme);
+    
+    // Save the forced theme if persistence is enabled
+    if (config.enablePersistence) {
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(forcedTheme));
+      } catch (e) {
+        console.error('Error saving theme to localStorage', e);
+      }
+    }
 
     // Apply theme immediately without transition on first load
     const html = document.documentElement;
-    const resolvedTheme = stored === 'system' ? detected : (stored as 'light' | 'dark');
+    const resolvedTheme = 'dark';
     
     // Remove existing theme classes (handle empty string for light theme)
     html.classList.remove('dark');
@@ -206,7 +218,7 @@ export function ThemeProvider({
     }
     
     html.setAttribute('data-theme', resolvedTheme);
-    html.setAttribute('data-theme-preference', stored);
+    html.setAttribute('data-theme-preference', forcedTheme);
 
     setIsHydrated(true);
   }, [detectSystemTheme, loadStoredTheme]);

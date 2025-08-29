@@ -59,6 +59,13 @@ export const STATE_TRANSITIONS: StateTransition[] = [
     allowedRoles: ['CEO'],
     requiresValidation: false,
   },
+  {
+    from: 'MID_YEAR_CHECK',
+    to: 'CALIBRATION',
+    action: 'completeFinalReview',
+    allowedRoles: ['CEO'],
+    requiresValidation: false,
+  },
 ];
 
 /**

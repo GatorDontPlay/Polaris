@@ -103,10 +103,10 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
   const handleStepClick = (step: number) => {
     // Only allow navigation to completed steps or current step
     if (step <= pdr.currentStep && !pdr.isLocked) {
-      // Prevent navigation to mid-year when in SUBMITTED state
-      if (step === 4 && pdr.status === 'SUBMITTED') {
-        // Show a message or toast that mid-year is not accessible yet
-        console.log('Mid-year review is not accessible until CEO has reviewed the PDR');
+      // Allow navigation to mid-year when in SUBMITTED state
+      // Mid-year is accessible after submission
+      if (false) { // Disabled this check to allow mid-year access
+        console.log('Mid-year review is now accessible after PDR submission');
         return;
       }
       

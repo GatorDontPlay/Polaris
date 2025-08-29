@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useDemoAuth } from '@/hooks/use-demo-auth';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { EmployeeSidebar } from '@/components/dashboard/employee-sidebar';
+import { NotificationIcon } from '@/components/ui/notification-icon';
 
 interface EmployeeLayoutProps {
   children: React.ReactNode;
@@ -85,7 +86,10 @@ export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
         <EmployeeSidebar />
-        <SidebarInset className="flex-1 overflow-auto">
+        <SidebarInset className="flex-1 overflow-auto relative">
+          <div className="absolute top-4 right-4 z-50">
+            <NotificationIcon />
+          </div>
           <div className="flex min-h-full flex-col">
             {children}
           </div>

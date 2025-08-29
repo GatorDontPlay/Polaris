@@ -69,6 +69,7 @@ function getAllPDRsFromStorage(): PDR[] {
   }
   
   console.log('getAllPDRsFromStorage: Final PDRs array:', pdrs);
+  console.log('getAllPDRsFromStorage: PDR statuses:', pdrs.map(p => ({ id: p.id, status: p.status, submittedAt: p.submittedAt })));
   return pdrs;
 }
 
@@ -97,7 +98,7 @@ export function useDemoAdminDashboard() {
   useEffect(() => {
     console.log('useDemoAdminDashboard: useEffect triggered, refreshKey:', refreshKey);
     
-    // Small delay to ensure component is mounted
+    // Small delay to ensure component is mounted and localStorage is available
     const timer = setTimeout(() => {
       try {
         // Get real PDRs from localStorage
@@ -111,6 +112,7 @@ export function useDemoAdminDashboard() {
           pdr.status === 'SUBMITTED' || 
           pdr.status === 'OPEN_FOR_REVIEW' || 
           pdr.status === 'UNDER_REVIEW' ||
+          pdr.status === 'MID_YEAR_CHECK' ||
           pdr.status === 'CALIBRATION'
         ).length;
         
@@ -221,7 +223,7 @@ export function useDemoAdminDashboard() {
             ...realPDRs
               .filter(pdr => {
                 // Include PDRs that need CEO attention - including all review phases for filtering
-                const needsCEOAction = ['SUBMITTED', 'UNDER_REVIEW', 'PLAN_LOCKED', 'END_YEAR_REVIEW', 'CALIBRATION', 'COMPLETED'].includes(pdr.status);
+                const needsCEOAction = ['SUBMITTED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW', 'PLAN_LOCKED', 'MID_YEAR_CHECK', 'END_YEAR_REVIEW', 'CALIBRATION', 'COMPLETED'].includes(pdr.status);
                 console.log(`PDR ${pdr.id}: status=${pdr.status}, isLocked=${pdr.isLocked}, needsCEOAction=${needsCEOAction}`);
                 return needsCEOAction;
               })
@@ -257,6 +259,8 @@ export function useDemoAdminDashboard() {
         };
         
         console.log('useDemoAdminDashboard: Setting dashboard data:', dynamicData);
+        console.log('useDemoAdminDashboard: Pending reviews details:', dynamicData.pendingReviews);
+        console.log('useDemoAdminDashboard: Stats:', dynamicData.stats);
         setDashboardData(dynamicData);
         setIsLoading(false);
       } catch (error) {
@@ -267,6 +271,32 @@ export function useDemoAdminDashboard() {
 
     return () => clearTimeout(timer);
   }, [refreshKey]);
+
+  // Also listen for localStorage changes (cross-tab communication)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key && (e.key.startsWith('demo_pdr_') || e.key === 'demo_current_pdr')) {
+        console.log('📡 Storage change detected for:', e.key);
+        refreshDashboard();
+      }
+    };
+
+    // Listen for custom events (same-tab communication)
+    const handleCustomEvent = () => {
+      console.log('📡 Custom PDR change event detected');
+      refreshDashboard();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('demo-pdr-changed', handleCustomEvent);
+    window.addEventListener('demo-audit-updated', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('demo-pdr-changed', handleCustomEvent);
+      window.removeEventListener('demo-audit-updated', handleCustomEvent);
+    };
+  }, [refreshDashboard]);
 
   return {
     data: dashboardData,

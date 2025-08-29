@@ -84,16 +84,25 @@ export default function CEODashboard() {
   const refreshDashboard = isDemo ? demoRefresh : realRefresh;
 
   // Auto-refresh dashboard periodically (handled by React Query)
-  // No need for localStorage listeners since we're using real database data
+  // In demo mode, we need to listen for localStorage changes
+  useEffect(() => {
+    if (isDemo) {
+      // Listen for PDR changes to refresh dashboard
+      const handlePDRChange = () => {
+        console.log('🔄 CEO Dashboard: PDR change detected, refreshing...');
+        refreshDashboard();
+      };
 
-  console.log('CEO Dashboard Debug:', { 
-    isDemo,
-    dashboardData, 
-    isLoading, 
-    error: error?.message || error,
-    hasData: !!dashboardData,
-    statsExists: !!dashboardData?.stats 
-  });
+      // Listen for demo PDR changes
+      window.addEventListener('demo-pdr-changed', handlePDRChange);
+      window.addEventListener('demo-audit-updated', handlePDRChange);
+
+      return () => {
+        window.removeEventListener('demo-pdr-changed', handlePDRChange);
+        window.removeEventListener('demo-audit-updated', handlePDRChange);
+      };
+    }
+  }, [isDemo, refreshDashboard]);
 
   if (isLoading) {
     return (
@@ -153,8 +162,21 @@ export default function CEODashboard() {
   const allPendingReviews = dashboardData?.pendingReviews || [];
   
   // Calculate counts for each filter category
-  const goalSettingCount = allPendingReviews.filter((review: any) => review.status === 'SUBMITTED').length;
-  const midYearCount = allPendingReviews.filter((review: any) => review.status === 'PLAN_LOCKED' || review.status === 'LOCKED').length;
+  const goalSettingCount = allPendingReviews.filter((review: any) => review.status === 'OPEN_FOR_REVIEW' || review.status === 'SUBMITTED').length;
+
+  // Debug logging after all variables are declared
+  console.log('CEO Dashboard Debug:', { 
+    isDemo,
+    dashboardData, 
+    isLoading, 
+    error: error?.message || error,
+    hasData: !!dashboardData,
+    statsExists: !!dashboardData?.stats,
+    pendingReviewsCount: allPendingReviews?.length || 0,
+    pendingReviewsData: allPendingReviews,
+    goalSettingCount
+  });
+  const midYearCount = allPendingReviews.filter((review: any) => review.status === 'PLAN_LOCKED' || review.status === 'LOCKED' || review.status === 'MID_YEAR_CHECK').length;
   const yearEndCount = allPendingReviews.filter((review: any) => review.status === 'FINAL_REVIEW' || review.status === 'END_YEAR_REVIEW').length;
   const calibrationCount = allPendingReviews.filter((review: any) => review.status === 'CALIBRATION').length;
   const closedCount = allPendingReviews.filter((review: any) => review.status === 'COMPLETED').length;
@@ -163,9 +185,9 @@ export default function CEODashboard() {
   const pendingReviews = allPendingReviews.filter((review: any) => {
     switch (pendingReviewsFilter) {
       case 'goal-setting':
-        return review.status === 'SUBMITTED';
+        return review.status === 'OPEN_FOR_REVIEW' || review.status === 'SUBMITTED';
       case 'mid-year':
-        return review.status === 'PLAN_LOCKED' || review.status === 'LOCKED';
+        return review.status === 'PLAN_LOCKED' || review.status === 'LOCKED' || review.status === 'MID_YEAR_CHECK';
       case 'year-end':
         return review.status === 'FINAL_REVIEW' || review.status === 'END_YEAR_REVIEW';
       case 'calibration':
@@ -186,13 +208,63 @@ export default function CEODashboard() {
       />
 
       <div className="flex-1 space-y-6 p-6 overflow-y-auto">
-        <PageHeader 
-          title="Welcome back!"
-          description={isDemo 
-            ? "Demo Mode: Organization-wide performance review overview. This shows demo data for testing purposes."
-            : "Organization-wide performance review overview. Monitor all employee activities, pending reviews, and system metrics."
-          }
-        />
+        <div className="flex items-center justify-between">
+          <PageHeader 
+            title="Welcome back!"
+            description="Your PDRs in progress or awaiting your review..."
+          />
+          {isDemo && (
+            <div className="flex space-x-2">
+              <Button
+                onClick={() => {
+                  console.log('🔍 Debug localStorage state:');
+                  const keys = Object.keys(localStorage);
+                  const demoKeys = keys.filter(key => key.startsWith('demo_'));
+                  console.log('Demo keys found:', demoKeys);
+                  demoKeys.forEach(key => {
+                    const value = localStorage.getItem(key);
+                    try {
+                      const parsed = JSON.parse(value || '{}');
+                      console.log(`${key}:`, parsed);
+                      if (key.includes('pdr')) {
+                        console.log(`PDR ${key} status:`, parsed.status, 'submitted:', parsed.submittedAt);
+                      }
+                    } catch {
+                      console.log(`${key}:`, value);
+                    }
+                  });
+                  
+                  // Force check the current PDR specifically
+                  const currentPDR = localStorage.getItem('demo_current_pdr');
+                  if (currentPDR) {
+                    const parsed = JSON.parse(currentPDR);
+                    console.log('🎯 CURRENT PDR ANALYSIS:');
+                    console.log('- ID:', parsed.id);
+                    console.log('- Status:', parsed.status);
+                    console.log('- Submitted At:', parsed.submittedAt);
+                    console.log('- Is Locked:', parsed.isLocked);
+                    console.log('- Should show in Goal Setting?', ['OPEN_FOR_REVIEW', 'SUBMITTED'].includes(parsed.status));
+                  }
+                }}
+                variant="outline"
+                size="sm"
+              >
+                Debug Storage
+              </Button>
+              <Button
+                onClick={() => {
+                  console.log('🔄 Manual refresh triggered');
+                  refreshDashboard();
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Data
+              </Button>
+            </div>
+          )}
+        </div>
 
         {/* Stats Overview */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

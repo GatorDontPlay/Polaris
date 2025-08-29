@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
+// Theme toggle removed as we're keeping dark mode only
 import {
   LayoutDashboard,
   FileText,
@@ -63,18 +63,6 @@ const navigation = [
     href: '/dashboard/goals',
     icon: Target,
     badge: null,
-  },
-  {
-    name: 'History',
-    href: '/dashboard/history',
-    icon: History,
-    badge: null,
-  },
-  {
-    name: 'Notifications',
-    href: '/dashboard/notifications',
-    icon: Bell,
-    badge: '2',
   },
 ];
 
@@ -116,7 +104,10 @@ export function EmployeeSidebar() {
       <SidebarContent className="px-3 py-4">
         <SidebarMenu className="space-y-2">
           {navigation.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            // Special case for Dashboard to ensure it's only active on the exact route
+            const isActive = item.name === 'Dashboard' 
+              ? pathname === item.href 
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <SidebarMenuItem key={item.name}>
                 <SidebarMenuButton
@@ -195,7 +186,7 @@ export function EmployeeSidebar() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <div className="px-2 py-1">
-                  <ThemeToggle variant="dropdown" showLabels={false} />
+                  {/* Theme toggle removed as we're keeping dark mode only */}
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

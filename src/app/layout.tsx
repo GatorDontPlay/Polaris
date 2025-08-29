@@ -47,7 +47,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans h-full bg-background text-foreground antialiased`}>
-        <ThemeProvider>
+        <ThemeProvider defaultTheme="dark">
           <QueryProvider>
             <div id="root" className="min-h-screen bg-background flex flex-col">
               {children}

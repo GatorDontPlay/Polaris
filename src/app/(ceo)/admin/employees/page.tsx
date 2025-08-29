@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { useDemoEmployees } from '@/hooks/use-demo-admin';
+import React, { useState, useEffect } from 'react';
+import { useEmployees } from '@/hooks/use-admin';
+import { useDemoAuth } from '@/hooks/use-demo-auth';
 import { AdminHeader, PageHeader } from '@/components/admin/admin-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Table,
@@ -37,16 +39,72 @@ import {
 import { formatDateAU } from '@/lib/utils';
 
 export default function EmployeesPage() {
-  const { data: employees, isLoading } = useDemoEmployees();
+  const { data: employeesResponse, isLoading } = useEmployees();
+  const { user } = useDemoAuth();
+  const [employees, setEmployees] = useState(employeesResponse?.data || []);
+  
+  // State to track edited fields
+  const [editedFields, setEditedFields] = useState<Record<string, { department?: string; role?: string; status?: string }>>({});
+  
+  // Update employees when data loads
+  React.useEffect(() => {
+    if (employeesResponse?.data) {
+      setEmployees(employeesResponse.data);
+    }
+  }, [employeesResponse?.data]);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter employees based on search query
   const filteredEmployees = employees?.filter(employee =>
-    employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    `${employee.firstName} ${employee.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
     employee.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    employee.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    employee.role.toLowerCase().includes(searchQuery.toLowerCase())
+    (employee.department || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (employee.role || '').toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
+  
+  // Handle department change
+  const handleDepartmentChange = (employeeId: string, value: string) => {
+    setEditedFields(prev => ({
+      ...prev,
+      [employeeId]: { ...prev[employeeId], department: value }
+    }));
+    
+    // In a real app, you would call an API to update the employee record
+    // For now, we'll update the local state
+    setEmployees(prev => 
+      prev.map(emp => 
+        emp.id === employeeId ? { ...emp, department: value } : emp
+      )
+    );
+  };
+  
+  // Handle role change
+  const handleRoleChange = (employeeId: string, value: string) => {
+    setEditedFields(prev => ({
+      ...prev,
+      [employeeId]: { ...prev[employeeId], role: value }
+    }));
+    
+    setEmployees(prev => 
+      prev.map(emp => 
+        emp.id === employeeId ? { ...emp, role: value } : emp
+      )
+    );
+  };
+  
+  // Handle status change
+  const handleStatusChange = (employeeId: string, value: string) => {
+    setEditedFields(prev => ({
+      ...prev,
+      [employeeId]: { ...prev[employeeId], status: value }
+    }));
+    
+    setEmployees(prev => 
+      prev.map(emp => 
+        emp.id === employeeId ? { ...emp, isActive: value === 'Active' } : emp
+      )
+    );
+  };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -120,7 +178,7 @@ export default function EmployeesPage() {
                 <Users className="h-8 w-8 text-blue-600" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Total Employees</p>
-                  <p className="text-2xl font-bold">{employees?.length || 0}</p>
+                  <p className="text-2xl font-bold">{employeesResponse?.pagination?.total || 0}</p>
                 </div>
               </div>
             </CardContent>
@@ -135,52 +193,14 @@ export default function EmployeesPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Active</p>
                   <p className="text-2xl font-bold">
-                    {employees?.filter(emp => emp.status === 'Active').length || 0}
+                    {employees?.filter(emp => emp.isActive).length || 0}
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Calendar className="h-8 w-8 text-orange-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Recent PDRs</p>
-                  <p className="text-2xl font-bold">
-                    {employees?.filter(emp => {
-                      const daysSinceLastPDR = emp.lastPDR ? 
-                        Math.floor((Date.now() - emp.lastPDR.getTime()) / (1000 * 60 * 60 * 24)) : 
-                        999;
-                      return daysSinceLastPDR <= 30;
-                    }).length || 0}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="h-8 w-8 rounded-full bg-yellow-100 flex items-center justify-center">
-                  <div className="h-4 w-4 rounded-full bg-yellow-600"></div>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Due PDRs</p>
-                  <p className="text-2xl font-bold">
-                    {employees?.filter(emp => {
-                      const daysSinceLastPDR = emp.lastPDR ? 
-                        Math.floor((Date.now() - emp.lastPDR.getTime()) / (1000 * 60 * 60 * 24)) : 
-                        999;
-                      return daysSinceLastPDR > 90; // Due if last PDR was over 90 days ago
-                    }).length || 0}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Recent PDRs and Due PDRs cards removed as requested */}
         </div>
 
         {/* Search and Filters */}
@@ -215,7 +235,6 @@ export default function EmployeesPage() {
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Last PDR</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -234,55 +253,60 @@ export default function EmployeesPage() {
                           <div className="flex items-center space-x-3">
                             <Avatar className="h-8 w-8">
                               <AvatarFallback className="text-xs">
-                                {getInitials(employee.name)}
+                                {getInitials(employee.firstName + ' ' + employee.lastName)}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <div className="font-medium">{employee.name}</div>
+                              <div className="font-medium">{employee.firstName + ' ' + employee.lastName}</div>
                               <div className="text-sm text-muted-foreground">{employee.email}</div>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{employee.department}</Badge>
-                        </TableCell>
-                        <TableCell className="text-sm">{employee.role}</TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(employee.status)}>
-                            {employee.status}
-                          </Badge>
+                          <Select 
+                            defaultValue={employee.department || ''}
+                            onValueChange={(value) => handleDepartmentChange(employee.id, value)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select department" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Design">Design</SelectItem>
+                              <SelectItem value="Development">Development</SelectItem>
+                              <SelectItem value="Operations">Operations</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell className="text-sm">
-                          {employee.lastPDR ? formatDateAU(employee.lastPDR) : 'Never'}
+                          <Input 
+                            defaultValue={employee.role || ''}
+                            onChange={(e) => handleRoleChange(employee.id, e.target.value)}
+                            className="w-full"
+                          />
                         </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Profile
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit Employee
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Mail className="mr-2 h-4 w-4" />
-                                Send Message
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive">
-                                <Trash className="mr-2 h-4 w-4" />
-                                Remove Employee
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <div className={`h-3 w-3 rounded-full ${employee.isActive ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                            <Select 
+                              defaultValue={employee.isActive ? 'Active' : 'Inactive'}
+                              onValueChange={(value) => handleStatusChange(employee.id, value)}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Active">Active</SelectItem>
+                                <SelectItem value="Inactive">Inactive</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </TableCell>
+                        <TableCell className="text-sm">
+                          {employee.pdrs?.find(pdr => pdr.status === 'COMPLETED')?.updatedAt 
+                            ? formatDateAU(new Date(employee.pdrs.find(pdr => pdr.status === 'COMPLETED')?.updatedAt)) 
+                            : 'Never'}
+                        </TableCell>
+                        {/* Actions column removed as requested */}
                       </TableRow>
                     ))
                   )}
