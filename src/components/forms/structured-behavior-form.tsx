@@ -222,16 +222,15 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
   }, [fields.length, watchedBehaviors, companyValues.length, watch]);
 
   // Calculate completion progress for only the 6 required fields (4 core behaviors + 2 development fields)
-  // Filter out only the 4 core company values (excluding informational ones)
+  // Filter out only the core company values (excluding Self Reflection which is handled separately)
   const coreBehaviors = watchedBehaviors.filter(behavior => {
-    // These are the 4 core company values that need to be completed
-    const coreValueIds = [
-      '550e8400-e29b-41d4-a716-446655440001', // Lean Thinking
-      '550e8400-e29b-41d4-a716-446655440002', // Craftsmanship
-      '550e8400-e29b-41d4-a716-446655440003', // Value-Centric Innovation
-      '550e8400-e29b-41d4-a716-446655440004', // Blameless Problem-Solving
+    // Exclude Self Reflection - it's handled in the development section
+    const selfReflectionIds = [
+      '007941f8-cd38-4ab1-8d50-bc1800e2f413', // Self Reflection
+      '550e8400-e29b-41d4-a716-446655440005', // Self Reflection (legacy)
+      '550e8400-e29b-41d4-a716-446655440006'  // CodeFish 3D (legacy)
     ];
-    return coreValueIds.includes(behavior.valueId);
+    return !selfReflectionIds.includes(behavior.valueId);
   });
   
   // Count completed core behaviors
@@ -248,9 +247,21 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
   ].filter(Boolean).length;
   
   const totalCompletedCount = completedBehaviors + completedDevelopmentFields;
-  const totalFieldCount = 6; // 4 core behaviors + 2 development fields = 6 total
+  const totalFieldCount = coreBehaviors.length + 2; // Dynamic core behaviors count + 2 development fields
   
   const progressPercentage = (totalCompletedCount / totalFieldCount) * 100;
+
+  // Debug completion calculation
+  console.log('🔍 Completion Debug:', {
+    allBehaviors: watchedBehaviors.length,
+    coreBehaviors: coreBehaviors.length,
+    completedBehaviors,
+    completedDevelopmentFields,
+    totalCompletedCount,
+    totalFieldCount,
+    coreBehaviorIds: coreBehaviors.map(b => b.valueId),
+    completedBehaviorIds: coreBehaviors.filter(b => b.description && b.description.trim().length > 0).map(b => b.valueId)
+  });
 
   // Notify parent of completion changes (now includes all 6 fields)
   useEffect(() => {
@@ -482,8 +493,13 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
           const value = companyValues.find(v => v.id === field.valueId);
           if (!value) return null;
           
-          // Skip Self Reflection and CodeFish 3D - they're handled in the dedicated section below
-          if (value.id === '550e8400-e29b-41d4-a716-446655440005' || value.id === '550e8400-e29b-41d4-a716-446655440006') {
+          // Skip Self Reflection - it's handled in the dedicated development section below
+          const selfReflectionIds = [
+            '007941f8-cd38-4ab1-8d50-bc1800e2f413', // Self Reflection
+            '550e8400-e29b-41d4-a716-446655440005', // Self Reflection (legacy)
+            '550e8400-e29b-41d4-a716-446655440006'  // CodeFish 3D (legacy)
+          ];
+          if (selfReflectionIds.includes(value.id)) {
             return null;
           }
           
