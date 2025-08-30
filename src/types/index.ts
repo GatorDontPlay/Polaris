@@ -36,7 +36,6 @@ export interface User {
   firstName: string;
   lastName: string;
   role: UserRole;
-  passwordHash: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -254,13 +253,7 @@ export interface LoginCredentials {
   password: string;
 }
 
-export interface JWTPayload {
-  userId: string;
-  email: string;
-  role: UserRole;
-  iat: number;
-  exp: number;
-}
+
 
 // Form types
 export interface GoalFormData {

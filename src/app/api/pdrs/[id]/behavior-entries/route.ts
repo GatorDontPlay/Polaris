@@ -6,7 +6,7 @@ import {
   authenticateRequest,
   validateRequestBody,
 } from '@/lib/api-helpers';
-import { prisma } from '@/lib/db';
+import { createClient } from '@/lib/supabase/server';
 import { createAuditLog } from '@/lib/auth';
 import { z } from 'zod';
 
@@ -66,70 +66,57 @@ export async function GET(
       return createApiResponse([]);
     }
 
-    // Get PDR and verify access
-    const pdr = await prisma.pDR.findUnique({
-      where: { id: pdrId },
-      include: { user: true },
-    });
+    const supabase = await createClient();
 
-    if (!pdr) {
+    // Get PDR and verify access
+    const { data: pdr, error: pdrError } = await supabase
+      .from('pdrs')
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(*)
+      `)
+      .eq('id', pdrId)
+      .single();
+
+    if (pdrError || !pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
     // Check access permissions
-    if (user.role !== 'CEO' && pdr.userId !== user.id) {
+    if (user.role !== 'CEO' && pdr.user_id !== user.id) {
       return createApiError('Access denied', 403, 'ACCESS_DENIED');
     }
 
     // Get behavior entries for this PDR with related data
-    const behaviorEntries = await prisma.behaviorEntry.findMany({
-      where: { pdrId },
-      include: {
-        value: true,
-        author: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true,
-          },
-        },
-        employeeEntry: {
-          include: {
-            value: true,
-            author: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                role: true,
-              },
-            },
-          },
-        },
-        ceoEntries: {
-          include: {
-            value: true,
-            author: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                role: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: [
-        { value: { sortOrder: 'asc' } },
-        { authorType: 'asc' }, // EMPLOYEE first, then CEO
-        { createdAt: 'asc' },
-      ],
-    });
+    const { data: behaviorEntries, error: entriesError } = await supabase
+      .from('behavior_entries')
+      .select(`
+        *,
+        value:company_values!behavior_entries_value_id_fkey(*),
+        author:profiles!behavior_entries_author_id_fkey(
+          id, first_name, last_name, email, role
+        ),
+        employee_entry:behavior_entries!behavior_entries_employee_entry_id_fkey(
+          *,
+          value:company_values(*),
+          author:profiles!behavior_entries_author_id_fkey(
+            id, first_name, last_name, email, role
+          )
+        ),
+        ceo_entries:behavior_entries!behavior_entries_employee_entry_id_fkey(
+          *,
+          value:company_values(*),
+          author:profiles!behavior_entries_author_id_fkey(
+            id, first_name, last_name, email, role
+          )
+        )
+      `)
+      .eq('pdr_id', pdrId)
+      .order('created_at', { ascending: true });
+
+    if (entriesError) {
+      throw entriesError;
+    }
 
     return createApiResponse(behaviorEntries);
   } catch (error) {
@@ -212,23 +199,29 @@ export async function POST(
       return createApiResponse(mockEntry, 201);
     }
 
-    // Get PDR and verify access
-    const pdr = await prisma.pDR.findUnique({
-      where: { id: pdrId },
-      include: { user: true },
-    });
+    const supabase = await createClient();
 
-    if (!pdr) {
+    // Get PDR and verify access
+    const { data: pdr, error: pdrError } = await supabase
+      .from('pdrs')
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(*)
+      `)
+      .eq('id', pdrId)
+      .single();
+
+    if (pdrError || !pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
     // Check access permissions
-    if (user.role !== 'CEO' && pdr.userId !== user.id) {
+    if (user.role !== 'CEO' && pdr.user_id !== user.id) {
       return createApiError('Access denied', 403, 'ACCESS_DENIED');
     }
 
     // Check if PDR is locked (only for employee entries, CEO can always add reviews)
-    if (pdr.isLocked && entryData.authorType === 'EMPLOYEE') {
+    if (pdr.is_locked && entryData.authorType === 'EMPLOYEE') {
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
@@ -238,7 +231,7 @@ export async function POST(
     }
 
     // Verify the user can create this type of entry
-    if (entryData.authorType === 'EMPLOYEE' && user.role !== 'EMPLOYEE' && pdr.userId !== user.id) {
+    if (entryData.authorType === 'EMPLOYEE' && user.role !== 'EMPLOYEE' && pdr.user_id !== user.id) {
       return createApiError('Only the PDR owner can create employee entries', 403, 'INVALID_AUTHOR');
     }
 
@@ -247,80 +240,82 @@ export async function POST(
     }
 
     // Verify the company value exists and is active
-    const companyValue = await prisma.companyValue.findUnique({
-      where: { id: entryData.valueId },
-    });
+    const { data: companyValue, error: valueError } = await supabase
+      .from('company_values')
+      .select('*')
+      .eq('id', entryData.valueId)
+      .single();
 
-    if (!companyValue || !companyValue.isActive) {
+    if (valueError || !companyValue || !companyValue.is_active) {
       return createApiError('Invalid or inactive company value', 400, 'INVALID_COMPANY_VALUE');
     }
 
     // For CEO entries, verify the employee entry exists
     if (entryData.authorType === 'CEO' && entryData.employeeEntryId) {
-      const employeeEntry = await prisma.behaviorEntry.findUnique({
-        where: { id: entryData.employeeEntryId },
-      });
+      const { data: employeeEntry, error: employeeError } = await supabase
+        .from('behavior_entries')
+        .select('*')
+        .eq('id', entryData.employeeEntryId)
+        .single();
 
-      if (!employeeEntry || employeeEntry.pdrId !== pdrId || employeeEntry.authorType !== 'EMPLOYEE') {
+      if (employeeError || !employeeEntry || employeeEntry.pdr_id !== pdrId || employeeEntry.author_type !== 'EMPLOYEE') {
         return createApiError('Invalid employee entry reference', 400, 'INVALID_EMPLOYEE_ENTRY');
       }
     }
 
     // Check if entry already exists for this combination
-    const existingEntry = await prisma.behaviorEntry.findFirst({
-      where: {
-        pdrId,
-        valueId: entryData.valueId,
-        authorId: user.id,
-        authorType: entryData.authorType,
-      },
-    });
+    const { data: existingEntry, error: existingError } = await supabase
+      .from('behavior_entries')
+      .select('*')
+      .eq('pdr_id', pdrId)
+      .eq('value_id', entryData.valueId)
+      .eq('author_id', user.id)
+      .eq('author_type', entryData.authorType)
+      .single();
+
+    // If we get an error other than "no rows found", throw it
+    if (existingError && existingError.code !== 'PGRST116') {
+      throw existingError;
+    }
 
     if (existingEntry) {
       return createApiError('Behavior entry already exists for this combination', 400, 'ENTRY_EXISTS');
     }
 
     // Create the behavior entry
-    const behaviorEntry = await prisma.behaviorEntry.create({
-      data: {
-        pdrId,
-        valueId: entryData.valueId,
-        authorId: user.id,
-        authorType: entryData.authorType,
+    const { data: behaviorEntry, error: createError } = await supabase
+      .from('behavior_entries')
+      .insert({
+        pdr_id: pdrId,
+        value_id: entryData.valueId,
+        author_id: user.id,
+        author_type: entryData.authorType,
         description: entryData.description || '', // Use empty string if description is undefined
         examples: entryData.examples || null,
-        selfAssessment: entryData.selfAssessment || null,
+        self_assessment: entryData.selfAssessment || null,
         rating: entryData.rating || null,
         comments: entryData.comments || null,
-        employeeEntryId: entryData.employeeEntryId || null,
-      },
-      include: {
-        value: true,
-        author: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true,
-          },
-        },
-        employeeEntry: {
-          include: {
-            value: true,
-            author: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                role: true,
-              },
-            },
-          },
-        },
-      },
-    });
+        employee_entry_id: entryData.employeeEntryId || null,
+      })
+      .select(`
+        *,
+        value:company_values!behavior_entries_value_id_fkey(*),
+        author:profiles!behavior_entries_author_id_fkey(
+          id, first_name, last_name, email, role
+        ),
+        employee_entry:behavior_entries!behavior_entries_employee_entry_id_fkey(
+          *,
+          value:company_values(*),
+          author:profiles!behavior_entries_author_id_fkey(
+            id, first_name, last_name, email, role
+          )
+        )
+      `)
+      .single();
+
+    if (createError) {
+      throw createError;
+    }
 
     // Create audit log
     await createAuditLog({

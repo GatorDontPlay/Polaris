@@ -129,7 +129,7 @@ export const behaviorUpdateSchema = behaviorSchema.extend({
     .min(1, 'Rating must be between 1 and 5')
     .max(5, 'Rating must be between 1 and 5')
     .optional(),
-});
+}).partial(); // Make all fields optional for PATCH updates
 
 // PDR schemas
 export const pdrUpdateSchema = z.object({

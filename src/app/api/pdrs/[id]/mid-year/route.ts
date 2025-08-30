@@ -7,7 +7,7 @@ import {
   validateRequestBody,
 } from '@/lib/api-helpers';
 import { midYearReviewSchema } from '@/lib/validations';
-import { prisma } from '@/lib/db';
+import { createClient } from '@/lib/supabase/server';
 import { createAuditLog } from '@/lib/auth';
 
 export async function GET(
@@ -24,25 +24,29 @@ export async function GET(
     const { user } = authResult;
     const pdrId = params.id;
 
-    // Get PDR and verify access
-    const pdr = await prisma.pDR.findUnique({
-      where: { id: pdrId },
-      include: { 
-        user: true,
-        midYearReview: true,
-      },
-    });
+    const supabase = await createClient();
 
-    if (!pdr) {
+    // Get PDR and verify access
+    const { data: pdr, error: pdrError } = await supabase
+      .from('pdrs')
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(*),
+        mid_year_review:mid_year_reviews!mid_year_reviews_pdr_id_fkey(*)
+      `)
+      .eq('id', pdrId)
+      .single();
+
+    if (pdrError || !pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
     // Check access permissions
-    if (user.role !== 'CEO' && pdr.userId !== user.id) {
+    if (user.role !== 'CEO' && pdr.user_id !== user.id) {
       return createApiError('Access denied', 403, 'ACCESS_DENIED');
     }
 
-    return createApiResponse(pdr.midYearReview);
+    return createApiResponse(pdr.mid_year_review);
   } catch (error) {
     return handleApiError(error);
   }
@@ -70,58 +74,72 @@ export async function POST(
 
     const reviewData = validation.data;
 
-    // Get PDR and verify access
-    const pdr = await prisma.pDR.findUnique({
-      where: { id: pdrId },
-      include: { 
-        user: true,
-        midYearReview: true,
-      },
-    });
+    const supabase = await createClient();
 
-    if (!pdr) {
+    // Get PDR and verify access
+    const { data: pdr, error: pdrError } = await supabase
+      .from('pdrs')
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(*),
+        mid_year_review:mid_year_reviews!mid_year_reviews_pdr_id_fkey(*)
+      `)
+      .eq('id', pdrId)
+      .single();
+
+    if (pdrError || !pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
     // Check access permissions
-    if (user.role !== 'CEO' && pdr.userId !== user.id) {
+    if (user.role !== 'CEO' && pdr.user_id !== user.id) {
       return createApiError('Access denied', 403, 'ACCESS_DENIED');
     }
 
     // Check if PDR is locked
-    if (pdr.isLocked) {
+    if (pdr.is_locked) {
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
     // Check if mid-year review already exists
-    if (pdr.midYearReview) {
+    if (pdr.mid_year_review && pdr.mid_year_review.length > 0) {
       return createApiError('Mid-year review already exists', 400, 'REVIEW_EXISTS');
     }
 
     // Check if PDR is in the right status
-    if (!['SUBMITTED', 'UNDER_REVIEW', 'MID_YEAR_CHECK'].includes(pdr.status)) {
+    if (!['Created', 'SUBMITTED', 'UNDER_REVIEW', 'MID_YEAR_CHECK'].includes(pdr.status)) {
       return createApiError('PDR status does not allow mid-year review', 400, 'INVALID_STATUS');
     }
 
     // Create the mid-year review
-    const midYearReview = await prisma.midYearReview.create({
-      data: {
-        pdrId,
-        progressSummary: reviewData.progressSummary,
-        blockersChallenges: reviewData.blockersChallenges || null,
-        supportNeeded: reviewData.supportNeeded || null,
-        employeeComments: reviewData.employeeComments || null,
-      },
-    });
+    const { data: midYearReview, error: reviewError } = await supabase
+      .from('mid_year_reviews')
+      .insert({
+        pdr_id: pdrId,
+        progress_summary: reviewData.progressSummary,
+        blockers_challenges: reviewData.blockersChallenges || null,
+        support_needed: reviewData.supportNeeded || null,
+        employee_comments: reviewData.employeeComments || null,
+      })
+      .select()
+      .single();
+
+    if (reviewError) {
+      throw reviewError;
+    }
 
     // Update PDR status to indicate mid-year review is completed
-    await prisma.pDR.update({
-      where: { id: pdrId },
-      data: {
+    const { error: updateError } = await supabase
+      .from('pdrs')
+      .update({
         status: 'MID_YEAR_CHECK',
-        currentStep: 5, // Move to end-year step
-      },
-    });
+        current_step: 5, // Move to end-year step
+      })
+      .eq('id', pdrId);
+
+    if (updateError) {
+      throw updateError;
+    }
 
     // Create audit log
     await createAuditLog({
@@ -162,30 +180,34 @@ export async function PUT(
 
     const reviewData = validation.data;
 
-    // Get PDR and verify access
-    const pdr = await prisma.pDR.findUnique({
-      where: { id: pdrId },
-      include: { 
-        user: true,
-        midYearReview: true,
-      },
-    });
+    const supabase = await createClient();
 
-    if (!pdr) {
+    // Get PDR and verify access
+    const { data: pdr, error: pdrError } = await supabase
+      .from('pdrs')
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(*),
+        mid_year_review:mid_year_reviews!mid_year_reviews_pdr_id_fkey(*)
+      `)
+      .eq('id', pdrId)
+      .single();
+
+    if (pdrError || !pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
-    if (!pdr.midYearReview) {
+    if (!pdr.mid_year_review || pdr.mid_year_review.length === 0) {
       return createApiError('Mid-year review not found', 404, 'REVIEW_NOT_FOUND');
     }
 
     // Check access permissions
-    if (user.role !== 'CEO' && pdr.userId !== user.id) {
+    if (user.role !== 'CEO' && pdr.user_id !== user.id) {
       return createApiError('Access denied', 403, 'ACCESS_DENIED');
     }
 
     // Check if PDR is locked
-    if (pdr.isLocked) {
+    if (pdr.is_locked) {
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
@@ -194,31 +216,37 @@ export async function PUT(
     
     if (user.role === 'CEO') {
       // CEO can update any field
-      if (reviewData.progressSummary !== undefined) {updateData.progressSummary = reviewData.progressSummary;}
-      if (reviewData.blockersChallenges !== undefined) {updateData.blockersChallenges = reviewData.blockersChallenges;}
-      if (reviewData.supportNeeded !== undefined) {updateData.supportNeeded = reviewData.supportNeeded;}
-      if (reviewData.employeeComments !== undefined) {updateData.employeeComments = reviewData.employeeComments;}
-      if (reviewData.ceoFeedback !== undefined) {updateData.ceoFeedback = reviewData.ceoFeedback;}
+      if (reviewData.progressSummary !== undefined) {updateData.progress_summary = reviewData.progressSummary;}
+      if (reviewData.blockersChallenges !== undefined) {updateData.blockers_challenges = reviewData.blockersChallenges;}
+      if (reviewData.supportNeeded !== undefined) {updateData.support_needed = reviewData.supportNeeded;}
+      if (reviewData.employeeComments !== undefined) {updateData.employee_comments = reviewData.employeeComments;}
+      if (reviewData.ceoFeedback !== undefined) {updateData.ceo_feedback = reviewData.ceoFeedback;}
     } else {
       // Employee can only update their own fields
-      if (reviewData.progressSummary !== undefined) {updateData.progressSummary = reviewData.progressSummary;}
-      if (reviewData.blockersChallenges !== undefined) {updateData.blockersChallenges = reviewData.blockersChallenges;}
-      if (reviewData.supportNeeded !== undefined) {updateData.supportNeeded = reviewData.supportNeeded;}
-      if (reviewData.employeeComments !== undefined) {updateData.employeeComments = reviewData.employeeComments;}
+      if (reviewData.progressSummary !== undefined) {updateData.progress_summary = reviewData.progressSummary;}
+      if (reviewData.blockersChallenges !== undefined) {updateData.blockers_challenges = reviewData.blockersChallenges;}
+      if (reviewData.supportNeeded !== undefined) {updateData.support_needed = reviewData.supportNeeded;}
+      if (reviewData.employeeComments !== undefined) {updateData.employee_comments = reviewData.employeeComments;}
     }
 
     // Update the mid-year review
-    const updatedReview = await prisma.midYearReview.update({
-      where: { id: pdr.midYearReview.id },
-      data: updateData,
-    });
+    const { data: updatedReview, error: updateError } = await supabase
+      .from('mid_year_reviews')
+      .update(updateData)
+      .eq('id', pdr.mid_year_review[0].id)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
 
     // Create audit log
     await createAuditLog({
       tableName: 'mid_year_reviews',
-      recordId: pdr.midYearReview.id,
+      recordId: pdr.mid_year_review[0].id,
       action: 'UPDATE',
-      oldValues: pdr.midYearReview,
+      oldValues: pdr.mid_year_review[0],
       newValues: updatedReview,
       userId: user.id,
       ipAddress: request.ip || 'Unknown',

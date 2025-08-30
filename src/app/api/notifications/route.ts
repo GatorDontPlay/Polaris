@@ -77,21 +77,26 @@ export async function PATCH(request: NextRequest) {
       return createApiError('notificationIds must be an array', 400, 'INVALID_REQUEST');
     }
 
+    const supabase = await createClient();
+
     // Update notifications (only user's own notifications)
     const updateData = markAsRead 
-      ? { readAt: new Date() }
-      : { readAt: null };
+      ? { read_at: new Date().toISOString() }
+      : { read_at: null };
 
-    const result = await prisma.notification.updateMany({
-      where: {
-        id: { in: notificationIds },
-        userId: user.id, // Ensure user can only update their own notifications
-      },
-      data: updateData,
-    });
+    const { data, error } = await supabase
+      .from('notifications')
+      .update(updateData)
+      .in('id', notificationIds)
+      .eq('user_id', user.id) // Ensure user can only update their own notifications
+      .select();
+
+    if (error) {
+      throw error;
+    }
 
     return createApiResponse({ 
-      updatedCount: result.count,
+      updatedCount: data?.length || 0,
       markAsRead 
     });
   } catch (error) {

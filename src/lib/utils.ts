@@ -135,10 +135,10 @@ export function calculatePDRProgress(
   if (currentStep >= 3) {progress += stepWeight;}
 
   // Step 4: Mid-year (20%)
-  if (midYearReview) {progress += stepWeight;}
+  if (midYearReview || currentStep >= 4) {progress += stepWeight;}
 
   // Step 5: End-year (20%)
-  if (endYearReview) {progress += stepWeight;}
+  if (endYearReview || currentStep >= 5) {progress += stepWeight;}
 
   return Math.min(progress, 100);
 }

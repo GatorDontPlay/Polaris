@@ -8,7 +8,7 @@ import {
   getPDRReadOnlyReason,
   getValidNextStates
 } from '@/lib/pdr-state-machine';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/providers/supabase-auth-provider';
 
 interface UsePDRPermissionsProps {
   pdr?: PDR | null;
@@ -44,7 +44,7 @@ export function usePDRPermissions({
   
   // Use provided values or fall back to auth context
   const effectiveUserRole = userRole || user?.role;
-  const effectiveIsOwner = isOwner ?? (pdr ? pdr.userId === user?.id : false);
+  const effectiveIsOwner = isOwner ?? (pdr ? (pdr.userId || pdr.user_id) === user?.id : false);
 
   return useMemo(() => {
     if (!pdr || !effectiveUserRole) {

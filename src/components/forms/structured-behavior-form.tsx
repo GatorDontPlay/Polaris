@@ -222,15 +222,17 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
   }, [fields.length, watchedBehaviors, companyValues.length, watch]);
 
   // Calculate completion progress for only the 6 required fields (4 core behaviors + 2 development fields)
-  // Filter out only the core company values (excluding Self Reflection which is handled separately)
+  // Filter for only the 4 specific core company values that should be included
+  const coreValueNames = [
+    'Craftsmanship',
+    'Lean Thinking', 
+    'Value-Centric Innovation',
+    'Blameless Problem-Solving'
+  ];
+  
   const coreBehaviors = watchedBehaviors.filter(behavior => {
-    // Exclude Self Reflection - it's handled in the development section
-    const selfReflectionIds = [
-      '007941f8-cd38-4ab1-8d50-bc1800e2f413', // Self Reflection
-      '550e8400-e29b-41d4-a716-446655440005', // Self Reflection (legacy)
-      '550e8400-e29b-41d4-a716-446655440006'  // CodeFish 3D (legacy)
-    ];
-    return !selfReflectionIds.includes(behavior.valueId);
+    const behaviorValue = companyValues?.find(v => v.id === behavior.valueId);
+    return behaviorValue && coreValueNames.includes(behaviorValue.name);
   });
   
   // Count completed core behaviors
@@ -259,8 +261,15 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
     completedDevelopmentFields,
     totalCompletedCount,
     totalFieldCount,
-    coreBehaviorIds: coreBehaviors.map(b => b.valueId),
-    completedBehaviorIds: coreBehaviors.filter(b => b.description && b.description.trim().length > 0).map(b => b.valueId)
+    coreValueNames,
+    coreBehaviorNames: coreBehaviors.map(b => {
+      const value = companyValues?.find(v => v.id === b.valueId);
+      return value?.name || 'Unknown';
+    }),
+    completedBehaviorNames: coreBehaviors.filter(b => b.description && b.description.trim().length > 0).map(b => {
+      const value = companyValues?.find(v => v.id === b.valueId);
+      return value?.name || 'Unknown';
+    })
   });
 
   // Notify parent of completion changes (now includes all 6 fields)
@@ -493,13 +502,14 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
           const value = companyValues.find(v => v.id === field.valueId);
           if (!value) return null;
           
-          // Skip Self Reflection - it's handled in the dedicated development section below
-          const selfReflectionIds = [
-            '007941f8-cd38-4ab1-8d50-bc1800e2f413', // Self Reflection
-            '550e8400-e29b-41d4-a716-446655440005', // Self Reflection (legacy)
-            '550e8400-e29b-41d4-a716-446655440006'  // CodeFish 3D (legacy)
+          // Only show the 4 core company values
+          const coreValueNames = [
+            'Craftsmanship',
+            'Lean Thinking', 
+            'Value-Centric Innovation',
+            'Blameless Problem-Solving'
           ];
-          if (selfReflectionIds.includes(value.id)) {
+          if (!coreValueNames.includes(value.name)) {
             return null;
           }
           

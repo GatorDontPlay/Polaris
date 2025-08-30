@@ -9,6 +9,7 @@ import {
 import { behaviorSchema } from '@/lib/validations';
 import { createClient } from '@/lib/supabase/server';
 import { createAuditLog } from '@/lib/auth';
+import { transformBehaviorFields } from '@/lib/case-transform';
 
 export async function GET(
   request: NextRequest,
@@ -59,7 +60,10 @@ export async function GET(
       throw behaviorsError;
     }
 
-    return createApiResponse(behaviors);
+    // Transform behaviors to camelCase
+    const transformedBehaviors = behaviors?.map(transformBehaviorFields) || [];
+
+    return createApiResponse(transformedBehaviors);
   } catch (error) {
     return handleApiError(error);
   }
@@ -69,23 +73,30 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  console.log('🔧 Behavior POST route called with PDR ID:', params.id);
   try {
     // Authenticate user
+    console.log('🔧 Authenticating user for behavior creation...');
     const authResult = await authenticateRequest(request);
     if (!authResult.success) {
+      console.log('🔧 Authentication failed for behavior creation');
       return authResult.response;
     }
+    console.log('🔧 User authenticated for behavior creation:', authResult.user.id);
 
     const { user } = authResult;
     const pdrId = params.id;
 
     // Validate request body
+    console.log('🔧 Validating behavior request body...');
     const validation = await validateRequestBody(request, behaviorSchema);
     if (!validation.success) {
+      console.log('🔧 Behavior validation failed:', validation.response);
       return validation.response;
     }
 
     const behaviorData = validation.data;
+    console.log('🔧 Behavior data validated:', behaviorData);
     const supabase = await createClient();
 
     // Get PDR and verify access
@@ -174,8 +185,12 @@ export async function POST(
       userAgent: request.headers.get('user-agent') || 'Unknown',
     });
 
-    return createApiResponse(behavior, 201);
+    // Transform behavior to camelCase
+    const transformedBehavior = transformBehaviorFields(behavior);
+
+    return createApiResponse(transformedBehavior, 201);
   } catch (error) {
+    console.error('🔧 Behavior POST route error:', error);
     return handleApiError(error);
   }
 }

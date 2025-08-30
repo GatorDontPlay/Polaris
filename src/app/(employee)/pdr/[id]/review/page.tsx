@@ -22,6 +22,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { formatFYForDisplay } from '@/lib/financial-year';
+import toast, { Toaster } from 'react-hot-toast';
 
 interface ReviewPageProps {
   params: { id: string };
@@ -169,18 +170,44 @@ export default function ReviewPage({ params }: ReviewPageProps) {
     
     setIsSubmitting(true);
     try {
-      // TODO: Implement actual PDR submission via API
-      // For now, just simulate the submission process
-      console.log('🔧 Submitting PDR:', pdr.id);
+      console.log('🔧 Submitting PDR for review:', pdr.id);
       
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Call the actual submit-for-review API
+      const response = await fetch(`/api/pdrs/${pdr.id}/submit-for-review`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit PDR for review');
+      }
+
+      const result = await response.json();
+      console.log('✅ PDR submitted successfully:', result);
+
+      // Update PDR step to 4 (submitted for review)
+      await updatePDR({ currentStep: 4 });
+
+      // Trigger cache invalidation for dashboard
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('pdr-updated', { 
+          detail: { pdrId: pdr.id, step: 4, status: 'OPEN_FOR_REVIEW' } 
+        }));
+      }
+
+      // Show success message
+      toast.success('PDR submitted successfully! Your manager will review it shortly.');
+      console.log('✅ PDR submission completed successfully');
 
       // Redirect back to dashboard after successful submission
       router.push('/dashboard');
     } catch (error) {
-      console.error('Failed to submit PDR:', error);
-      // TODO: Show error toast
+      console.error('❌ Failed to submit PDR:', error);
+      // Show error message
+      toast.error(`Failed to submit PDR: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
       setShowSubmitConfirm(false);
@@ -200,6 +227,8 @@ export default function ReviewPage({ params }: ReviewPageProps) {
 
   return (
     <div className="space-y-6">
+      {/* Toast Container */}
+      <Toaster />
       {/* Page Header with integrated PDR Summary */}
       <div className="flex flex-col space-y-4">
         <div className="flex items-center justify-between">

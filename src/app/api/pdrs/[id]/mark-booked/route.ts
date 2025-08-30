@@ -5,7 +5,7 @@ import {
   handleApiError,
   authenticateRequest
 } from '@/lib/api-helpers';
-import { prisma } from '@/lib/db';
+import { createClient } from '@/lib/supabase/server';
 import { 
   validateStateTransition
 } from '@/lib/pdr-state-machine';
@@ -38,23 +38,21 @@ export async function POST(
       return createApiError('Only CEOs can mark meetings as booked', 403, 'INSUFFICIENT_PERMISSIONS');
     }
 
-    // Get PDR
-    const pdr = await prisma.pDR.findUnique({
-      where: { id: pdrId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true,
-          },
-        },
-      },
-    });
+    const supabase = await createClient();
 
-    if (!pdr) {
+    // Get PDR
+    const { data: pdr, error: pdrError } = await supabase
+      .from('pdrs')
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(
+          id, first_name, last_name, email, role
+        )
+      `)
+      .eq('id', pdrId)
+      .single();
+
+    if (pdrError || !pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
@@ -75,7 +73,7 @@ export async function POST(
     }
 
     // Check if already booked (idempotent operation)
-    if (pdr.meetingBooked) {
+    if (pdr.meeting_booked) {
       return createApiResponse(pdr); // Return current state, no-op
     }
 
@@ -91,34 +89,30 @@ export async function POST(
     }
 
     // Update PDR to mark meeting as booked
-    const updatedPdr = await prisma.pDR.update({
-      where: { id: pdrId },
-      data: {
+    const { data: updatedPdr, error: updateError } = await supabase
+      .from('pdrs')
+      .update({
         status: 'PDR_Booked',
-        meetingBooked: true,
-        meetingBookedAt: meetingDateTime || new Date(), // Use provided date or current date
-        updatedAt: new Date(),
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true,
-          },
-        },
-        period: true,
-        lockedByUser: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-      },
-    });
+        meeting_booked: true,
+        meeting_booked_at: (meetingDateTime || new Date()).toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', pdrId)
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(
+          id, first_name, last_name, email, role
+        ),
+        period:pdr_periods!pdrs_period_id_fkey(*),
+        locked_by_user:profiles!pdrs_locked_by_fkey(
+          id, first_name, last_name
+        )
+      `)
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
 
     return createApiResponse(updatedPdr);
   } catch (error) {

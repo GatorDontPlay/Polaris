@@ -182,47 +182,38 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   const onSubmit = async (data: MidYearFormData) => {
     setIsSubmitting(true);
     try {
-      // Save the mid-year review data
-      const reviewData = {
-        ...data,
-        submittedAt: new Date().toISOString(),
-        pdrId: params.id,
-        status: 'SUBMITTED'
-      };
-
-      // Save to localStorage for demo mode
-      localStorage.setItem(`mid_year_review_${params.id}`, JSON.stringify(reviewData));
-      
-      // Also save to a separate key for easier retrieval
-      localStorage.setItem(`demo_midyear_${params.id}`, JSON.stringify(reviewData));
-      
-      // Verify data was saved
-      const verifyData = localStorage.getItem(`demo_midyear_${params.id}`);
-      console.log('✅ Data verification - saved to localStorage:', verifyData ? 'SUCCESS' : 'FAILED');
-      if (verifyData) {
-        const parsed = JSON.parse(verifyData);
-        console.log('✅ Saved data contents:', {
-          progressSummary: parsed.progressSummary,
-          blockersChallenges: parsed.blockersChallenges,
-          supportNeeded: parsed.supportNeeded,
-          employeeComments: parsed.employeeComments,
-          submittedAt: parsed.submittedAt
-        });
-      }
-      
-      // Update PDR status and step
-      updatePdr({
-        currentStep: 5,
-        status: 'MID_YEAR_CHECK',
-        midYearCompleted: true,
-        midYearSubmittedAt: new Date().toISOString()
+      // Call the actual Supabase API
+      const response = await fetch(`/api/pdrs/${params.id}/mid-year`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          progressSummary: data.progressSummary,
+          blockersChallenges: data.blockersChallenges,
+          supportNeeded: data.supportNeeded,
+          employeeComments: data.employeeComments,
+        }),
       });
-      
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit mid-year review');
+      }
+
+      const result = await response.json();
+      console.log('✅ Mid-year review submitted successfully:', result);
+
+      // Invalidate React Query cache to refresh dashboard
+      if (typeof window !== 'undefined') {
+        // Trigger cache invalidation for dashboard
+        window.dispatchEvent(new CustomEvent('pdr-updated', { 
+          detail: { pdrId: params.id, step: 5, status: 'MID_YEAR_CHECK' } 
+        }));
+      }
+
       // Clear any draft data
       localStorage.removeItem(`mid_year_draft_${params.id}`);
-      
-      // Simulate API call delay and show success
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Show success message
       toast({
@@ -230,8 +221,6 @@ export default function MidYearPage({ params }: MidYearPageProps) {
         description: "Your mid-year check-in has been saved successfully! Moving to the end-year review phase.",
         variant: "default",
       });
-      
-
       
       // Navigate to end-year review
       router.push(`/pdr/${params.id}/end-year`);
@@ -241,7 +230,7 @@ export default function MidYearPage({ params }: MidYearPageProps) {
       // Show error message
       toast({
         title: "❌ Submission Failed",
-        description: "There was an error submitting your mid-year review. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error submitting your mid-year review. Please try again.",
         variant: "destructive",
       });
     } finally {

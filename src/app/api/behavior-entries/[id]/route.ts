@@ -6,7 +6,7 @@ import {
   authenticateRequest,
   validateRequestBody,
 } from '@/lib/api-helpers';
-import { prisma } from '@/lib/db';
+import { createClient } from '@/lib/supabase/server';
 import { createAuditLog } from '@/lib/auth';
 import { z } from 'zod';
 
@@ -33,64 +33,47 @@ export async function GET(
     const { user } = authResult;
     const entryId = params.id;
 
-    // Get behavior entry with related data
-    const behaviorEntry = await prisma.behaviorEntry.findUnique({
-      where: { id: entryId },
-      include: {
-        pdr: {
-          include: {
-            user: true,
-          },
-        },
-        value: true,
-        author: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true,
-          },
-        },
-        employeeEntry: {
-          include: {
-            value: true,
-            author: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                role: true,
-              },
-            },
-          },
-        },
-        ceoEntries: {
-          include: {
-            value: true,
-            author: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                role: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    const supabase = await createClient();
 
-    if (!behaviorEntry) {
+    // Get behavior entry with related data
+    const { data: behaviorEntry, error } = await supabase
+      .from('behavior_entries')
+      .select(`
+        *,
+        pdr:pdrs!behavior_entries_pdr_id_fkey(
+          *,
+          user:profiles!pdrs_user_id_fkey(*)
+        ),
+        value:company_values!behavior_entries_value_id_fkey(*),
+        author:profiles!behavior_entries_author_id_fkey(
+          id, first_name, last_name, email, role
+        ),
+        employee_entry:behavior_entries!behavior_entries_employee_entry_id_fkey(
+          *,
+          value:company_values(*),
+          author:profiles!behavior_entries_author_id_fkey(
+            id, first_name, last_name, email, role
+          )
+        ),
+        ceo_entries:behavior_entries!behavior_entries_employee_entry_id_fkey(
+          *,
+          value:company_values(*),
+          author:profiles!behavior_entries_author_id_fkey(
+            id, first_name, last_name, email, role
+          )
+        )
+      `)
+      .eq('id', entryId)
+      .single();
+
+    if (error || !behaviorEntry) {
       return createApiError('Behavior entry not found', 404, 'ENTRY_NOT_FOUND');
     }
 
     // Check access permissions
     const canView = user.role === 'CEO' || 
-                   behaviorEntry.pdr.userId === user.id || 
-                   behaviorEntry.authorId === user.id;
+                   behaviorEntry.pdr.user_id === user.id || 
+                   behaviorEntry.author_id === user.id;
 
     if (!canView) {
       return createApiError('Access denied', 403, 'ACCESS_DENIED');
@@ -177,35 +160,38 @@ export async function PATCH(
       return createApiResponse(mockUpdatedEntry);
     }
 
-    // Get behavior entry with PDR data
-    const behaviorEntry = await prisma.behaviorEntry.findUnique({
-      where: { id: entryId },
-      include: {
-        pdr: {
-          include: {
-            user: true,
-          },
-        },
-        author: true,
-      },
-    });
+    const supabase = await createClient();
 
-    if (!behaviorEntry) {
+    // Get behavior entry with PDR data
+    const { data: behaviorEntry, error: fetchError } = await supabase
+      .from('behavior_entries')
+      .select(`
+        *,
+        pdr:pdrs!behavior_entries_pdr_id_fkey(
+          *,
+          user:profiles!pdrs_user_id_fkey(*)
+        ),
+        author:profiles!behavior_entries_author_id_fkey(*)
+      `)
+      .eq('id', entryId)
+      .single();
+
+    if (fetchError || !behaviorEntry) {
       return createApiError('Behavior entry not found', 404, 'ENTRY_NOT_FOUND');
     }
 
     // Check access permissions - only the author can update their entry
-    if (behaviorEntry.authorId !== user.id) {
+    if (behaviorEntry.author_id !== user.id) {
       return createApiError('Only the author can update their entry', 403, 'ACCESS_DENIED');
     }
 
     // Check if PDR is locked (only affects employee entries)
-    if (behaviorEntry.pdr.isLocked && behaviorEntry.authorType === 'EMPLOYEE') {
+    if (behaviorEntry.pdr.is_locked && behaviorEntry.author_type === 'EMPLOYEE') {
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
     // Check if PDR allows editing for employees
-    if (behaviorEntry.authorType === 'EMPLOYEE' && 
+    if (behaviorEntry.author_type === 'EMPLOYEE' && 
         !['Created', 'DRAFT', 'SUBMITTED'].includes(behaviorEntry.pdr.status)) {
       return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
     }
@@ -214,59 +200,51 @@ export async function PATCH(
     const oldValues = {
       description: behaviorEntry.description,
       examples: behaviorEntry.examples,
-      selfAssessment: behaviorEntry.selfAssessment,
+      self_assessment: behaviorEntry.self_assessment,
       rating: behaviorEntry.rating,
       comments: behaviorEntry.comments,
     };
 
+    // Prepare update data with snake_case field names
+    const supabaseUpdateData: any = {};
+    if (updateData.description !== undefined) supabaseUpdateData.description = updateData.description;
+    if (updateData.examples !== undefined) supabaseUpdateData.examples = updateData.examples;
+    if (updateData.selfAssessment !== undefined) supabaseUpdateData.self_assessment = updateData.selfAssessment;
+    if (updateData.rating !== undefined) supabaseUpdateData.rating = updateData.rating;
+    if (updateData.comments !== undefined) supabaseUpdateData.comments = updateData.comments;
+    supabaseUpdateData.updated_at = new Date().toISOString();
+
     // Update the behavior entry
-    const updatedEntry = await prisma.behaviorEntry.update({
-      where: { id: entryId },
-      data: {
-        ...updateData,
-        updatedAt: new Date(),
-      },
-      include: {
-        value: true,
-        author: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true,
-          },
-        },
-        employeeEntry: {
-          include: {
-            value: true,
-            author: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                role: true,
-              },
-            },
-          },
-        },
-        ceoEntries: {
-          include: {
-            value: true,
-            author: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                role: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    const { data: updatedEntry, error: updateError } = await supabase
+      .from('behavior_entries')
+      .update(supabaseUpdateData)
+      .eq('id', entryId)
+      .select(`
+        *,
+        value:company_values!behavior_entries_value_id_fkey(*),
+        author:profiles!behavior_entries_author_id_fkey(
+          id, first_name, last_name, email, role
+        ),
+        employee_entry:behavior_entries!behavior_entries_employee_entry_id_fkey(
+          *,
+          value:company_values(*),
+          author:profiles!behavior_entries_author_id_fkey(
+            id, first_name, last_name, email, role
+          )
+        ),
+        ceo_entries:behavior_entries!behavior_entries_employee_entry_id_fkey(
+          *,
+          value:company_values(*),
+          author:profiles!behavior_entries_author_id_fkey(
+            id, first_name, last_name, email, role
+          )
+        )
+      `)
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
 
     // Create audit log
     await createAuditLog({
@@ -300,51 +278,59 @@ export async function DELETE(
     const { user } = authResult;
     const entryId = params.id;
 
-    // Get behavior entry with PDR data
-    const behaviorEntry = await prisma.behaviorEntry.findUnique({
-      where: { id: entryId },
-      include: {
-        pdr: {
-          include: {
-            user: true,
-          },
-        },
-        author: true,
-        ceoEntries: true, // Check if this employee entry has CEO entries linked to it
-      },
-    });
+    const supabase = await createClient();
 
-    if (!behaviorEntry) {
+    // Get behavior entry with PDR data
+    const { data: behaviorEntry, error: fetchError } = await supabase
+      .from('behavior_entries')
+      .select(`
+        *,
+        pdr:pdrs!behavior_entries_pdr_id_fkey(
+          *,
+          user:profiles!pdrs_user_id_fkey(*)
+        ),
+        author:profiles!behavior_entries_author_id_fkey(*),
+        ceo_entries:behavior_entries!behavior_entries_employee_entry_id_fkey(*)
+      `)
+      .eq('id', entryId)
+      .single();
+
+    if (fetchError || !behaviorEntry) {
       return createApiError('Behavior entry not found', 404, 'ENTRY_NOT_FOUND');
     }
 
     // Check access permissions - only the author or CEO can delete
-    const canDelete = behaviorEntry.authorId === user.id || user.role === 'CEO';
+    const canDelete = behaviorEntry.author_id === user.id || user.role === 'CEO';
 
     if (!canDelete) {
       return createApiError('Access denied', 403, 'ACCESS_DENIED');
     }
 
     // Check if PDR is locked (only affects employee entries)
-    if (behaviorEntry.pdr.isLocked && behaviorEntry.authorType === 'EMPLOYEE') {
+    if (behaviorEntry.pdr.is_locked && behaviorEntry.author_type === 'EMPLOYEE') {
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
     // Check if PDR allows editing for employees
-    if (behaviorEntry.authorType === 'EMPLOYEE' && 
+    if (behaviorEntry.author_type === 'EMPLOYEE' && 
         !['Created', 'DRAFT', 'SUBMITTED'].includes(behaviorEntry.pdr.status)) {
       return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
     }
 
     // If this is an employee entry with CEO entries linked to it, we can't delete it
-    if (behaviorEntry.authorType === 'EMPLOYEE' && behaviorEntry.ceoEntries.length > 0) {
+    if (behaviorEntry.author_type === 'EMPLOYEE' && behaviorEntry.ceo_entries && behaviorEntry.ceo_entries.length > 0) {
       return createApiError('Cannot delete employee entry that has CEO reviews linked to it', 400, 'HAS_LINKED_ENTRIES');
     }
 
     // Delete the behavior entry
-    await prisma.behaviorEntry.delete({
-      where: { id: entryId },
-    });
+    const { error: deleteError } = await supabase
+      .from('behavior_entries')
+      .delete()
+      .eq('id', entryId);
+
+    if (deleteError) {
+      throw deleteError;
+    }
 
     // Create audit log
     await createAuditLog({

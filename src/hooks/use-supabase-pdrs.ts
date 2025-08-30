@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/providers/supabase-auth-provider';
 import { computeAustralianFY } from '@/lib/financial-year';
@@ -62,7 +62,8 @@ export function useSupabasePDRDashboard() {
       console.log('Dashboard PDRs received:', pdrs?.map(p => ({ 
         id: p.id, 
         fyLabel: p.fyLabel || p.fy_label, 
-        status: p.status 
+        status: p.status,
+        currentStep: p.currentStep || p.current_step
       })));
       
       // Find active PDR (any non-closed PDR, regardless of FY)
@@ -76,16 +77,70 @@ export function useSupabasePDRDashboard() {
       console.log('PDR Search Results:', { 
         currentFY: currentFY.label,
         totalPDRs: pdrs.length,
-        activePDR: activePDR ? { id: activePDR.id, fyLabel: activePDR.fyLabel || activePDR.fy_label, status: activePDR.status } : null,
-        currentFYPDR: currentFYPDR ? { id: currentFYPDR.id, fyLabel: currentFYPDR.fyLabel || currentFYPDR.fy_label, status: currentFYPDR.status } : null,
-        allPDRStatuses: pdrs.map(p => ({ fyLabel: p.fyLabel || p.fy_label, status: p.status }))
+        activePDR: activePDR ? { 
+          id: activePDR.id, 
+          fyLabel: activePDR.fyLabel || activePDR.fy_label, 
+          status: activePDR.status,
+          currentStep: activePDR.currentStep || activePDR.current_step
+        } : null,
+        currentFYPDR: currentFYPDR ? { 
+          id: currentFYPDR.id, 
+          fyLabel: currentFYPDR.fyLabel || currentFYPDR.fy_label, 
+          status: currentFYPDR.status,
+          currentStep: currentFYPDR.currentStep || currentFYPDR.current_step
+        } : null,
+        allPDRStatuses: pdrs.map(p => ({ 
+          fyLabel: p.fyLabel || p.fy_label, 
+          status: p.status,
+          currentStep: p.currentStep || p.current_step
+        }))
       });
       
-      return activePDR || null;
+      // Ensure field consistency for the returned PDR
+      if (activePDR) {
+        console.log('Dashboard - Processing active PDR:', {
+          id: activePDR.id,
+          goals: activePDR.goals?.length || 0,
+          behaviors: activePDR.behaviors?.length || 0,
+          currentStep: activePDR.currentStep || activePDR.current_step
+        });
+        
+        return {
+          ...activePDR,
+          currentStep: activePDR.currentStep || activePDR.current_step || 1,
+          fyLabel: activePDR.fyLabel || activePDR.fy_label,
+          isLocked: activePDR.isLocked !== undefined ? activePDR.isLocked : activePDR.is_locked,
+          meetingBooked: activePDR.meetingBooked !== undefined ? activePDR.meetingBooked : activePDR.meeting_booked,
+          // Ensure goals and behaviors are properly accessible
+          goals: activePDR.goals || [],
+          behaviors: activePDR.behaviors || [],
+          midYearReview: activePDR.midYearReview || activePDR.mid_year_review,
+          endYearReview: activePDR.endYearReview || activePDR.end_year_review,
+        };
+      }
+      
+      return null;
     },
     enabled: !!user?.id, // Only run if user is loaded
     staleTime: 30 * 1000, // 30 seconds
   });
+
+  // Listen for PDR updates to invalidate cache
+  useEffect(() => {
+    const handlePDRUpdate = (event: CustomEvent) => {
+      console.log('PDR updated, invalidating cache:', event.detail);
+      queryClient.invalidateQueries({ queryKey: ['user-current-pdr', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['pdr', event.detail?.pdrId] });
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pdr-updated', handlePDRUpdate as EventListener);
+      
+      return () => {
+        window.removeEventListener('pdr-updated', handlePDRUpdate as EventListener);
+      };
+    }
+  }, [queryClient, user?.id]);
 
   // Create PDR mutation
   const createPDRMutation = useMutation({

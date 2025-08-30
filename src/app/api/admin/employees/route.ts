@@ -7,7 +7,7 @@ import {
   extractPagination,
   createPaginatedResponse,
 } from '@/lib/api-helpers';
-import { prisma } from '@/lib/db';
+import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,76 +30,43 @@ export async function GET(request: NextRequest) {
     const role = url.searchParams.get('role');
     const status = url.searchParams.get('status');
 
-    // Build where clause
-    const whereClause: any = {
-      role: role || 'EMPLOYEE', // Default to employees only
-    };
+    const supabase = await createClient();
 
+    // Build query for Supabase
+    let query = supabase
+      .from('profiles')
+      .select(`
+        *,
+        pdrs (
+          *,
+          period:pdr_periods (name, start_date, end_date),
+          goals (employee_rating, ceo_rating),
+          behaviors (employee_rating, ceo_rating),
+          end_year_review:end_year_reviews (employee_overall_rating, ceo_overall_rating)
+        )
+      `, { count: 'exact' })
+      .eq('role', role || 'EMPLOYEE')
+      .order('last_name', { ascending: true })
+      .order('first_name', { ascending: true })
+      .range(offset, offset + limit - 1);
+
+    // Apply search filter
     if (search) {
-      whereClause.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-      ];
+      query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`);
     }
 
+    // Apply status filter
     if (status === 'active') {
-      whereClause.isActive = true;
+      query = query.eq('is_active', true);
     } else if (status === 'inactive') {
-      whereClause.isActive = false;
+      query = query.eq('is_active', false);
     }
 
-    // Get total count
-    const total = await prisma.user.count({ where: whereClause });
+    const { data: employees, error, count: total } = await query;
 
-    // Get employees with their PDR data
-    const employees = await prisma.user.findMany({
-      where: whereClause,
-      include: {
-        pdrs: {
-          include: {
-            period: {
-              select: {
-                name: true,
-                startDate: true,
-                endDate: true,
-              },
-            },
-            goals: {
-              select: {
-                employeeRating: true,
-                ceoRating: true,
-              },
-            },
-            behaviors: {
-              select: {
-                employeeRating: true,
-                ceoRating: true,
-              },
-            },
-            endYearReview: {
-              select: {
-                employeeOverallRating: true,
-                ceoOverallRating: true,
-              },
-            },
-            _count: {
-              select: {
-                goals: true,
-                behaviors: true,
-              },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-      orderBy: [
-        { lastName: 'asc' },
-        { firstName: 'asc' },
-      ],
-      skip: offset,
-      take: limit,
-    });
+    if (error) {
+      throw error;
+    }
 
     // Process employee data with calculated metrics
     const processedEmployees = employees.map(employee => {
@@ -110,18 +77,18 @@ export async function GET(request: NextRequest) {
 
       // Calculate average rating from completed PDRs
       const completedWithRatings = pdrs.filter(pdr => 
-        pdr.status === 'COMPLETED' && pdr.endYearReview?.ceoOverallRating
+        pdr.status === 'COMPLETED' && pdr.end_year_review?.ceo_overall_rating
       );
       const averageRating = completedWithRatings.length > 0
         ? completedWithRatings.reduce((sum, pdr) => 
-            sum + (pdr.endYearReview?.ceoOverallRating || 0), 0
+            sum + (pdr.end_year_review?.ceo_overall_rating || 0), 0
           ) / completedWithRatings.length
         : 0;
 
       // Add calculated fields to PDRs
       const pdrsWithCalc = pdrs.map(pdr => {
-        const goalRatings = pdr.goals.filter(g => g.ceoRating).map(g => g.ceoRating!);
-        const behaviorRatings = pdr.behaviors.filter(b => b.ceoRating).map(b => b.ceoRating!);
+        const goalRatings = pdr.goals.filter(g => g.ceo_rating).map(g => g.ceo_rating!);
+        const behaviorRatings = pdr.behaviors.filter(b => b.ceo_rating).map(b => b.ceo_rating!);
 
         const averageGoalRating = goalRatings.length > 0
           ? goalRatings.reduce((sum, rating) => sum + rating, 0) / goalRatings.length

@@ -184,6 +184,48 @@ export function getPDRPermissions(
           readOnlyReason: 'PDR meeting has been booked',
         };
 
+      case 'SUBMITTED':
+        return {
+          ...basePermissions,
+          canView: true,
+          canViewEmployeeFields: true,
+          readOnlyReason: 'PDR has been submitted for review',
+        };
+
+      case 'UNDER_REVIEW':
+        return {
+          ...basePermissions,
+          canView: true,
+          canViewEmployeeFields: true,
+          readOnlyReason: 'PDR is under review by CEO',
+        };
+
+      case 'MID_YEAR_CHECK':
+        return {
+          ...basePermissions,
+          canView: true,
+          canViewEmployeeFields: true,
+          canEdit: true,
+          canEditEmployeeFields: true,
+        };
+
+      case 'END_YEAR_REVIEW':
+        return {
+          ...basePermissions,
+          canView: true,
+          canViewEmployeeFields: true,
+          canEdit: true,
+          canEditEmployeeFields: true,
+        };
+
+      case 'COMPLETED':
+        return {
+          ...basePermissions,
+          canView: true,
+          canViewEmployeeFields: true,
+          readOnlyReason: 'PDR process has been completed',
+        };
+
       default:
         return basePermissions;
     }
@@ -227,6 +269,55 @@ export function getPDRPermissions(
           canViewEmployeeFields: true,
           canViewCeoFields: true,
           readOnlyReason: 'PDR meeting has been booked',
+        };
+
+      case 'SUBMITTED':
+        return {
+          ...basePermissions,
+          canView: true,
+          canEdit: true,
+          canViewEmployeeFields: true,
+          canViewCeoFields: true,
+          canEditCeoFields: true,
+        };
+
+      case 'UNDER_REVIEW':
+        return {
+          ...basePermissions,
+          canView: true,
+          canEdit: true,
+          canViewEmployeeFields: true,
+          canViewCeoFields: true,
+          canEditCeoFields: true,
+        };
+
+      case 'MID_YEAR_CHECK':
+        return {
+          ...basePermissions,
+          canView: true,
+          canEdit: true,
+          canViewEmployeeFields: true,
+          canViewCeoFields: true,
+          canEditCeoFields: true,
+        };
+
+      case 'END_YEAR_REVIEW':
+        return {
+          ...basePermissions,
+          canView: true,
+          canEdit: true,
+          canViewEmployeeFields: true,
+          canViewCeoFields: true,
+          canEditCeoFields: true,
+        };
+
+      case 'COMPLETED':
+        return {
+          ...basePermissions,
+          canView: true,
+          canViewEmployeeFields: true,
+          canViewCeoFields: true,
+          readOnlyReason: 'PDR process has been completed',
         };
 
       default:
@@ -280,9 +371,7 @@ export function validateTransitionRequirements(
             if (!behavior.description?.trim()) {
               errors.push('All behavior assessments must have a description');
             }
-            if (!behavior.employeeSelfAssessment?.trim()) {
-              errors.push('All behavior assessments must have a self-assessment');
-            }
+            // Note: Self-assessment validation removed as it's not currently required in the form
           }
         }
         break;

@@ -5,7 +5,7 @@ import {
   handleApiError,
   authenticateRequest
 } from '@/lib/api-helpers';
-import { prisma } from '@/lib/db';
+import { createClient } from '@/lib/supabase/server';
 import { 
   validateStateTransition,
   validateTransitionRequirements,
@@ -32,21 +32,24 @@ export async function POST(
       return createApiError('Only CEOs can submit reviews', 403, 'INSUFFICIENT_PERMISSIONS');
     }
 
-    // Get PDR with all relations for validation
-    const pdr = await prisma.pDR.findUnique({
-      where: { id: pdrId },
-      include: {
-        user: true,
-        goals: true,
-        behaviors: {
-          include: {
-            value: true,
-          },
-        },
-      },
-    });
+    const supabase = await createClient();
 
-    if (!pdr) {
+    // Get PDR with all relations for validation
+    const { data: pdr, error: pdrError } = await supabase
+      .from('pdrs')
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(*),
+        goals(*),
+        behaviors(
+          *,
+          value:company_values!behaviors_value_id_fkey(*)
+        )
+      `)
+      .eq('id', pdrId)
+      .single();
+
+    if (pdrError || !pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
@@ -86,53 +89,53 @@ export async function POST(
     }
 
     // Update PDR status and lock it
-    const updatedPdr = await prisma.pDR.update({
-      where: { id: pdrId },
-      data: {
+    const { data: updatedPdr, error: updateError } = await supabase
+      .from('pdrs')
+      .update({
         status: 'PLAN_LOCKED',
-        lockedAt: new Date(),
-        lockedBy: user.id,
-        isLocked: true,
-        updatedAt: new Date(),
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true,
-          },
-        },
-        period: true,
-        goals: true,
-        behaviors: {
-          include: {
-            value: true,
-          },
-        },
-        lockedByUser: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-      },
-    });
+        locked_at: new Date().toISOString(),
+        locked_by: user.id,
+        is_locked: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', pdrId)
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(
+          id, first_name, last_name, email, role
+        ),
+        period:pdr_periods!pdrs_period_id_fkey(*),
+        goals(*),
+        behaviors(
+          *,
+          value:company_values!behaviors_value_id_fkey(*)
+        ),
+        locked_by_user:profiles!pdrs_locked_by_fkey(
+          id, first_name, last_name
+        )
+      `)
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
 
     // Create notification for employee
     const notificationData = createPDRNotification(
       pdrId,
-      pdr.userId,
+      pdr.user_id,
       'PDR_LOCKED',
       `${user.firstName} ${user.lastName}`
     );
 
-    await prisma.notification.create({
-      data: notificationData,
-    });
+    const { error: notificationError } = await supabase
+      .from('notifications')
+      .insert(notificationData);
+
+    if (notificationError) {
+      console.error('Failed to create notification:', notificationError);
+      // Don't fail the request if notification creation fails
+    }
 
     return createApiResponse(updatedPdr);
   } catch (error) {

@@ -150,27 +150,29 @@ export async function DELETE(
     const { user } = authResult;
     const goalId = params.id;
 
-    // Get goal with PDR and verify access
-    const goal = await prisma.goal.findUnique({
-      where: { id: goalId },
-      include: {
-        pdr: {
-          include: { user: true },
-        },
-      },
-    });
+    const supabase = await createClient();
 
-    if (!goal) {
+    // Get goal with PDR and verify access
+    const { data: goal, error: goalError } = await supabase
+      .from('goals')
+      .select(`
+        *,
+        pdr:pdrs(*, user:profiles!pdrs_user_id_fkey(*))
+      `)
+      .eq('id', goalId)
+      .single();
+
+    if (goalError || !goal) {
       return createApiError('Goal not found', 404, 'GOAL_NOT_FOUND');
     }
 
     // Check access permissions
-    if (user.role !== 'CEO' && goal.pdr.userId !== user.id) {
+    if (user.role !== 'CEO' && goal.pdr.user_id !== user.id) {
       return createApiError('Access denied', 403, 'ACCESS_DENIED');
     }
 
     // Check if PDR is locked
-    if (goal.pdr.isLocked) {
+    if (goal.pdr.is_locked) {
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
@@ -180,9 +182,14 @@ export async function DELETE(
     }
 
     // Delete the goal
-    await prisma.goal.delete({
-      where: { id: goalId },
-    });
+    const { error: deleteError } = await supabase
+      .from('goals')
+      .delete()
+      .eq('id', goalId);
+
+    if (deleteError) {
+      throw deleteError;
+    }
 
     // Create audit log
     await createAuditLog({

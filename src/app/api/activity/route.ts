@@ -1,47 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
-import { authenticateUser } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
+import { authenticateRequest } from '@/lib/api-helpers';
 import { ApiResponse, ActivityItem } from '@/types';
 
 export async function GET(request: NextRequest) {
   try {
     // Authenticate user
-    const authResult = await authenticateUser(request);
-    if (!authResult.success || !authResult.user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const authResult = await authenticateRequest(request);
+    if (!authResult.success) {
+      return authResult.response;
     }
 
     const { user } = authResult;
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '10');
 
+    const supabase = await createClient();
+
     // Fetch recent audit logs for the current user
-    const recentActivity = await prisma.auditLog.findMany({
-      where: {
-        changedBy: user.id,
-        // Only include relevant table changes
-        tableName: {
-          in: ['pdrs', 'goals', 'behaviors', 'mid_year_reviews', 'end_year_reviews']
-        }
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        }
-      },
-      orderBy: {
-        changedAt: 'desc'
-      },
-      take: limit
-    });
+    const { data: recentActivity, error } = await supabase
+      .from('audit_logs')
+      .select(`
+        *,
+        user:profiles!audit_logs_user_id_fkey(
+          id, first_name, last_name, email
+        )
+      `)
+      .eq('user_id', user.id)
+      .in('table_name', ['pdrs', 'goals', 'behaviors', 'mid_year_reviews', 'end_year_reviews'])
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw error;
+    }
 
     // Process audit logs into activity items
     const processedActivity: ActivityItem[] = recentActivity
@@ -50,11 +42,11 @@ export async function GET(request: NextRequest) {
         let message = '';
         let priority: 'low' | 'medium' | 'high' = 'low';
 
-        switch (log.tableName) {
+        switch (log.table_name) {
           case 'pdrs':
             if (log.action === 'UPDATE') {
-              const newValues = log.newValues as any;
-              const oldValues = log.oldValues as any;
+              const newValues = log.new_values as any;
+              const oldValues = log.old_values as any;
               
               // Check if status changed
               if (newValues?.status && newValues.status !== oldValues?.status) {
@@ -83,7 +75,7 @@ export async function GET(request: NextRequest) {
                     message = `updated PDR status to ${newValues.status.replace('_', ' ').toLowerCase()}`;
                     priority = 'low';
                 }
-              } else if (newValues?.meetingBooked && !oldValues?.meetingBooked) {
+              } else if (newValues?.meeting_booked && !oldValues?.meeting_booked) {
                 message = 'booked PDR review meeting';
                 priority = 'medium';
               } else {
@@ -102,10 +94,10 @@ export async function GET(request: NextRequest) {
               message = 'added a new goal';
               priority = 'low';
             } else if (log.action === 'UPDATE') {
-              const newValues = log.newValues as any;
-              const oldValues = log.oldValues as any;
+              const newValues = log.new_values as any;
+              const oldValues = log.old_values as any;
               
-              if (newValues?.employeeRating && newValues.employeeRating !== oldValues?.employeeRating) {
+              if (newValues?.employee_rating && newValues.employee_rating !== oldValues?.employee_rating) {
                 type = 'goal_added';
                 message = 'self-rated a goal';
                 priority = 'low';
@@ -123,10 +115,10 @@ export async function GET(request: NextRequest) {
               message = 'added behavior assessment';
               priority = 'low';
             } else if (log.action === 'UPDATE') {
-              const newValues = log.newValues as any;
-              const oldValues = log.oldValues as any;
+              const newValues = log.new_values as any;
+              const oldValues = log.old_values as any;
               
-              if (newValues?.employeeRating && newValues.employeeRating !== oldValues?.employeeRating) {
+              if (newValues?.employee_rating && newValues.employee_rating !== oldValues?.employee_rating) {
                 type = 'behavior_assessed';
                 message = 'self-rated behavior';
                 priority = 'low';
@@ -173,7 +165,7 @@ export async function GET(request: NextRequest) {
             email: user.email 
           },
           message,
-          timestamp: log.changedAt,
+          timestamp: log.created_at,
           priority,
         };
       })

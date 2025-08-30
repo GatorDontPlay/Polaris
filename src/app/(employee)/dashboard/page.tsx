@@ -72,182 +72,66 @@ export default function EmployeeDashboard() {
 
   // Calculate dashboard stats from real data
   const calculateDashboardStats = () => {
-    // Active Goals - count goals from current PDR
-    const activeGoals = currentPDR ? (() => {
-      const savedGoals = localStorage.getItem(`demo_goals_${currentPDR.id}`);
-      if (savedGoals) {
-        try {
-          const goals = JSON.parse(savedGoals);
-          return Array.isArray(goals) ? goals.length : 0;
-        } catch {
-          return 0;
-        }
-      }
-      return 0;
-    })() : 0;
+    // Active Goals - count goals from current PDR (use real Supabase data)
+    const activeGoals = currentPDR?.goals?.length || 0;
 
     // PDR Status - get status of current PDR
     const pdrStatus = currentPDR ? currentPDR.status : null;
 
-    // Your Self-Assessed Score - calculate from current PDR's self-assessment
+    // Your Self-Assessed Score - calculate from current PDR's self-assessment (use real Supabase data)
     const selfAssessedScore = currentPDR ? (() => {
       // Collect all the ratings from both goals and behaviors
       let totalSelfRating = 0;
       let selfRatingCount = 0;
       let detailedScores: Array<{score: number, title: string, type: string, description?: string}> = [];
       
-      // Check for goal self-assessments
-      const savedGoals = localStorage.getItem(`demo_goals_${currentPDR.id}`);
-      if (savedGoals) {
-        try {
-          const goals = JSON.parse(savedGoals);
-          goals.forEach((goal: any) => {
-            if (goal.employeeRating) {
-              totalSelfRating += goal.employeeRating;
-              selfRatingCount++;
-              detailedScores.push({
-                score: goal.employeeRating,
-                title: goal.title || 'Goal',
-                type: 'Goal',
-                description: goal.description
-              });
-            }
-          });
-        } catch (e) {
-          console.error('Error parsing goals for ratings:', e);
-        }
+      // Check for goal self-assessments from real Supabase data
+      if (currentPDR.goals && Array.isArray(currentPDR.goals)) {
+        currentPDR.goals.forEach((goal: any) => {
+          if (goal.employeeRating || goal.employee_rating) {
+            const rating = goal.employeeRating || goal.employee_rating;
+            totalSelfRating += rating;
+            selfRatingCount++;
+            detailedScores.push({
+              score: rating,
+              title: goal.title || 'Goal',
+              type: 'Goal',
+              description: goal.description
+            });
+          }
+        });
       }
       
-      // Check for behavior self-assessments
-      const savedBehaviors = localStorage.getItem(`demo_behaviors_${currentPDR.id}`);
-      const companyValues = localStorage.getItem('demo_company_values');
-      let valueMap: Record<string, string> = {};
-      
-      // Use hardcoded company values for consistency - only the 4 scorable values
-      const demoCompanyValues = [
-        { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Lean Thinking' },
-        { id: '550e8400-e29b-41d4-a716-446655440002', name: 'Craftsmanship' },
-        { id: '550e8400-e29b-41d4-a716-446655440003', name: 'Value-Centric Innovation' },
-        { id: '550e8400-e29b-41d4-a716-446655440004', name: 'Blameless Problem-Solving' }
-      ];
-      
-      // IDs of informational-only values that should be excluded from scoring
-      const informationalValueIds = [
-        '550e8400-e29b-41d4-a716-446655440005', // Self Reflection
-        '550e8400-e29b-41d4-a716-446655440006'  // CodeFish 3D
-      ];
-      
-      // Create a map of value IDs to their names
-      demoCompanyValues.forEach(value => {
-        valueMap[value.id] = value.name;
-      });
-      
-      // Also try loading from localStorage if available
-      if (companyValues) {
-        try {
-          const values = JSON.parse(companyValues);
-          values.forEach((value: any) => {
-            if (value.id && value.name) {
-              valueMap[value.id] = value.name;
-            }
-          });
-        } catch (e) {
-          console.error('Error parsing company values:', e);
-        }
+      // Check for behavior self-assessments from real Supabase data
+      if (currentPDR.behaviors && Array.isArray(currentPDR.behaviors)) {
+        currentPDR.behaviors.forEach((behavior: any) => {
+          const rating = behavior.employeeRating || behavior.employee_rating;
+          if (rating) {
+            totalSelfRating += rating;
+            selfRatingCount++;
+            const valueName = behavior.value?.name || behavior.companyValue?.name || 'Company Value';
+            detailedScores.push({
+              score: rating,
+              title: valueName,
+              type: 'Behavior',
+              description: behavior.description || behavior.employee_self_assessment
+            });
+          }
+        });
       }
       
-      if (savedBehaviors) {
-        try {
-          const behaviors = JSON.parse(savedBehaviors);
-          behaviors.forEach((behavior: any) => {
-            // Skip informational-only values
-            if (behavior.valueId && informationalValueIds.includes(behavior.valueId)) {
-              return;
-            }
-            
-            if (behavior.employeeRating) {
-              totalSelfRating += behavior.employeeRating;
-              selfRatingCount++;
-              const valueName = behavior.valueId && valueMap[behavior.valueId] ? valueMap[behavior.valueId] : 'Company Value';
-              detailedScores.push({
-                score: behavior.employeeRating,
-                title: valueName,
-                type: 'Behavior',
-                description: behavior.description
-              });
-            }
+      // Check for end-year self-assessments from real Supabase data
+      if (currentPDR.endYearReview || currentPDR.end_year_review) {
+        const endYearReview = currentPDR.endYearReview || currentPDR.end_year_review;
+        if (endYearReview && endYearReview.employee_overall_rating) {
+          totalSelfRating += endYearReview.employee_overall_rating;
+          selfRatingCount++;
+          detailedScores.push({
+            score: endYearReview.employee_overall_rating,
+            title: 'End-Year Overall',
+            type: 'End-Year Review',
+            description: endYearReview.employee_reflection || 'Overall self-assessment'
           });
-        } catch (e) {
-          console.error('Error parsing behaviors for ratings:', e);
-        }
-      }
-      
-      // Check for end-year self-assessments (more detailed)
-      const endYearGoals = localStorage.getItem(`end_year_goal_assessments_${currentPDR.id}`);
-      const endYearBehaviors = localStorage.getItem(`end_year_behavior_assessments_${currentPDR.id}`);
-      
-      if (endYearGoals) {
-        try {
-          const goalAssessments = JSON.parse(endYearGoals);
-          Object.entries(goalAssessments).forEach(([goalId, assessment]: [string, any]) => {
-            if (assessment.rating) {
-              // Try to find goal details
-              let goalTitle = 'Goal Assessment';
-              let goalDescription;
-              if (savedGoals) {
-                try {
-                  const goals = JSON.parse(savedGoals);
-                  const matchingGoal = goals.find((g: any) => g.id === goalId);
-                  if (matchingGoal) {
-                    goalTitle = matchingGoal.title || goalTitle;
-                    goalDescription = matchingGoal.description;
-                  }
-                } catch {}
-              }
-              
-              totalSelfRating += assessment.rating;
-              selfRatingCount++;
-              detailedScores.push({
-                score: assessment.rating,
-                title: goalTitle,
-                type: 'End-Year Goal',
-                description: assessment.reflection || goalDescription
-              });
-            }
-          });
-        } catch (e) {
-          console.error('Error parsing end-year goal assessments:', e);
-        }
-      }
-      
-      if (endYearBehaviors) {
-        try {
-          const behaviorAssessments = JSON.parse(endYearBehaviors);
-          Object.entries(behaviorAssessments).forEach(([behaviorId, assessment]: [string, any]) => {
-            // Skip informational-only values
-            if (informationalValueIds.includes(behaviorId)) {
-              return;
-            }
-            
-            if (assessment.rating) {
-              // Try to find behavior value name
-              let valueName = 'Behavior Assessment';
-              if (valueMap[behaviorId]) {
-                valueName = valueMap[behaviorId];
-              }
-              
-              totalSelfRating += assessment.rating;
-              selfRatingCount++;
-              detailedScores.push({
-                score: assessment.rating,
-                title: valueName,
-                type: 'End-Year Behavior',
-                description: assessment.reflection
-              });
-            }
-          });
-        } catch (e) {
-          console.error('Error parsing end-year behavior assessments:', e);
         }
       }
       
@@ -375,7 +259,7 @@ export default function EmployeeDashboard() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold">
-            Welcome back, {user.firstName}!
+            Welcome back, {user.firstName || user.first_name || 'User'}!
           </h1>
           <p className="mt-2 text-white">
             Manage your performance and development reviews
@@ -407,6 +291,8 @@ export default function EmployeeDashboard() {
                      stats.pdrStatus === 'Created' ? 'In Progress' :
                      stats.pdrStatus === 'SUBMITTED' ? 'Submitted' :
                      stats.pdrStatus === 'OPEN_FOR_REVIEW' || stats.pdrStatus === 'PLAN_LOCKED' || stats.pdrStatus === 'UNDER_REVIEW' ? 'Under Review' :
+                     stats.pdrStatus === 'MID_YEAR_CHECK' ? 'Mid-Year Review' :
+                     stats.pdrStatus === 'END_YEAR_REVIEW' ? 'End-Year Review' :
                      stats.pdrStatus === 'COMPLETED' ? 'Completed' : '-'}
                   </p>
                   {stats.pdrStatus === 'SUBMITTED' && (
@@ -514,6 +400,8 @@ export default function EmployeeDashboard() {
                     {currentPDR.status === 'OPEN_FOR_REVIEW' && 'Under Review'}
                     {currentPDR.status === 'PLAN_LOCKED' && 'Under Review'}
                     {currentPDR.status === 'UNDER_REVIEW' && 'Under Review'}
+                    {currentPDR.status === 'MID_YEAR_CHECK' && 'Mid-Year Review'}
+                    {currentPDR.status === 'END_YEAR_REVIEW' && 'End-Year Review'}
                     {currentPDR.status === 'COMPLETED' && 'Completed'}
                   </Badge>
                   
@@ -530,21 +418,21 @@ export default function EmployeeDashboard() {
                   {/* Goals */}
                   <div 
                     className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                      currentPDR.currentStep >= 1 
+(currentPDR.currentStep || currentPDR.current_step || 1) >= 1 
                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20' 
                         : 'bg-muted/50 text-muted-foreground border border-border/50'
                     }`}
-                    onClick={() => currentPDR.currentStep >= 1 && router.push(`/pdr/${currentPDR.id}/goals`)}
-                    role={currentPDR.currentStep >= 1 ? "button" : undefined}
-                    tabIndex={currentPDR.currentStep >= 1 ? 0 : undefined}
+onClick={() => (currentPDR.currentStep || currentPDR.current_step || 1) >= 1 && router.push(`/pdr/${currentPDR.id}/goals`)}
+role={(currentPDR.currentStep || currentPDR.current_step || 1) >= 1 ? "button" : undefined}
+tabIndex={(currentPDR.currentStep || currentPDR.current_step || 1) >= 1 ? 0 : undefined}
                     onKeyDown={(e) => {
-                      if (currentPDR.currentStep >= 1 && (e.key === 'Enter' || e.key === ' ')) {
+if ((currentPDR.currentStep || currentPDR.current_step || 1) >= 1 && (e.key === 'Enter' || e.key === ' ')) {
                         e.preventDefault();
                         router.push(`/pdr/${currentPDR.id}/goals`);
                       }
                     }}
                   >
-                    {currentPDR.currentStep >= 1 ? (
+{(currentPDR.currentStep || currentPDR.current_step || 1) >= 1 ? (
                       <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
                     ) : (
                       <Target className="h-4 w-4 flex-shrink-0" />
@@ -558,21 +446,21 @@ export default function EmployeeDashboard() {
                   {/* Behaviors */}
                   <div 
                     className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                      currentPDR.currentStep >= 2 
+(currentPDR.currentStep || currentPDR.current_step || 1) >= 2 
                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20' 
                         : 'bg-muted/50 text-muted-foreground border border-border/50'
                     }`}
-                    onClick={() => currentPDR.currentStep >= 2 && router.push(`/pdr/${currentPDR.id}/behaviors`)}
-                    role={currentPDR.currentStep >= 2 ? "button" : undefined}
-                    tabIndex={currentPDR.currentStep >= 2 ? 0 : undefined}
+onClick={() => (currentPDR.currentStep || currentPDR.current_step || 1) >= 2 && router.push(`/pdr/${currentPDR.id}/behaviors`)}
+role={(currentPDR.currentStep || currentPDR.current_step || 1) >= 2 ? "button" : undefined}
+tabIndex={(currentPDR.currentStep || currentPDR.current_step || 1) >= 2 ? 0 : undefined}
                     onKeyDown={(e) => {
-                      if (currentPDR.currentStep >= 2 && (e.key === 'Enter' || e.key === ' ')) {
+if ((currentPDR.currentStep || currentPDR.current_step || 1) >= 2 && (e.key === 'Enter' || e.key === ' ')) {
                         e.preventDefault();
                         router.push(`/pdr/${currentPDR.id}/behaviors`);
                       }
                     }}
                   >
-                    {currentPDR.currentStep >= 2 ? (
+{(currentPDR.currentStep || currentPDR.current_step || 1) >= 2 ? (
                       <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
                     ) : (
                       <TrendingUp className="h-4 w-4 flex-shrink-0" />
@@ -586,21 +474,21 @@ export default function EmployeeDashboard() {
                   {/* Review */}
                   <div 
                     className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                      currentPDR.currentStep >= 3 
+(currentPDR.currentStep || currentPDR.current_step || 1) >= 3 
                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20' 
                         : 'bg-muted/50 text-muted-foreground border border-border/50'
                     }`}
-                    onClick={() => currentPDR.currentStep >= 3 && router.push(`/pdr/${currentPDR.id}/review`)}
-                    role={currentPDR.currentStep >= 3 ? "button" : undefined}
-                    tabIndex={currentPDR.currentStep >= 3 ? 0 : undefined}
+onClick={() => (currentPDR.currentStep || currentPDR.current_step || 1) >= 3 && router.push(`/pdr/${currentPDR.id}/review`)}
+role={(currentPDR.currentStep || currentPDR.current_step || 1) >= 3 ? "button" : undefined}
+tabIndex={(currentPDR.currentStep || currentPDR.current_step || 1) >= 3 ? 0 : undefined}
                     onKeyDown={(e) => {
-                      if (currentPDR.currentStep >= 3 && (e.key === 'Enter' || e.key === ' ')) {
+if ((currentPDR.currentStep || currentPDR.current_step || 1) >= 3 && (e.key === 'Enter' || e.key === ' ')) {
                         e.preventDefault();
                         router.push(`/pdr/${currentPDR.id}/review`);
                       }
                     }}
                   >
-                    {currentPDR.currentStep >= 3 ? (
+{(currentPDR.currentStep || currentPDR.current_step || 1) >= 3 ? (
                       <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
                     ) : (
                       <FileText className="h-4 w-4 flex-shrink-0" />
@@ -617,23 +505,23 @@ export default function EmployeeDashboard() {
                       <TooltipTrigger asChild>
                         <div 
                           className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                            currentPDR.currentStep >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)
+      (currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)
                               ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20' 
                               : currentPDR.status === 'SUBMITTED'
                               ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 opacity-70'
                               : 'bg-muted/50 text-muted-foreground border border-border/50'
                           }`}
-                          onClick={() => (currentPDR.currentStep >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) && router.push(`/pdr/${currentPDR.id}/mid-year`)}
-                          role={(currentPDR.currentStep >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) ? "button" : undefined}
-                          tabIndex={(currentPDR.currentStep >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) ? 0 : undefined}
+onClick={() => ((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) && router.push(`/pdr/${currentPDR.id}/mid-year`)}
+role={((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) ? "button" : undefined}
+tabIndex={((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) ? 0 : undefined}
                           onKeyDown={(e) => {
-                            if ((currentPDR.currentStep >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) && (e.key === 'Enter' || e.key === ' ')) {
+if (((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) && (e.key === 'Enter' || e.key === ' ')) {
                               e.preventDefault();
                               router.push(`/pdr/${currentPDR.id}/mid-year`);
                             }
                           }}
                         >
-                          {currentPDR.currentStep >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status) ? (
+{(currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status) ? (
                             <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
                           ) : currentPDR.status === 'SUBMITTED' ? (
                             <Lock className="h-4 w-4 flex-shrink-0" />
@@ -644,7 +532,7 @@ export default function EmployeeDashboard() {
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="max-w-[250px]">
-                        {currentPDR.currentStep >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status) 
+{(currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status) 
                           ? "Click to access your Mid-Year Check-in"
                           : currentPDR.status === 'SUBMITTED'
                           ? "Waiting for manager review before Mid-Year Check-in becomes available"
@@ -660,21 +548,21 @@ export default function EmployeeDashboard() {
                   {/* End-Year */}
                   <div 
                     className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                      currentPDR.currentStep >= 5 
+(currentPDR.currentStep || currentPDR.current_step || 1) >= 5 
                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20' 
                         : 'bg-muted/50 text-muted-foreground border border-border/50'
                     }`}
-                    onClick={() => currentPDR.currentStep >= 5 && router.push(`/pdr/${currentPDR.id}/end-year`)}
-                    role={currentPDR.currentStep >= 5 ? "button" : undefined}
-                    tabIndex={currentPDR.currentStep >= 5 ? 0 : undefined}
+onClick={() => (currentPDR.currentStep || currentPDR.current_step || 1) >= 5 && router.push(`/pdr/${currentPDR.id}/end-year`)}
+role={(currentPDR.currentStep || currentPDR.current_step || 1) >= 5 ? "button" : undefined}
+tabIndex={(currentPDR.currentStep || currentPDR.current_step || 1) >= 5 ? 0 : undefined}
                     onKeyDown={(e) => {
-                      if (currentPDR.currentStep >= 5 && (e.key === 'Enter' || e.key === ' ')) {
+if ((currentPDR.currentStep || currentPDR.current_step || 1) >= 5 && (e.key === 'Enter' || e.key === ' ')) {
                         e.preventDefault();
                         router.push(`/pdr/${currentPDR.id}/end-year`);
                       }
                     }}
                   >
-                    {currentPDR.currentStep >= 5 ? (
+{(currentPDR.currentStep || currentPDR.current_step || 1) >= 5 ? (
                       <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
                     ) : (
                       <FileText className="h-4 w-4 flex-shrink-0" />

@@ -5,7 +5,7 @@ import {
   handleApiError,
   authenticateRequest
 } from '@/lib/api-helpers';
-import { prisma } from '@/lib/db';
+import { createClient } from '@/lib/supabase/server';
 import { 
   validateStateTransition,
   validateTransitionRequirements,
@@ -31,26 +31,29 @@ export async function POST(
       return createApiError('Only employees can submit PDRs for review', 403, 'INSUFFICIENT_PERMISSIONS');
     }
 
-    // Get PDR with all relations for validation
-    const pdr = await prisma.pDR.findUnique({
-      where: { id: pdrId },
-      include: {
-        user: true,
-        goals: true,
-        behaviors: {
-          include: {
-            value: true,
-          },
-        },
-      },
-    });
+    const supabase = await createClient();
 
-    if (!pdr) {
+    // Get PDR with all relations for validation
+    const { data: pdr, error: pdrError } = await supabase
+      .from('pdrs')
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(*),
+        goals(*),
+        behaviors(
+          *,
+          value:company_values!behaviors_value_id_fkey(*)
+        )
+      `)
+      .eq('id', pdrId)
+      .single();
+
+    if (pdrError || !pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
     // Check if user owns this PDR
-    if (pdr.userId !== user.id) {
+    if (pdr.user_id !== user.id) {
       return createApiError('You can only submit your own PDR', 403, 'INSUFFICIENT_PERMISSIONS');
     }
 
@@ -76,46 +79,66 @@ export async function POST(
     );
 
     if (transition) {
-      // Validate required fields
-      const requirementsValidation = validateTransitionRequirements(pdr, transition);
-      
-      if (!requirementsValidation.isValid) {
-        return createApiError(
-          'Validation failed: ' + requirementsValidation.errors.join(', '),
-          400,
-          'VALIDATION_FAILED',
-          requirementsValidation.errors
-        );
-      }
+          // Debug: Log the PDR data being validated
+    console.log('🔧 Submit validation - PDR data:', {
+      pdrId: pdr.id,
+      status: pdr.status,
+      goalsCount: pdr.goals?.length || 0,
+      behaviorsCount: pdr.behaviors?.length || 0,
+      behaviorsSample: pdr.behaviors?.map(b => ({
+        id: b.id,
+        description: b.description?.substring(0, 20) + '...',
+        hasEmployeeSelfAssessment: !!b.employee_self_assessment,
+        employeeSelfAssessmentLength: b.employee_self_assessment?.length || 0,
+        hasCamelCaseField: !!b.employeeSelfAssessment,
+        camelCaseFieldLength: b.employeeSelfAssessment?.length || 0
+      }))
+    });
+
+    // Validate required fields
+    const requirementsValidation = validateTransitionRequirements(pdr, transition);
+    
+    console.log('🔧 Submit validation result:', {
+      isValid: requirementsValidation.isValid,
+      errors: requirementsValidation.errors
+    });
+    
+    if (!requirementsValidation.isValid) {
+      return createApiError(
+        'Validation failed: ' + requirementsValidation.errors.join(', '),
+        400,
+        'VALIDATION_FAILED',
+        requirementsValidation.errors
+      );
+    }
     }
 
     // Update PDR status
-    const updatedPdr = await prisma.pDR.update({
-      where: { id: pdrId },
-      data: {
+    const { data: updatedPdr, error: updateError } = await supabase
+      .from('pdrs')
+      .update({
         status: 'OPEN_FOR_REVIEW',
-        submittedAt: new Date(),
-        updatedAt: new Date(),
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true,
-          },
-        },
-        period: true,
-        goals: true,
-        behaviors: {
-          include: {
-            value: true,
-          },
-        },
-      },
-    });
+        submitted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', pdrId)
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(
+          id, first_name, last_name, email, role
+        ),
+        period:pdr_periods!pdrs_period_id_fkey(*),
+        goals(*),
+        behaviors(
+          *,
+          value:company_values!behaviors_value_id_fkey(*)
+        )
+      `)
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
 
     // TODO: Create notification for CEO users about new PDR submission
     // This would be implemented when the notification system is added

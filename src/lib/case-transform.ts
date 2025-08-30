@@ -118,3 +118,23 @@ export function transformGoalFields(goal: any): any {
     updatedAt: goal.updated_at || goal.updatedAt,
   };
 }
+
+/**
+ * Transforms Behavior-specific fields from snake_case to camelCase
+ */
+export function transformBehaviorFields(behavior: any): any {
+  if (!behavior) return behavior;
+
+  return {
+    ...transformToCamelCase(behavior),
+    // Ensure specific behavior field mappings are correct
+    pdrId: behavior.pdr_id || behavior.pdrId,
+    valueId: behavior.value_id || behavior.valueId,
+    employeeSelfAssessment: behavior.employee_self_assessment || behavior.employeeSelfAssessment,
+    employeeRating: behavior.employee_rating || behavior.employeeRating,
+    ceoComments: behavior.ceo_comments || behavior.ceoComments,
+    ceoRating: behavior.ceo_rating || behavior.ceoRating,
+    createdAt: behavior.created_at || behavior.createdAt,
+    updatedAt: behavior.updated_at || behavior.updatedAt,
+  };
+}

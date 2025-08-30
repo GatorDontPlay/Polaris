@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSupabasePDR, useSupabasePDRBehaviors } from '@/hooks/use-supabase-pdrs';
+import { useSupabasePDR, useSupabasePDRBehaviors, useSupabasePDRUpdate } from '@/hooks/use-supabase-pdrs';
 import { useCompanyValues } from '@/hooks/use-company-values';
 import { StructuredBehaviorForm, StructuredBehaviorFormHandle } from '@/components/forms/structured-behavior-form';
 import { Button } from '@/components/ui/button';
@@ -32,11 +32,10 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
     data: behaviors, 
     isLoading: behaviorsLoading,
     createBehavior,
-    updateBehavior,
-    isCreating,
-    isUpdating
+    updateBehavior
   } = useSupabasePDRBehaviors(params.id);
   const { data: companyValues, isLoading: companyValuesLoading } = useCompanyValues();
+  const { updatePDR } = useSupabasePDRUpdate(params.id);
 
   const isLoading = pdrLoading || behaviorsLoading || companyValuesLoading;
   const isReadOnly = pdr?.isLocked || false;
@@ -52,6 +51,16 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
     isFormReadOnly: !canEdit
   });
 
+  // Update PDR step to 2 (Behaviors) when user reaches this page
+  useEffect(() => {
+    if (pdr && pdr.currentStep < 2) {
+      console.log('🔧 Behaviors page - Updating PDR step from', pdr.currentStep, 'to 2');
+      updatePDR({ currentStep: 2 }).catch(error => {
+        console.error('Failed to update PDR step:', error);
+      });
+    }
+  }, [pdr, updatePDR]);
+
   // Clean up duplicates on first load only and filter out Self Reflection and CodeFish 3D from the grid
   useEffect(() => {
     if (behaviors && behaviors.length > 0 && !hasCleanedDuplicates) {
@@ -64,12 +73,7 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
         return false;
       });
       
-      // Filter out Self Reflection and CodeFish 3D from the grid
-      // These IDs correspond to the informational-only values that should only appear in the dedicated section
-      const informationalValueIds = [
-        '550e8400-e29b-41d4-a716-446655440005', // Self Reflection
-        '550e8400-e29b-41d4-a716-446655440006'  // CodeFish 3D
-      ];
+      // Note: Informational values are now filtered in the form component
       
       if (duplicatesExist) {
         console.log('Duplicate behaviors detected, but cleanup disabled since deleteBehavior is not available');
@@ -87,55 +91,46 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
       valueName: string;
       description: string;
     }>;
-    selfReflection?: string;
-    deepDiveDevelopment?: string;
+    selfReflection?: string | undefined;
+    deepDiveDevelopment?: string | undefined;
   }) => {
-    // BATCH CREATE: Build complete behaviors array and save once
-    const currentBehaviors = behaviors || [];
-    let updatedBehaviors = [...currentBehaviors];
+    console.log('🔧 BULK CREATE - Starting database save for behaviors:', data.behaviors.length);
     
-    data.behaviors.forEach(behaviorData => {
-      const existingIndex = updatedBehaviors.findIndex(b => b.valueId === behaviorData.valueId);
-      
-      if (existingIndex !== -1) {
-        // Update existing behavior
-        updatedBehaviors[existingIndex] = {
-          ...updatedBehaviors[existingIndex],
-          description: behaviorData.description,
-          updatedAt: new Date(),
-        };
-      } else {
-        // Add new behavior
-        const newBehavior = {
-          id: `550e8400-e29b-41d4-a716-${Date.now().toString().slice(-12)}`,
-          pdrId: params.id,
-          valueId: behaviorData.valueId,
-          description: behaviorData.description,
-          examples: '',
-          employeeSelfAssessment: '',
-          employeeRating: null,
-          ceoComments: null,
-          ceoRating: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        updatedBehaviors.push(newBehavior);
+    try {
+      // Save each behavior to the database using the API
+      for (const behaviorData of data.behaviors) {
+        if (behaviorData.description && behaviorData.description.trim()) {
+          console.log('🔧 Creating behavior for value:', behaviorData.valueName);
+          
+          const behaviorFormData: BehaviorFormData = {
+            valueId: behaviorData.valueId,
+            description: behaviorData.description,
+            examples: '',
+            employeeSelfAssessment: '',
+          };
+          
+          await createBehavior(behaviorFormData);
+        }
       }
-    });
-    
-    // Single localStorage write for all behaviors
-    localStorage.setItem(`demo_behaviors_${params.id}`, JSON.stringify(updatedBehaviors));
-    console.log('🔧 BULK CREATE - Saved all behaviors to localStorage:', updatedBehaviors.length);
-    
-    // Save selfReflection and deepDiveDevelopment to localStorage as part of PDR data
-    if (data.selfReflection || data.deepDiveDevelopment) {
-      const developmentData = {
-        selfReflection: data.selfReflection || '',
-        deepDiveDevelopment: data.deepDiveDevelopment || '',
-        updatedAt: new Date().toISOString()
-      };
-      localStorage.setItem(`demo_development_${params.id}`, JSON.stringify(developmentData));
-      console.log('Saved development data:', developmentData);
+      
+      console.log('✅ All behaviors saved to database successfully');
+      
+      // Save development data to localStorage (since there's no API endpoint for this yet)
+      if (data.selfReflection || data.deepDiveDevelopment) {
+        const developmentData = {
+          selfReflection: data.selfReflection || '',
+          deepDiveDevelopment: data.deepDiveDevelopment || '',
+          updatedAt: new Date().toISOString()
+        };
+        localStorage.setItem(`demo_development_${params.id}`, JSON.stringify(developmentData));
+        console.log('✅ Development data saved to localStorage:', developmentData);
+      }
+      
+      toast.success('Behaviors saved successfully!');
+    } catch (error) {
+      console.error('❌ Failed to save behaviors:', error);
+      toast.error('Failed to save behaviors. Please try again.');
+      throw error;
     }
   };
 
@@ -145,80 +140,63 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
       valueName: string;
       description: string;
     }>;
-    selfReflection?: string;
-    deepDiveDevelopment?: string;
+    selfReflection?: string | undefined;
+    deepDiveDevelopment?: string | undefined;
   }) => {
-    // Debug: Log what data is being auto-saved
-    console.log('🔧 SIMPLE DEBUG - Auto-save called with data:', {
-      pdrId: params.id,
-      localStorageKey: `demo_behaviors_${params.id}`,
-      allBehaviors: data.behaviors,
-      behaviorsWithAnyContent: data.behaviors.filter(b => (b.description && b.description.trim().length > 0))
-    });
+    console.log('🔧 AUTO-SAVE - Starting database save for behaviors');
     
-    // Save behaviors with any content (even short descriptions)
-    const behaviorsToSave = data.behaviors.filter(b => 
-      (b.description && b.description.trim().length > 0)
-    );
-    
-    if (behaviorsToSave.length > 0) {
-      // BATCH SAVE: Build the complete behaviors array and save once
-      const currentBehaviors = behaviors || [];
-      let updatedBehaviors = [...currentBehaviors];
+    try {
+      // Save behaviors with any content to the database
+      const behaviorsToSave = data.behaviors.filter(b => 
+        (b.description && b.description.trim().length > 0)
+      );
       
-      behaviorsToSave.forEach(behaviorData => {
-        const existingIndex = updatedBehaviors.findIndex(b => b.valueId === behaviorData.valueId);
+      if (behaviorsToSave.length > 0) {
+        console.log('🔧 Auto-saving behaviors to database:', behaviorsToSave.length);
         
-        if (existingIndex !== -1) {
-          // Update existing behavior
-          updatedBehaviors[existingIndex] = {
-            ...updatedBehaviors[existingIndex],
-            description: behaviorData.description,
-            updatedAt: new Date(),
-          };
-        } else {
-          // Add new behavior
-          const newBehavior = {
-            id: `550e8400-e29b-41d4-a716-${Date.now().toString().slice(-12)}`,
-            pdrId: params.id,
-            valueId: behaviorData.valueId,
-            description: behaviorData.description,
-            examples: '',
-            employeeSelfAssessment: '',
-            employeeRating: null,
-            ceoComments: null,
-            ceoRating: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-          updatedBehaviors.push(newBehavior);
+        for (const behaviorData of behaviorsToSave) {
+          // Check if behavior already exists
+          const existingBehavior = behaviors?.find(b => b.valueId === behaviorData.valueId);
+          
+          if (existingBehavior) {
+            // Update existing behavior
+            await updateBehavior({
+              behaviorId: existingBehavior.id,
+              updates: {
+                description: behaviorData.description,
+              }
+            });
+            console.log('🔧 Updated existing behavior for:', behaviorData.valueName);
+          } else {
+            // Create new behavior
+            const behaviorFormData: BehaviorFormData = {
+              valueId: behaviorData.valueId,
+              description: behaviorData.description,
+              examples: '',
+              employeeSelfAssessment: '',
+            };
+            
+            await createBehavior(behaviorFormData);
+            console.log('🔧 Created new behavior for:', behaviorData.valueName);
+          }
         }
-      });
+        
+        console.log('✅ Auto-save completed successfully');
+      }
       
-      // Single localStorage write for all behaviors
-      localStorage.setItem(`demo_behaviors_${params.id}`, JSON.stringify(updatedBehaviors));
-      console.log('🔧 BATCH SAVED all behaviors to localStorage:', updatedBehaviors.length);
-    }
-    
-    // Debug: Check what's actually in localStorage after save
-    setTimeout(() => {
-      const stored = localStorage.getItem(`demo_behaviors_${params.id}`);
-      console.log('🔧 SIMPLE DEBUG - After auto-save, localStorage contains:', {
-        key: `demo_behaviors_${params.id}`,
-        rawData: stored,
-        parsedData: stored ? JSON.parse(stored) : null
-      });
-    }, 100);
-    
-    // Auto-save selfReflection and deepDiveDevelopment
-    if (data.selfReflection || data.deepDiveDevelopment) {
-      const developmentData = {
-        selfReflection: data.selfReflection || '',
-        deepDiveDevelopment: data.deepDiveDevelopment || '',
-        updatedAt: new Date().toISOString()
-      };
-      localStorage.setItem(`demo_development_${params.id}`, JSON.stringify(developmentData));
-      console.log('Auto-saving development data:', developmentData);
+      // Auto-save development data to localStorage (since there's no API endpoint for this yet)
+      if (data.selfReflection || data.deepDiveDevelopment) {
+        const developmentData = {
+          selfReflection: data.selfReflection || '',
+          deepDiveDevelopment: data.deepDiveDevelopment || '',
+          updatedAt: new Date().toISOString()
+        };
+        localStorage.setItem(`demo_development_${params.id}`, JSON.stringify(developmentData));
+        console.log('✅ Development data auto-saved');
+      }
+    } catch (error) {
+      console.error('❌ Auto-save failed:', error);
+      // Don't show error toast for auto-save failures to avoid annoying the user
     }
   };
 
@@ -233,13 +211,11 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
         console.log('✅ Force save completed');
       }
       
-      // Update PDR status to mark behaviors step as completed
-      if (pdr) {
-        console.log('🔧 Current PDR step before update:', pdr.currentStep);
-        
-        // Note: PDR step update disabled - updatePdr function not available
-        // The navigation will proceed without updating the step
-        console.log('⚠️ PDR step update skipped - updatePdr function not available');
+      // Update PDR step to 3 (Review) when moving to next section
+      if (pdr && pdr.currentStep < 3) {
+        console.log('🔧 Updating PDR step from', pdr.currentStep, 'to 3 (Review)');
+        await updatePDR({ currentStep: 3 });
+        console.log('✅ PDR step updated to 3');
       }
       
       // Small delay to ensure localStorage is updated

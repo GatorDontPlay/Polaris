@@ -86,24 +86,40 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  console.log('🔧 PDR PATCH route called with ID:', params.id);
+  
   try {
     // Authenticate user
+    console.log('🔧 Starting authentication...');
     const authResult = await authenticateRequest(request);
+    console.log('🔧 Authentication result:', authResult.success);
     if (!authResult.success) {
       return authResult.response;
     }
 
     const { user } = authResult;
     const pdrId = params.id;
-    const body = await request.json();
+    
+    console.log('🔧 Parsing request body...');
+    let body;
+    try {
+      body = await request.json();
+      console.log('🔧 Request body:', body);
+    } catch (bodyError) {
+      console.error('🔧 Error parsing request body:', bodyError);
+      return createApiError('Invalid request body', 400, 'INVALID_BODY');
+    }
+    
+    console.log('🔧 Creating Supabase client...');
     const supabase = await createClient();
+    console.log('🔧 Supabase client created successfully');
 
     // Get current PDR
     const { data: pdr, error: fetchError } = await supabase
       .from('pdrs')
       .select(`
         *,
-        user:profiles(*),
+        user:profiles!pdrs_user_id_fkey(*),
         goals(*),
         behaviors(*)
       `)
@@ -123,7 +139,25 @@ export async function PATCH(
 
     // Check permissions
     const isOwner = pdr.user_id === user.id;
-    const permissions = getPDRPermissions(pdr.status, user.role, isOwner);
+    
+    // Debug logging to identify the issue
+    console.log('PDR Update Debug:', {
+      pdrId,
+      pdrStatus: pdr.status,
+      userRole: user.role,
+      isOwner,
+      userId: user.id,
+      pdrUserId: pdr.user_id
+    });
+    
+    let permissions;
+    try {
+      permissions = getPDRPermissions(pdr.status, user.role, isOwner);
+      console.log('PDR Permissions:', permissions);
+    } catch (permissionError) {
+      console.error('Error getting PDR permissions:', permissionError);
+      return createApiError('Error checking permissions', 500, 'PERMISSION_ERROR');
+    }
 
     if (!permissions.canEdit) {
       const reason = permissions.readOnlyReason || 'PDR is not editable in current state';
@@ -150,6 +184,8 @@ export async function PATCH(
       updateData.current_step = body.currentStep;
     }
 
+    console.log('PDR Update Data:', updateData);
+
     // Update PDR
     const { data: updatedPdr, error: updateError } = await supabase
       .from('pdrs')
@@ -157,7 +193,7 @@ export async function PATCH(
       .eq('id', pdrId)
       .select(`
         *,
-        user:profiles(id, first_name, last_name, email, role),
+        user:profiles!pdrs_user_id_fkey(id, first_name, last_name, email, role),
         period:pdr_periods(*),
         goals(*),
         behaviors(*, value:company_values(*)),
@@ -167,14 +203,24 @@ export async function PATCH(
       .single();
 
     if (updateError) {
+      console.error('Supabase update error:', updateError);
       throw updateError;
     }
 
     // Transform PDR fields to camelCase
-    const transformedPDR = transformPDRFields(updatedPdr);
+    let transformedPDR;
+    try {
+      transformedPDR = transformPDRFields(updatedPdr);
+      console.log('PDR transformation successful');
+    } catch (transformError) {
+      console.error('Error transforming PDR fields:', transformError);
+      return createApiError('Error processing PDR data', 500, 'TRANSFORM_ERROR');
+    }
     
     return createApiResponse(transformedPDR);
   } catch (error) {
+    console.error('🔧 PATCH route error:', error);
+    console.error('🔧 Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return handleApiError(error);
   }
 }

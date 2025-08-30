@@ -103,11 +103,15 @@ export function CurrentPDRCard({
               ? 'Submitted for review - awaiting CEO feedback'
               : pdr.status === 'UNDER_REVIEW'
               ? 'Under review by CEO'
+              : pdr.status === 'MID_YEAR_CHECK'
+              ? 'Mid-year review completed - proceed to end-year review'
+              : pdr.status === 'END_YEAR_REVIEW'
+              ? 'Ready for end-year review'
               : pdr.status === 'COMPLETED'
               ? 'Review process completed'
               : pdr.status === 'SUBMITTED_FOR_REVIEW'
               ? 'Complete - pending final review meeting'
-              : `Step ${pdr.currentStep} of ${PDR_STEPS.length} - Continue your review process`
+              : `Step ${pdr.currentStep || pdr.current_step} of ${PDR_STEPS.length} - Continue your review process`
             }
           </p>
         </div>

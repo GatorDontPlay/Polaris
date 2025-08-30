@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSupabasePDR, useSupabasePDRGoals } from '@/hooks/use-supabase-pdrs';
+import { useSupabasePDR, useSupabasePDRGoals, useSupabasePDRUpdate } from '@/hooks/use-supabase-pdrs';
 import { GoalForm } from '@/components/forms/goal-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,10 +23,21 @@ export default function GoalsPage({ params }: GoalsPageProps) {
   
   const { data: pdr, isLoading: pdrLoading } = useSupabasePDR(params.id);
   const { data: goals, isLoading: goalsLoading, createGoal, updateGoal, deleteGoal } = useSupabasePDRGoals(params.id);
+  const { updatePDR } = useSupabasePDRUpdate(params.id);
 
   const isLoading = pdrLoading || goalsLoading;
   const isReadOnly = pdr?.isLocked || false;
   const canEdit = pdr && !isReadOnly && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'OPEN_FOR_REVIEW' || pdr.status === 'Created');
+
+  // Update PDR step to 1 (Goals) when user reaches this page
+  useEffect(() => {
+    if (pdr && pdr.currentStep < 1) {
+      console.log('🔧 Goals page - Updating PDR step from', pdr.currentStep, 'to 1');
+      updatePDR({ currentStep: 1 }).catch(error => {
+        console.error('Failed to update PDR step:', error);
+      });
+    }
+  }, [pdr, updatePDR]);
 
   console.log('Goals page debug:', {
     pdr: pdr,
@@ -74,7 +85,7 @@ export default function GoalsPage({ params }: GoalsPageProps) {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     // Calculate total weighting
     const totalWeighting = goals?.reduce((sum, goal) => sum + (goal.weighting || 0), 0) || 0;
     
@@ -86,6 +97,13 @@ export default function GoalsPage({ params }: GoalsPageProps) {
         variant: "destructive",
       });
       return;
+    }
+    
+    // Update PDR step to 2 (Behaviors) when moving to next section
+    if (pdr && pdr.currentStep < 2) {
+      console.log('🔧 Updating PDR step from', pdr.currentStep, 'to 2 (Behaviors)');
+      await updatePDR({ currentStep: 2 });
+      console.log('✅ PDR step updated to 2');
     }
     
     // If validation passes, navigate to behaviors page
