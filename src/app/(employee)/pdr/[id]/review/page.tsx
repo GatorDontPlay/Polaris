@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSupabasePDR, useSupabasePDRGoals, useSupabasePDRBehaviors } from '@/hooks/use-supabase-pdrs';
+import { useSupabasePDR, useSupabasePDRGoals, useSupabasePDRBehaviors, useSupabasePDRUpdate } from '@/hooks/use-supabase-pdrs';
+import { useCompanyValues } from '@/hooks/use-company-values';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,8 +51,10 @@ export default function ReviewPage({ params }: ReviewPageProps) {
   const { data: pdr, isLoading: pdrLoading } = useSupabasePDR(params.id);
   const { data: goals, isLoading: goalsLoading } = useSupabasePDRGoals(params.id);
   const { data: behaviors, isLoading: behaviorsLoading } = useSupabasePDRBehaviors(params.id);
+  const { data: companyValues, isLoading: companyValuesLoading } = useCompanyValues();
+  const { updatePDR } = useSupabasePDRUpdate(params.id);
 
-  const isLoading = pdrLoading || goalsLoading || behaviorsLoading;
+  const isLoading = pdrLoading || goalsLoading || behaviorsLoading || companyValuesLoading;
   const canSubmit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'Created' || pdr.status === 'OPEN_FOR_REVIEW');
   const canEdit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'OPEN_FOR_REVIEW' || pdr.status === 'Created');
   // Check if employee can access Mid-Year Check-in: needs to be past step 3
@@ -74,20 +77,25 @@ export default function ReviewPage({ params }: ReviewPageProps) {
       hookBehaviorsData: behaviors,
       totalBehaviorsCount: behaviors?.length || 0
     });
-  }, [params.id, behaviors]);
+  }, [params.id]); // Remove behaviors dependency to prevent infinite re-renders
   
-  // Ensure the PDR currentStep is updated to at least 3 (Review) when on the review page
+  // Update PDR step to 3 (Review) when user reaches this page
   useEffect(() => {
+    console.log('🔧 Review page - PDR step check:', {
+      pdrId: pdr?.id,
+      currentStep: pdr?.currentStep,
+      status: pdr?.status,
+      needsUpdate: pdr && pdr.currentStep < 3,
+      updatePDRFunction: typeof updatePDR
+    });
+    
     if (pdr && pdr.currentStep < 3) {
-      console.log('🔧 Review page - PDR step needs update:', pdr.currentStep);
-      updatePdr({
-        currentStep: 3, // Ensure we're at least at step 3 (Review)
+      console.log('🔧 Review page - Updating PDR step from', pdr.currentStep, 'to 3');
+      updatePDR({ currentStep: 3 }).catch(error => {
+        console.error('Failed to update PDR step:', error);
       });
-      console.log('✅ Review page - Updated PDR step to 3');
-    } else if (pdr) {
-      console.log('🔧 Review page - PDR step already correct:', pdr.currentStep);
     }
-  }, [pdr, updatePdr]);
+  }, [pdr, updatePDR]);
 
   // Helper function to get company value name
   const getValueName = (valueId: string) => {
@@ -157,17 +165,13 @@ export default function ReviewPage({ params }: ReviewPageProps) {
   };
 
   const handleSubmit = async () => {
-    if (!pdr) {return;}
+    if (!pdr) return;
     
     setIsSubmitting(true);
     try {
-      // For demo mode, simulate submission by updating PDR state
-      // Use the correct status from the state machine: Created -> OPEN_FOR_REVIEW
-      updatePdr({
-        status: 'OPEN_FOR_REVIEW',
-        currentStep: 3, // Keep at step 3, as step 4 is Mid-Year
-        submittedAt: new Date(),
-      });
+      // TODO: Implement actual PDR submission via API
+      // For now, just simulate the submission process
+      console.log('🔧 Submitting PDR:', pdr.id);
       
       // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 1000));

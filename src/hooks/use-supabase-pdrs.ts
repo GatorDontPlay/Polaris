@@ -44,11 +44,19 @@ export function useSupabasePDRDashboard() {
       // Always fetch all PDRs and find current one client-side for reliability
       const response = await fetch('/api/pdrs?limit=10');
       if (!response.ok) {
+        console.error('Dashboard PDR fetch failed:', response.status, response.statusText);
         throw new Error('Failed to fetch PDRs');
       }
       
       const result: PaginatedResponse<PDR> = await response.json();
-      const pdrs = result.data;
+      console.log('Dashboard API response:', result);
+      console.log('Dashboard - Raw response data:', result.data);
+      console.log('Dashboard - Data type:', typeof result.data);
+      console.log('Dashboard - Is array:', Array.isArray(result.data));
+      console.log('Dashboard - Data length:', result.data?.length);
+      
+      // Fix: Handle nested data structure - API returns {data: {data: Array, pagination: {}}}
+      const pdrs = Array.isArray(result.data) ? result.data : result.data?.data || [];
       
       // Debug: Log what PDRs are returned
       console.log('Dashboard PDRs received:', pdrs?.map(p => ({ 
@@ -57,17 +65,23 @@ export function useSupabasePDRDashboard() {
         status: p.status 
       })));
       
-      // Find PDR for current financial year
-      const currentFY = computeAustralianFY();
-      const currentPDR = pdrs.find(pdr => (pdr.fyLabel || pdr.fy_label) === currentFY.label);
+      // Find active PDR (any non-closed PDR, regardless of FY)
+      // This allows users to work on future FY PDRs or complete past FY PDRs
+      const activePDR = pdrs.find(pdr => pdr.status !== 'CLOSED');
       
-      console.log('Current FY search:', { 
-        currentFY: currentFY.label, 
-        found: !!currentPDR, 
-        totalPDRs: pdrs.length 
+      // Also log current FY for debugging
+      const currentFY = computeAustralianFY();
+      const currentFYPDR = pdrs.find(pdr => (pdr.fyLabel || pdr.fy_label) === currentFY.label);
+      
+      console.log('PDR Search Results:', { 
+        currentFY: currentFY.label,
+        totalPDRs: pdrs.length,
+        activePDR: activePDR ? { id: activePDR.id, fyLabel: activePDR.fyLabel || activePDR.fy_label, status: activePDR.status } : null,
+        currentFYPDR: currentFYPDR ? { id: currentFYPDR.id, fyLabel: currentFYPDR.fyLabel || currentFYPDR.fy_label, status: currentFYPDR.status } : null,
+        allPDRStatuses: pdrs.map(p => ({ fyLabel: p.fyLabel || p.fy_label, status: p.status }))
       });
       
-      return currentPDR || null;
+      return activePDR || null;
     },
     enabled: !!user?.id, // Only run if user is loaded
     staleTime: 30 * 1000, // 30 seconds
@@ -345,9 +359,17 @@ export function useSupabasePDRHistory() {
       
       const result: PaginatedResponse<PDR> = await response.json();
       console.log('PDR History API response:', result);
+      console.log('PDR History - Raw response data:', result.data);
+      console.log('PDR History - Data type:', typeof result.data);
+      console.log('PDR History - Is array:', Array.isArray(result.data));
+      console.log('PDR History - Data length:', result.data?.length);
+      
+      // Fix: Handle nested data structure - API returns {data: {data: Array, pagination: {}}}
+      const pdrs = Array.isArray(result.data) ? result.data : result.data?.data || [];
+      console.log('PDR History - Extracted PDRs:', pdrs?.length, pdrs?.map(p => ({ id: p.id, status: p.status })));
       
       // Ensure we always return an array
-      return Array.isArray(result.data) ? result.data : [];
+      return pdrs;
     },
     enabled: !!user?.id, // Only run if user is loaded
     staleTime: 2 * 60 * 1000, // 2 minutes
@@ -417,5 +439,44 @@ export function useSupabaseAdminDashboard() {
     isLoading,
     error: error?.message,
     refreshDashboard,
+  };
+}
+
+/**
+ * Hook to update PDR properties like currentStep
+ */
+export function useSupabasePDRUpdate(pdrId: string) {
+  const queryClient = useQueryClient();
+
+  const updatePDRMutation = useMutation({
+    mutationFn: async (updates: { currentStep?: number; status?: string }) => {
+      const response = await fetch(`/api/pdrs/${pdrId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update PDR');
+      }
+
+      const result = await response.json();
+      return result.data;
+    },
+    onSuccess: () => {
+      // Invalidate and refetch PDR data
+      queryClient.invalidateQueries({ queryKey: ['pdr', pdrId] });
+      queryClient.invalidateQueries({ queryKey: ['user-current-pdr'] });
+      queryClient.invalidateQueries({ queryKey: ['user-pdr-history'] });
+    },
+  });
+
+  return {
+    updatePDR: updatePDRMutation.mutateAsync,
+    isUpdating: updatePDRMutation.isPending,
+    error: updatePDRMutation.error?.message,
   };
 }

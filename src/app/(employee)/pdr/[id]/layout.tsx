@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PDRErrorBoundary } from '@/components/ui/error-boundary';
 import { ArrowLeft, Lock, Trash2, MoreVertical } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { getPDRDisplayName } from '@/lib/financial-year';
 import { 
@@ -33,10 +33,33 @@ interface PDRLayoutProps {
 
 export default function PDRLayout({ children, params }: PDRLayoutProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isLoading: authLoading } = useAuth();
   const { data: pdr, isLoading: pdrLoading, error } = useSupabasePDR(params.id);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   // Delete functionality will be added to Supabase hooks later
+
+  // Helper function to determine effective current step based on current page
+  const getEffectiveCurrentStep = (actualCurrentStep: number) => {
+    // If user is on review page, show step 3 as current (which makes steps 1&2 completed)
+    if (pathname?.includes('/review')) {
+      return Math.max(actualCurrentStep, 3);
+    }
+    // If user is on behaviors page, show step 2 as current (which makes step 1 completed)
+    if (pathname?.includes('/behaviors')) {
+      return Math.max(actualCurrentStep, 2);
+    }
+    // If user is on mid-year page, show step 4 as current
+    if (pathname?.includes('/mid-year')) {
+      return Math.max(actualCurrentStep, 4);
+    }
+    // If user is on end-year page, show step 5 as current
+    if (pathname?.includes('/end-year')) {
+      return Math.max(actualCurrentStep, 5);
+    }
+    // Default to actual current step
+    return actualCurrentStep;
+  };
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -187,8 +210,22 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
       {/* Stepper */}
       <div className="bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Debug: Log stepper props */}
+          {(() => {
+            const effectiveStep = getEffectiveCurrentStep(pdr.currentStep);
+            console.log('🔧 Stepper Debug:', {
+              pdrId: pdr.id,
+              actualCurrentStep: pdr.currentStep,
+              effectiveCurrentStep: effectiveStep,
+              pathname: pathname,
+              status: pdr.status,
+              totalSteps: PDR_STEPS.length,
+              isLocked: pdr.isLocked
+            });
+            return null;
+          })()}
           <StepperIndicator
-            currentStep={pdr.currentStep}
+            currentStep={getEffectiveCurrentStep(pdr.currentStep)}
             totalSteps={PDR_STEPS.length}
             steps={PDR_STEPS}
             {...(!pdr.isLocked && { onStepClick: handleStepClick })}
