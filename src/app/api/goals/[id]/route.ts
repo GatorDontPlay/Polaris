@@ -8,6 +8,7 @@ import {
 } from '@/lib/api-helpers';
 import { goalUpdateSchema } from '@/lib/validations';
 import { createClient } from '@/lib/supabase/server';
+import { transformGoalFields } from '@/lib/case-transform';
 import { createAuditLog } from '@/lib/auth';
 
 export async function PUT(
@@ -15,6 +16,8 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log('Goal PUT: Starting update for goal ID:', params.id);
+    
     // Authenticate user
     const authResult = await authenticateRequest(request);
     if (!authResult.success) {
@@ -72,6 +75,8 @@ export async function PUT(
       if (goalData.targetOutcome !== undefined) updateData.target_outcome = goalData.targetOutcome;
       if (goalData.successCriteria !== undefined) updateData.success_criteria = goalData.successCriteria;
       if (goalData.priority !== undefined) updateData.priority = goalData.priority;
+      if (goalData.weighting !== undefined) updateData.weighting = goalData.weighting;
+      if (goalData.goalMapping !== undefined) updateData.goal_mapping = goalData.goalMapping;
       if (goalData.employeeProgress !== undefined) updateData.employee_progress = goalData.employeeProgress;
       if (goalData.employeeRating !== undefined) updateData.employee_rating = goalData.employeeRating;
       if (goalData.ceoComments !== undefined) updateData.ceo_comments = goalData.ceoComments;
@@ -83,6 +88,8 @@ export async function PUT(
       if (goalData.targetOutcome !== undefined) updateData.target_outcome = goalData.targetOutcome;
       if (goalData.successCriteria !== undefined) updateData.success_criteria = goalData.successCriteria;
       if (goalData.priority !== undefined) updateData.priority = goalData.priority;
+      if (goalData.weighting !== undefined) updateData.weighting = goalData.weighting;
+      if (goalData.goalMapping !== undefined) updateData.goal_mapping = goalData.goalMapping;
       if (goalData.employeeProgress !== undefined) updateData.employee_progress = goalData.employeeProgress;
       if (goalData.employeeRating !== undefined) updateData.employee_rating = goalData.employeeRating;
     }
@@ -96,22 +103,34 @@ export async function PUT(
       .single();
 
     if (updateError) {
+      console.error('Goal PUT: Database update error:', updateError);
       throw updateError;
     }
 
-    // Create audit log
-    await createAuditLog({
-      tableName: 'goals',
-      recordId: goalId,
-      action: 'UPDATE',
-      oldValues: goal,
-      newValues: updatedGoal,
-      userId: user.id,
-      ipAddress: request.ip || 'Unknown',
-      userAgent: request.headers.get('user-agent') || 'Unknown',
-    });
+    console.log('Goal PUT: Update successful, creating audit log...');
 
-    return createApiResponse(updatedGoal);
+    // Create audit log
+    try {
+      await createAuditLog({
+        tableName: 'goals',
+        recordId: goalId,
+        action: 'UPDATE',
+        oldValues: goal,
+        newValues: updatedGoal,
+        userId: user.id,
+        ipAddress: request.ip || 'Unknown',
+        userAgent: request.headers.get('user-agent') || 'Unknown',
+      });
+      console.log('Goal PUT: Audit log created successfully');
+    } catch (auditError) {
+      console.error('Goal PUT: Audit log failed:', auditError);
+      // Continue anyway - audit log failure shouldn't block the update
+    }
+
+    console.log('Goal PUT: Returning success response');
+    // Transform goal fields to camelCase
+    const transformedGoal = transformGoalFields(updatedGoal);
+    return createApiResponse(transformedGoal);
   } catch (error) {
     return handleApiError(error);
   }

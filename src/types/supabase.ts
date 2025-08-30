@@ -276,6 +276,8 @@ export type Database = {
           target_outcome: string | null
           success_criteria: string | null
           priority: 'HIGH' | 'MEDIUM' | 'LOW'
+          weighting: number | null
+          goal_mapping: 'PEOPLE_CULTURE' | 'VALUE_DRIVEN_INNOVATION' | 'OPERATING_EFFICIENCY' | 'CUSTOMER_EXPERIENCE' | null
           employee_progress: string | null
           employee_rating: number | null
           ceo_comments: string | null
@@ -291,6 +293,8 @@ export type Database = {
           target_outcome?: string | null
           success_criteria?: string | null
           priority?: 'HIGH' | 'MEDIUM' | 'LOW'
+          weighting?: number | null
+          goal_mapping?: 'PEOPLE_CULTURE' | 'VALUE_DRIVEN_INNOVATION' | 'OPERATING_EFFICIENCY' | 'CUSTOMER_EXPERIENCE' | null
           employee_progress?: string | null
           employee_rating?: number | null
           ceo_comments?: string | null
@@ -306,6 +310,8 @@ export type Database = {
           target_outcome?: string | null
           success_criteria?: string | null
           priority?: 'HIGH' | 'MEDIUM' | 'LOW'
+          weighting?: number | null
+          goal_mapping?: 'PEOPLE_CULTURE' | 'VALUE_DRIVEN_INNOVATION' | 'OPERATING_EFFICIENCY' | 'CUSTOMER_EXPERIENCE' | null
           employee_progress?: string | null
           employee_rating?: number | null
           ceo_comments?: string | null

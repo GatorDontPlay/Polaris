@@ -8,6 +8,7 @@ import {
 } from '@/lib/api-helpers';
 import { goalSchema } from '@/lib/validations';
 import { createClient } from '@/lib/supabase/server';
+import { transformGoalFields } from '@/lib/case-transform';
 import { createAuditLog } from '@/lib/auth';
 
 export async function GET(
@@ -56,7 +57,9 @@ export async function GET(
       throw goalsError;
     }
 
-    return createApiResponse(goals);
+    // Transform goals to camelCase for frontend
+    const transformedGoals = goals?.map(transformGoalFields) || [];
+    return createApiResponse(transformedGoals);
   } catch (error) {
     return handleApiError(error);
   }
@@ -114,7 +117,7 @@ export async function POST(
       return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
     }
 
-    // Create the goal
+    // Create the goal (including targetOutcome, weighting, and goalMapping)
     const { data: goal, error: goalError } = await supabase
       .from('goals')
       .insert({
@@ -124,6 +127,8 @@ export async function POST(
         target_outcome: goalData.targetOutcome || null,
         success_criteria: goalData.successCriteria || null,
         priority: goalData.priority || 'MEDIUM',
+        weighting: goalData.weighting || 0,
+        goal_mapping: goalData.goalMapping || null,
       })
       .select()
       .single();
@@ -143,7 +148,9 @@ export async function POST(
       userAgent: request.headers.get('user-agent') || 'Unknown',
     });
 
-    return createApiResponse(goal, 201);
+    // Transform goal fields to camelCase
+    const transformedGoal = transformGoalFields(goal);
+    return createApiResponse(transformedGoal, 201);
   } catch (error) {
     return handleApiError(error);
   }

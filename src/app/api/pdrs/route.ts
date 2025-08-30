@@ -9,9 +9,7 @@ import {
 } from '@/lib/api-helpers';
 import { createClient } from '@/lib/supabase/server';
 import { computeAustralianFY } from '@/lib/financial-year';
-import { getPDRPermissions } from '@/lib/pdr-state-machine';
 import { transformPDRFields } from '@/lib/case-transform';
-import { Database } from '@/types/supabase';
 
 export async function GET(request: NextRequest) {
   try {
@@ -135,6 +133,10 @@ export async function GET(request: NextRequest) {
 
     // Transform PDR fields to camelCase
     const transformedPDRs = filteredPDRs.map(transformPDRFields);
+
+    // Debug: Log transformation results
+    console.log('GET PDRs: Before transformation:', filteredPDRs?.slice(0,1).map(p => ({ fy_label: p.fy_label, status: p.status })));
+    console.log('GET PDRs: After transformation:', transformedPDRs?.slice(0,1).map(p => ({ fyLabel: p.fyLabel, status: p.status })));
 
     const response = createPaginatedResponse(transformedPDRs, total || 0, page, limit);
     return NextResponse.json(response);

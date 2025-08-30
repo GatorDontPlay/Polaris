@@ -33,36 +33,43 @@ export function useSupabasePDRDashboard() {
   const { data: currentPDR, isLoading, error } = useQuery({
     queryKey: ['user-current-pdr', user?.id],
     queryFn: async (): Promise<PDR | null> => {
+      console.log('Dashboard Hook - User check:', { 
+        userId: user?.id, 
+        userEmail: user?.email, 
+        hasUser: !!user 
+      });
+      
       if (!user?.id) return null;
       
-      // First try the current=true parameter
-      let response = await fetch('/api/pdrs?limit=1&current=true');
+      // Always fetch all PDRs and find current one client-side for reliability
+      const response = await fetch('/api/pdrs?limit=10');
       if (!response.ok) {
-        if (response.status === 404) {
-          // Fallback: fetch all PDRs and find the current one
-          console.log('Current PDR not found, trying fallback query...');
-          response = await fetch('/api/pdrs?limit=10');
-          if (!response.ok) {
-            throw new Error('Failed to fetch PDRs');
-          }
-          
-          const result: PaginatedResponse<PDR> = await response.json();
-          const pdrs = result.data;
-          
-          // Find PDR for current financial year
-          const currentFY = computeAustralianFY();
-          
-          const currentPDR = pdrs.find(pdr => pdr.fyLabel === currentFY.label);
-          console.log('Fallback search result:', { currentFY, found: !!currentPDR, totalPDRs: pdrs.length });
-          return currentPDR || null;
-        }
-        throw new Error('Failed to fetch current PDR');
+        throw new Error('Failed to fetch PDRs');
       }
       
       const result: PaginatedResponse<PDR> = await response.json();
-      return result.data[0] || null;
+      const pdrs = result.data;
+      
+      // Debug: Log what PDRs are returned
+      console.log('Dashboard PDRs received:', pdrs?.map(p => ({ 
+        id: p.id, 
+        fyLabel: p.fyLabel || p.fy_label, 
+        status: p.status 
+      })));
+      
+      // Find PDR for current financial year
+      const currentFY = computeAustralianFY();
+      const currentPDR = pdrs.find(pdr => (pdr.fyLabel || pdr.fy_label) === currentFY.label);
+      
+      console.log('Current FY search:', { 
+        currentFY: currentFY.label, 
+        found: !!currentPDR, 
+        totalPDRs: pdrs.length 
+      });
+      
+      return currentPDR || null;
     },
-    enabled: !!user?.id && !!user?.email, // Only run if user is fully loaded
+    enabled: !!user?.id, // Only run if user is loaded
     staleTime: 30 * 1000, // 30 seconds
   });
 
@@ -200,7 +207,9 @@ export function useSupabasePDRGoals(pdrId: string) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update goal');
+        const errorText = await response.text();
+        console.error('Goal update failed:', response.status, errorText);
+        throw new Error(`Failed to update goal: ${response.status} - ${errorText}`);
       }
 
       const result: ApiResponse<Goal> = await response.json();
@@ -340,7 +349,7 @@ export function useSupabasePDRHistory() {
       // Ensure we always return an array
       return Array.isArray(result.data) ? result.data : [];
     },
-    enabled: !!user?.id && !!user?.email, // Only run if user is fully loaded
+    enabled: !!user?.id, // Only run if user is loaded
     staleTime: 2 * 60 * 1000, // 2 minutes
     retry: false, // Don't retry failed requests to avoid caching bad responses
   });

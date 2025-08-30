@@ -96,3 +96,25 @@ export function transformPDRFields(pdr: any): any {
     ceoFields: pdr.ceo_fields || pdr.ceoFields,
   };
 }
+
+/**
+ * Transforms Goal-specific fields from snake_case to camelCase
+ */
+export function transformGoalFields(goal: any): any {
+  if (!goal) return goal;
+
+  return {
+    ...transformToCamelCase(goal),
+    // Ensure specific goal field mappings are correct
+    pdrId: goal.pdr_id || goal.pdrId,
+    targetOutcome: goal.target_outcome || goal.targetOutcome,
+    successCriteria: goal.success_criteria || goal.successCriteria,
+    goalMapping: goal.goal_mapping || goal.goalMapping,
+    employeeProgress: goal.employee_progress || goal.employeeProgress,
+    employeeRating: goal.employee_rating || goal.employeeRating,
+    ceoComments: goal.ceo_comments || goal.ceoComments,
+    ceoRating: goal.ceo_rating || goal.ceoRating,
+    createdAt: goal.created_at || goal.createdAt,
+    updatedAt: goal.updated_at || goal.updatedAt,
+  };
+}
