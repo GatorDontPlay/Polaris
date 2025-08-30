@@ -1,8 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useDemoAuth } from '@/hooks/use-demo-auth';
-import { useDemoPDRDashboard, useDemoPDRHistory } from '@/hooks/use-demo-pdr';
+import { useAuth } from '@/providers/supabase-auth-provider';
+import { useSupabasePDRDashboard, useSupabasePDRHistory } from '@/hooks/use-supabase-pdrs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
@@ -37,34 +37,38 @@ import { FinancialYearSelectionDialog, FinancialYearOption } from '@/components/
 
 export default function EmployeeDashboard() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading } = useDemoAuth();
+  const { user, session, isLoading: authLoading } = useAuth();
   
   console.log('EmployeeDashboard - Auth Debug:', { 
     user, 
-    isAuthenticated, 
+    session, 
     authLoading,
     userRole: user?.role 
   });
   
-  // Get current user's PDRs using demo system
-  const { data: currentPDR, createPDR, isLoading: pdrLoading } = useDemoPDRDashboard();
-  const { data: pdrHistory, isLoading: historyLoading } = useDemoPDRHistory();
+  // Get current user's PDRs using Supabase
+  const { data: currentPDR, createPDR, isLoading: pdrLoading } = useSupabasePDRDashboard();
+  const { data: pdrHistory, isLoading: historyLoading } = useSupabasePDRHistory();
   // User activity removed as requested
   const [isCreatingPDR, setIsCreatingPDR] = useState(false);
   const [showFYDialog, setShowFYDialog] = useState(false);
+  const [creationError, setCreationError] = useState<string | null>(null);
   
   console.log('EmployeeDashboard - PDR Debug:', { 
     currentPDR, 
     pdrLoading,
-    hasPDR: !!currentPDR 
+    hasPDR: !!currentPDR,
+    pdrHistory,
+    pdrHistoryType: typeof pdrHistory,
+    pdrHistoryIsArray: Array.isArray(pdrHistory)
   });
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (!authLoading && !user) {
       router.push('/');
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [authLoading, user, router]);
 
   // Calculate dashboard stats from real data
   const calculateDashboardStats = () => {
@@ -268,6 +272,8 @@ export default function EmployeeDashboard() {
 
   // Handle PDR creation
   const handleCreatePDR = async () => {
+    // Clear any previous error
+    setCreationError(null);
     // Show financial year selection dialog
     setShowFYDialog(true);
   };
@@ -278,15 +284,37 @@ export default function EmployeeDashboard() {
     setShowFYDialog(false);
     
     try {
-      // Create a new PDR using demo system with selected financial year
-      const newPDR = createPDR(selectedFY);
-      if (newPDR) {
+      // Create a new PDR with selected financial year
+      console.log('Creating PDR with selectedFY:', selectedFY);
+      const newPDR = await createPDR(selectedFY);
+      console.log('PDR created successfully:', newPDR);
+      if (newPDR && newPDR.id) {
+        console.log('Redirecting to:', `/pdr/${newPDR.id}/goals`);
         router.push(`/pdr/${newPDR.id}/goals`);
       } else {
-        console.error('Failed to create PDR');
+        console.error('Failed to create PDR: No ID returned', newPDR);
       }
     } catch (error) {
       console.error('Failed to create PDR:', error);
+      
+      // Store the error for display
+      if (error instanceof Error) {
+        setCreationError(error.message);
+        
+        // If PDR already exists, wait a moment for queries to refresh, then check if PDR is now available
+        if (error.message.includes('already exists')) {
+          console.log('PDR already exists - waiting for refresh...');
+          
+          // Wait 2 seconds for the invalidated queries to refetch
+          setTimeout(() => {
+            // The queries should have been invalidated by the onError handler in the hook
+            // If a PDR is found after refresh, the component will automatically re-render
+            console.log('Checking if PDR appeared after refresh...');
+            // Clear the error if we're expecting a refresh
+            setCreationError(null);
+          }, 2000);
+        }
+      }
     } finally {
       setIsCreatingPDR(false);
     }
@@ -295,6 +323,13 @@ export default function EmployeeDashboard() {
   // Handle financial year selection cancellation
   const handleFYCancel = () => {
     setShowFYDialog(false);
+  };
+
+  // Handle manual refresh of PDR data
+  const handleRefreshPDR = () => {
+    setCreationError(null);
+    // The queries will automatically refetch due to the enabled condition
+    window.location.reload();
   };
 
   // Handle continue PDR - Always redirects to goals page
@@ -330,7 +365,7 @@ export default function EmployeeDashboard() {
   }
 
   // Don't render if not authenticated (will redirect)
-  if (!isAuthenticated || !user) {
+  if (!user) {
     return null;
   }
 
@@ -693,6 +728,24 @@ export default function EmployeeDashboard() {
                 <p className="text-foreground/80 mb-6 text-base font-medium leading-relaxed max-w-sm mx-auto">
                   Start your performance review by creating a new PDR for the current period.
                 </p>
+
+                {creationError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-sm text-red-800 mb-2">{creationError}</p>
+                    {creationError.includes('already exists') && (
+                      <div className="flex gap-2 justify-center">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={handleRefreshPDR}
+                        >
+                          Refresh Page
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <Button 
                   onClick={handleCreatePDR} 
                   disabled={isCreatingPDR}
@@ -739,9 +792,13 @@ export default function EmployeeDashboard() {
                 ) : (
                   // Filter PDRs to ensure they have valid dates and required fields
                   (() => {
-                    const validPdrs = pdrHistory.filter(pdr => 
+                    console.log('PDR History Debug:', { pdrHistory, type: typeof pdrHistory, isArray: Array.isArray(pdrHistory) });
+                    
+                    // Ensure we have a valid array
+                    const safeHistory = Array.isArray(pdrHistory) ? pdrHistory : [];
+                    const validPdrs = safeHistory.filter(pdr => 
                       // Check that it has a valid creation date that can be parsed
-                      !isNaN(new Date(pdr.createdAt).getTime()) &&
+                      !isNaN(new Date(pdr.created_at).getTime()) &&
                       // Make sure required fields exist
                       pdr.id && pdr.status
                     );
@@ -764,7 +821,7 @@ export default function EmployeeDashboard() {
                             {pdr.status === 'COMPLETED' ? 'Completed' : 
                              pdr.status === 'SUBMITTED' ? 'Submitted for review' :
                              pdr.status === 'UNDER_REVIEW' ? 'Under review' :
-                             'In Progress'} • Started {!isNaN(new Date(pdr.createdAt).getTime()) ? new Date(pdr.createdAt).toLocaleDateString() : 'recently'}
+                             'In Progress'} • Started {!isNaN(new Date(pdr.created_at).getTime()) ? new Date(pdr.created_at).toLocaleDateString() : 'recently'}
                           </p>
                         </div>
                         <div className="flex items-center space-x-2">

@@ -206,7 +206,7 @@ export async function PATCH(
 
     // Check if PDR allows editing for employees
     if (behaviorEntry.authorType === 'EMPLOYEE' && 
-        !['DRAFT', 'SUBMITTED'].includes(behaviorEntry.pdr.status)) {
+        !['Created', 'DRAFT', 'SUBMITTED'].includes(behaviorEntry.pdr.status)) {
       return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
     }
 
@@ -332,7 +332,7 @@ export async function DELETE(
 
     // Check if PDR allows editing for employees
     if (behaviorEntry.authorType === 'EMPLOYEE' && 
-        !['DRAFT', 'SUBMITTED'].includes(behaviorEntry.pdr.status)) {
+        !['Created', 'DRAFT', 'SUBMITTED'].includes(behaviorEntry.pdr.status)) {
       return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
     }
 

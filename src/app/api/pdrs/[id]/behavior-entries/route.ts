@@ -233,7 +233,7 @@ export async function POST(
     }
 
     // Check if PDR allows editing for employees
-    if (entryData.authorType === 'EMPLOYEE' && !['DRAFT', 'SUBMITTED'].includes(pdr.status)) {
+    if (entryData.authorType === 'EMPLOYEE' && !['Created', 'DRAFT', 'SUBMITTED'].includes(pdr.status)) {
       return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
     }
 

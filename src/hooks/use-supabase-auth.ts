@@ -85,15 +85,36 @@ export function useSupabaseAuth() {
         // Fetch user profile for sign in/token refresh
         let userWithProfile = session?.user || null
         if (session?.user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role, first_name, last_name, avatar_url')
-            .eq('id', session.user.id)
-            .single()
-
-          if (profile) {
-            userWithProfile = { ...session.user, ...profile } as SupabaseUser
-          }
+          // Use metadata as immediate fallback to prevent hanging
+          const metadata = session.user.user_metadata || {}
+          
+          userWithProfile = {
+            ...session.user,
+            role: metadata.role || 'EMPLOYEE',
+            first_name: metadata.first_name || '',
+            last_name: metadata.last_name || '',
+            avatar_url: null
+          } as SupabaseUser
+          
+          // Try to fetch from database in background (non-blocking)
+          setTimeout(async () => {
+            try {
+              const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('role, first_name, last_name, avatar_url')
+                .eq('id', session.user.id)
+                .single()
+              
+              if (profile && !error) {
+                setState(prev => ({
+                  ...prev,
+                  user: { ...session.user, ...profile } as SupabaseUser
+                }))
+              }
+            } catch (error) {
+              // Silently handle background fetch errors
+            }
+          }, 100) // Very short delay to not block auth flow
         }
 
         setState({
@@ -106,9 +127,11 @@ export function useSupabaseAuth() {
         // Handle successful sign in redirect
         if (event === 'SIGNED_IN' && userWithProfile && typeof window !== 'undefined') {
           const currentPath = window.location.pathname
+          
           // Only redirect if user is on auth pages
           if (currentPath === '/login' || currentPath === '/' || currentPath.startsWith('/auth/')) {
             const targetPath = (userWithProfile as SupabaseUser).role === 'CEO' ? '/admin' : '/dashboard'
+            
             setTimeout(() => {
               window.location.href = targetPath
             }, 500) // Small delay to allow toast to show

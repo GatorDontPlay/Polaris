@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/providers/supabase-auth-provider';
 import { Notification, ApiResponse, PaginatedResponse } from '@/types';
 
 // Fetch notifications with pagination and filters
@@ -68,19 +69,25 @@ export function useNotifications(params?: {
   limit?: number;
   unread?: boolean;
 }) {
+  const { user } = useAuth();
+  
   return useQuery({
-    queryKey: ['notifications', params],
+    queryKey: ['notifications', params, user?.id],
     queryFn: () => fetchNotifications(params),
+    enabled: !!user?.id && !!user?.email, // Only run if user is fully loaded
     staleTime: 30 * 1000, // 30 seconds - notifications should be fresh
   });
 }
 
 // Hook for fetching unread notification count
 export function useUnreadNotificationCount() {
+  const { user } = useAuth();
+  
   return useQuery({
-    queryKey: ['notifications', { unread: true, limit: 1000 }],
+    queryKey: ['notifications', { unread: true, limit: 1000 }, user?.id],
     queryFn: () => fetchNotifications({ unread: true, limit: 1000 }),
     select: (data) => data.pagination.total,
+    enabled: !!user?.id && !!user?.email, // Only run if user is fully loaded
     staleTime: 30 * 1000, // 30 seconds
   });
 }

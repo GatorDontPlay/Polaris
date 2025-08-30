@@ -27,10 +27,13 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { formatDateAU } from '@/lib/utils';
-import { useDemoReviews } from '@/hooks/use-demo-admin';
+import { useSupabaseAdminDashboard } from '@/hooks/use-supabase-pdrs';
 
 export default function ReviewsPage() {
-  const { data: reviews, isLoading, refreshReviews } = useDemoReviews();
+  const { data: dashboardData, isLoading, refetch: refreshReviews } = useSupabaseAdminDashboard();
+  
+  // Extract reviews (PDRs) from dashboard data
+  const reviews = dashboardData?.pdrs || [];
 
   // Refresh data when page becomes visible to catch localStorage changes
   useEffect(() => {

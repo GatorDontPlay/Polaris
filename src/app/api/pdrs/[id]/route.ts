@@ -5,7 +5,8 @@ import {
   handleApiError,
   authenticateRequest
 } from '@/lib/api-helpers';
-import { prisma } from '@/lib/db';
+import { createClient } from '@/lib/supabase/server';
+import { transformPDRFields } from '@/lib/case-transform';
 import { 
   getPDRPermissions, 
   validateStateTransition,
@@ -26,50 +27,37 @@ export async function GET(
 
     const { user } = authResult;
     const pdrId = params.id;
+    const supabase = await createClient();
 
     // Get PDR with all relations
-    const pdr = await prisma.pDR.findUnique({
-      where: { id: pdrId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true,
-          },
-        },
-        period: true,
-        lockedByUser: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        goals: {
-          include: {
-            pdr: false, // Avoid circular reference
-          },
-        },
-        behaviors: {
-          include: {
-            value: true,
-            pdr: false, // Avoid circular reference
-          },
-        },
-        midYearReview: true,
-        endYearReview: true,
-      },
-    });
+    const { data: pdr, error } = await supabase
+      .from('pdrs')
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(id, first_name, last_name, email, role),
+        period:pdr_periods(*),
+        locked_by_user:profiles!pdrs_locked_by_fkey(id, first_name, last_name),
+        goals(*),
+        behaviors(*, value:company_values(*)),
+        mid_year_review:mid_year_reviews(*),
+        end_year_review:end_year_reviews(*)
+      `)
+      .eq('id', pdrId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') { // No rows returned
+        return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
+      }
+      throw error;
+    }
 
     if (!pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
     // Check permissions
-    const isOwner = pdr.userId === user.id;
+    const isOwner = pdr.user_id === user.id;
     const permissions = getPDRPermissions(pdr.status, user.role, isOwner);
 
     if (!permissions.canView) {
@@ -79,13 +67,16 @@ export async function GET(
     // Filter fields based on permissions
     const filteredPdr = {
       ...pdr,
-      employeeFields: permissions.canViewEmployeeFields ? pdr.employeeFields : undefined,
-      ceoFields: permissions.canViewCeoFields ? pdr.ceoFields : undefined,
+      employee_fields: permissions.canViewEmployeeFields ? pdr.employee_fields : undefined,
+      ceo_fields: permissions.canViewCeoFields ? pdr.ceo_fields : undefined,
       goals: permissions.canViewEmployeeFields ? pdr.goals : [],
       behaviors: permissions.canViewEmployeeFields ? pdr.behaviors : [],
     };
 
-    return createApiResponse(filteredPdr);
+    // Transform PDR fields to camelCase
+    const transformedPDR = transformPDRFields(filteredPdr);
+
+    return createApiResponse(transformedPDR);
   } catch (error) {
     return handleApiError(error);
   }
@@ -105,23 +96,33 @@ export async function PATCH(
     const { user } = authResult;
     const pdrId = params.id;
     const body = await request.json();
+    const supabase = await createClient();
 
     // Get current PDR
-    const pdr = await prisma.pDR.findUnique({
-      where: { id: pdrId },
-      include: {
-        user: true,
-        goals: true,
-        behaviors: true,
-      },
-    });
+    const { data: pdr, error: fetchError } = await supabase
+      .from('pdrs')
+      .select(`
+        *,
+        user:profiles(*),
+        goals(*),
+        behaviors(*)
+      `)
+      .eq('id', pdrId)
+      .single();
+
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
+      }
+      throw fetchError;
+    }
 
     if (!pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
     // Check permissions
-    const isOwner = pdr.userId === user.id;
+    const isOwner = pdr.user_id === user.id;
     const permissions = getPDRPermissions(pdr.status, user.role, isOwner);
 
     if (!permissions.canEdit) {
@@ -131,51 +132,48 @@ export async function PATCH(
 
     // Prepare update data based on user role and permissions
     const updateData: any = {
-      updatedAt: new Date(),
+      updated_at: new Date().toISOString(),
     };
 
     // Handle employee field updates
     if (permissions.canEditEmployeeFields && body.employeeFields) {
-      updateData.employeeFields = body.employeeFields;
+      updateData.employee_fields = body.employeeFields;
     }
 
     // Handle CEO field updates
     if (permissions.canEditCeoFields && body.ceoFields) {
-      updateData.ceoFields = body.ceoFields;
+      updateData.ceo_fields = body.ceoFields;
     }
 
     // Handle step progression
     if (body.currentStep && typeof body.currentStep === 'number') {
-      updateData.currentStep = body.currentStep;
+      updateData.current_step = body.currentStep;
     }
 
     // Update PDR
-    const updatedPdr = await prisma.pDR.update({
-      where: { id: pdrId },
-      data: updateData,
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true,
-          },
-        },
-        period: true,
-        goals: true,
-        behaviors: {
-          include: {
-            value: true,
-          },
-        },
-        midYearReview: true,
-        endYearReview: true,
-      },
-    });
+    const { data: updatedPdr, error: updateError } = await supabase
+      .from('pdrs')
+      .update(updateData)
+      .eq('id', pdrId)
+      .select(`
+        *,
+        user:profiles(id, first_name, last_name, email, role),
+        period:pdr_periods(*),
+        goals(*),
+        behaviors(*, value:company_values(*)),
+        mid_year_review:mid_year_reviews(*),
+        end_year_review:end_year_reviews(*)
+      `)
+      .single();
 
-    return createApiResponse(updatedPdr);
+    if (updateError) {
+      throw updateError;
+    }
+
+    // Transform PDR fields to camelCase
+    const transformedPDR = transformPDRFields(updatedPdr);
+    
+    return createApiResponse(transformedPDR);
   } catch (error) {
     return handleApiError(error);
   }

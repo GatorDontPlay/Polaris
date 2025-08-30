@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDemoPDR, useDemoGoals, useDemoBehaviors, useDemoCompanyValues } from '@/hooks/use-demo-pdr';
+import { useSupabasePDR, useSupabasePDRGoals, useSupabasePDRBehaviors } from '@/hooks/use-supabase-pdrs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,12 +47,11 @@ export default function ReviewPage({ params }: ReviewPageProps) {
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [developmentData, setDevelopmentData] = useState<any>(null);
   
-  const { data: pdr, isLoading: pdrLoading, updatePdr } = useDemoPDR(params.id);
-  const { data: goals, isLoading: goalsLoading } = useDemoGoals(params.id);
-  const { data: behaviors, isLoading: behaviorsLoading } = useDemoBehaviors(params.id);
-  const { data: companyValues, isLoading: valuesLoading } = useDemoCompanyValues();
+  const { data: pdr, isLoading: pdrLoading } = useSupabasePDR(params.id);
+  const { data: goals, isLoading: goalsLoading } = useSupabasePDRGoals(params.id);
+  const { data: behaviors, isLoading: behaviorsLoading } = useSupabasePDRBehaviors(params.id);
 
-  const isLoading = pdrLoading || goalsLoading || behaviorsLoading || valuesLoading;
+  const isLoading = pdrLoading || goalsLoading || behaviorsLoading;
   const canSubmit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'Created' || pdr.status === 'OPEN_FOR_REVIEW');
   const canEdit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'OPEN_FOR_REVIEW' || pdr.status === 'Created');
   // Check if employee can access Mid-Year Check-in: needs to be past step 3

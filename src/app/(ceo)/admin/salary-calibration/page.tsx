@@ -16,8 +16,8 @@ import {
   Award
 } from 'lucide-react';
 import Link from 'next/link';
-import { useDemoAdminDashboard } from '@/hooks/use-demo-admin';
-import { useDemoAuth } from '@/hooks/use-demo-auth';
+import { useSupabaseAdminDashboard } from '@/hooks/use-supabase-pdrs';
+import { useAuth } from '@/providers/supabase-auth-provider';
 import type { PDR, Goal, Behavior } from '@/types';
 
 interface EmployeeCalibrationData {
@@ -34,8 +34,8 @@ interface EmployeeCalibrationData {
 }
 
 export default function SalaryCalibrationPage() {
-  const { data: dashboardData, isLoading: dashboardLoading } = useDemoAdminDashboard();
-  const { user } = useDemoAuth();
+  const { data: dashboardData, isLoading: dashboardLoading } = useSupabaseAdminDashboard();
+  const { user } = useAuth();
   const [employees, setEmployees] = useState<EmployeeCalibrationData[]>([]);
   const [stats, setStats] = useState({
     pendingReviews: 0,

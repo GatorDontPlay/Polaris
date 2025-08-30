@@ -7,7 +7,7 @@ import {
   validateRequestBody,
 } from '@/lib/api-helpers';
 import { goalUpdateSchema } from '@/lib/validations';
-import { prisma } from '@/lib/db';
+import { createClient } from '@/lib/supabase/server';
 import { createAuditLog } from '@/lib/auth';
 
 export async function PUT(
@@ -31,33 +31,34 @@ export async function PUT(
     }
 
     const goalData = validation.data;
+    const supabase = await createClient();
 
     // Get goal with PDR and verify access
-    const goal = await prisma.goal.findUnique({
-      where: { id: goalId },
-      include: {
-        pdr: {
-          include: { user: true },
-        },
-      },
-    });
+    const { data: goal, error: goalError } = await supabase
+      .from('goals')
+      .select(`
+        *,
+        pdr:pdrs(*, user:profiles!pdrs_user_id_fkey(*))
+      `)
+      .eq('id', goalId)
+      .single();
 
-    if (!goal) {
+    if (goalError || !goal) {
       return createApiError('Goal not found', 404, 'GOAL_NOT_FOUND');
     }
 
     // Check access permissions
-    if (user.role !== 'CEO' && goal.pdr.userId !== user.id) {
+    if (user.role !== 'CEO' && goal.pdr.user_id !== user.id) {
       return createApiError('Access denied', 403, 'ACCESS_DENIED');
     }
 
     // Check if PDR is locked
-    if (goal.pdr.isLocked) {
+    if (goal.pdr.is_locked) {
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
-    // For employees, only allow editing basic fields in DRAFT/SUBMITTED status
-    if (user.role !== 'CEO' && !['DRAFT', 'SUBMITTED'].includes(goal.pdr.status)) {
+    // For employees, only allow editing basic fields in Created/DRAFT/SUBMITTED status
+    if (user.role !== 'CEO' && !['Created', 'DRAFT', 'SUBMITTED'].includes(goal.pdr.status)) {
       return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
     }
 
@@ -66,31 +67,37 @@ export async function PUT(
     
     if (user.role === 'CEO') {
       // CEO can update any field
-      if (goalData.title !== undefined) {updateData.title = goalData.title;}
-      if (goalData.description !== undefined) {updateData.description = goalData.description;}
-      if (goalData.targetOutcome !== undefined) {updateData.targetOutcome = goalData.targetOutcome;}
-      if (goalData.successCriteria !== undefined) {updateData.successCriteria = goalData.successCriteria;}
-      if (goalData.priority !== undefined) {updateData.priority = goalData.priority;}
-      if (goalData.employeeProgress !== undefined) {updateData.employeeProgress = goalData.employeeProgress;}
-      if (goalData.employeeRating !== undefined) {updateData.employeeRating = goalData.employeeRating;}
-      if (goalData.ceoComments !== undefined) {updateData.ceoComments = goalData.ceoComments;}
-      if (goalData.ceoRating !== undefined) {updateData.ceoRating = goalData.ceoRating;}
+      if (goalData.title !== undefined) updateData.title = goalData.title;
+      if (goalData.description !== undefined) updateData.description = goalData.description;
+      if (goalData.targetOutcome !== undefined) updateData.target_outcome = goalData.targetOutcome;
+      if (goalData.successCriteria !== undefined) updateData.success_criteria = goalData.successCriteria;
+      if (goalData.priority !== undefined) updateData.priority = goalData.priority;
+      if (goalData.employeeProgress !== undefined) updateData.employee_progress = goalData.employeeProgress;
+      if (goalData.employeeRating !== undefined) updateData.employee_rating = goalData.employeeRating;
+      if (goalData.ceoComments !== undefined) updateData.ceo_comments = goalData.ceoComments;
+      if (goalData.ceoRating !== undefined) updateData.ceo_rating = goalData.ceoRating;
     } else {
       // Employee can only update basic fields and self-assessment
-      if (goalData.title !== undefined) {updateData.title = goalData.title;}
-      if (goalData.description !== undefined) {updateData.description = goalData.description;}
-      if (goalData.targetOutcome !== undefined) {updateData.targetOutcome = goalData.targetOutcome;}
-      if (goalData.successCriteria !== undefined) {updateData.successCriteria = goalData.successCriteria;}
-      if (goalData.priority !== undefined) {updateData.priority = goalData.priority;}
-      if (goalData.employeeProgress !== undefined) {updateData.employeeProgress = goalData.employeeProgress;}
-      if (goalData.employeeRating !== undefined) {updateData.employeeRating = goalData.employeeRating;}
+      if (goalData.title !== undefined) updateData.title = goalData.title;
+      if (goalData.description !== undefined) updateData.description = goalData.description;
+      if (goalData.targetOutcome !== undefined) updateData.target_outcome = goalData.targetOutcome;
+      if (goalData.successCriteria !== undefined) updateData.success_criteria = goalData.successCriteria;
+      if (goalData.priority !== undefined) updateData.priority = goalData.priority;
+      if (goalData.employeeProgress !== undefined) updateData.employee_progress = goalData.employeeProgress;
+      if (goalData.employeeRating !== undefined) updateData.employee_rating = goalData.employeeRating;
     }
 
     // Update the goal
-    const updatedGoal = await prisma.goal.update({
-      where: { id: goalId },
-      data: updateData,
-    });
+    const { data: updatedGoal, error: updateError } = await supabase
+      .from('goals')
+      .update(updateData)
+      .eq('id', goalId)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
 
     // Create audit log
     await createAuditLog({
@@ -148,8 +155,8 @@ export async function DELETE(
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
-    // Check if PDR allows editing (only DRAFT and SUBMITTED for employees)
-    if (user.role !== 'CEO' && !['DRAFT', 'SUBMITTED'].includes(goal.pdr.status)) {
+    // Check if PDR allows editing (Created, DRAFT and SUBMITTED for employees)
+    if (user.role !== 'CEO' && !['Created', 'DRAFT', 'SUBMITTED'].includes(goal.pdr.status)) {
       return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
     }
 

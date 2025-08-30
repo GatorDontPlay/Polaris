@@ -57,8 +57,8 @@ export async function PUT(
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
-    // For employees, only allow editing basic fields in DRAFT/SUBMITTED status
-    if (user.role !== 'CEO' && !['DRAFT', 'SUBMITTED'].includes(behavior.pdr.status)) {
+    // For employees, only allow editing basic fields in Created/DRAFT/SUBMITTED status
+    if (user.role !== 'CEO' && !['Created', 'DRAFT', 'SUBMITTED'].includes(behavior.pdr.status)) {
       return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
     }
 
@@ -173,8 +173,8 @@ export async function DELETE(
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
-    // Check if PDR allows editing (only DRAFT and SUBMITTED for employees)
-    if (user.role !== 'CEO' && !['DRAFT', 'SUBMITTED'].includes(behavior.pdr.status)) {
+    // Check if PDR allows editing (Created, DRAFT and SUBMITTED for employees)
+    if (user.role !== 'CEO' && !['Created', 'DRAFT', 'SUBMITTED'].includes(behavior.pdr.status)) {
       return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
     }
 

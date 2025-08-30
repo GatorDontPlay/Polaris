@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDemoPDR, useDemoGoals } from '@/hooks/use-demo-pdr';
+import { useSupabasePDR, useSupabasePDRGoals } from '@/hooks/use-supabase-pdrs';
 import { GoalForm } from '@/components/forms/goal-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,8 +21,8 @@ export default function GoalsPage({ params }: GoalsPageProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const { data: pdr, isLoading: pdrLoading } = useDemoPDR(params.id);
-  const { data: goals, isLoading: goalsLoading, addGoal, updateGoal, deleteGoal } = useDemoGoals(params.id);
+  const { data: pdr, isLoading: pdrLoading } = useSupabasePDR(params.id);
+  const { data: goals, isLoading: goalsLoading, createGoal, updateGoal, deleteGoal } = useSupabasePDRGoals(params.id);
 
   const isLoading = pdrLoading || goalsLoading;
   const isReadOnly = pdr?.isLocked || false;
@@ -42,7 +42,7 @@ export default function GoalsPage({ params }: GoalsPageProps) {
     try {
       setIsSubmitting(true);
       console.log('Creating goal with data:', data);
-      addGoal(data);
+      await createGoal(data);
       setShowAddForm(false);
       console.log('Goal created successfully');
     } catch (error) {

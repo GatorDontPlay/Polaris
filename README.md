@@ -1,6 +1,17 @@
 # PDR Advanced - Performance & Development Review System
 
-A comprehensive Performance & Development Review (PDR) system built with Next.js 14, TypeScript, PostgreSQL, and Prisma.
+A comprehensive Performance & Development Review (PDR) system built with Next.js 14, TypeScript, Supabase, and Prisma.
+
+## 🚀 **Now with Supabase Integration!**
+
+**Latest Update**: This application has been fully migrated to **Supabase authentication and database**. Features real user sign-up, authentication, role-based access control, and production-ready data management.
+
+- ✅ **Real Authentication**: Supabase Auth with email confirmation
+- ✅ **Production Database**: PostgreSQL with Row Level Security (RLS)
+- ✅ **Role-Based Access**: Employee and CEO roles with proper permissions
+- ✅ **Real-Time Data**: Live updates and synchronized state management
+
+> See `SUPABASE_MIGRATION_COMPLETE.md` for detailed migration information.
 
 ## 🎯 Project Overview
 

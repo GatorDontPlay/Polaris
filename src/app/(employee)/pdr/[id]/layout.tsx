@@ -1,7 +1,7 @@
 'use client';
 
-import { useDemoPDR } from '@/hooks/use-demo-pdr';
-import { useDemoAuth } from '@/hooks/use-demo-auth';
+import { useSupabasePDR } from '@/hooks/use-supabase-pdrs';
+import { useAuth } from '@/providers/supabase-auth-provider';
 import { StepperIndicator } from '@/components/pdr/stepper-indicator';
 import { PDRStatusBadge } from '@/components/pdr/pdr-status-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,16 +33,17 @@ interface PDRLayoutProps {
 
 export default function PDRLayout({ children, params }: PDRLayoutProps) {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading } = useDemoAuth();
-  const { data: pdr, isLoading: pdrLoading, error, deletePdr } = useDemoPDR(params.id);
+  const { user, isLoading: authLoading } = useAuth();
+  const { data: pdr, isLoading: pdrLoading, error } = useSupabasePDR(params.id);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // Delete functionality will be added to Supabase hooks later
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (!authLoading && !user) {
       router.push('/login');
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [authLoading, user, router]);
 
   // Show loading state
   if (authLoading || pdrLoading) {
@@ -126,7 +127,8 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
   };
 
   const handleDeletePdr = () => {
-    deletePdr();
+    // TODO: Implement delete functionality with Supabase
+    console.log('Delete PDR functionality not yet implemented');
     router.push('/dashboard');
   };
 
@@ -201,8 +203,8 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
         </PDRErrorBoundary>
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      {showDeleteConfirm && (
+      {/* Delete Confirmation Dialog - TODO: Re-enable when Supabase delete is implemented */}
+      {/* {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md">
             <CardHeader>
@@ -230,7 +232,7 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
             </CardContent>
           </Card>
         </div>
-      )}
+      )} */}
     </div>
   );
 }

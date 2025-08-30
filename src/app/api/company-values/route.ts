@@ -4,7 +4,7 @@ import {
   handleApiError,
   authenticateRequest 
 } from '@/lib/api-helpers';
-import { prisma } from '@/lib/db';
+import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,11 +14,18 @@ export async function GET(request: NextRequest) {
       return authResult.response;
     }
 
+    const supabase = await createClient();
+
     // Get all active company values
-    const values = await prisma.companyValue.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: 'asc' },
-    });
+    const { data: values, error } = await supabase
+      .from('company_values')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+
+    if (error) {
+      throw error;
+    }
 
     return createApiResponse(values);
   } catch (error) {

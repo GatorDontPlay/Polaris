@@ -7,7 +7,7 @@ import {
   validateRequestBody,
 } from '@/lib/api-helpers';
 import { goalSchema } from '@/lib/validations';
-import { prisma } from '@/lib/db';
+import { createClient } from '@/lib/supabase/server';
 import { createAuditLog } from '@/lib/auth';
 
 export async function GET(
@@ -23,30 +23,38 @@ export async function GET(
 
     const { user } = authResult;
     const pdrId = params.id;
+    const supabase = await createClient();
 
     // Get PDR and verify access
-    const pdr = await prisma.pDR.findUnique({
-      where: { id: pdrId },
-      include: { user: true },
-    });
+    const { data: pdr, error: pdrError } = await supabase
+      .from('pdrs')
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(*)
+      `)
+      .eq('id', pdrId)
+      .single();
 
-    if (!pdr) {
+    if (pdrError || !pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
     // Check access permissions
-    if (user.role !== 'CEO' && pdr.userId !== user.id) {
+    if (user.role !== 'CEO' && pdr.user_id !== user.id) {
       return createApiError('Access denied', 403, 'ACCESS_DENIED');
     }
 
     // Get goals for this PDR
-    const goals = await prisma.goal.findMany({
-      where: { pdrId },
-      orderBy: [
-        { priority: 'asc' }, // HIGH first, then MEDIUM, then LOW
-        { createdAt: 'asc' },
-      ],
-    });
+    const { data: goals, error: goalsError } = await supabase
+      .from('goals')
+      .select('*')
+      .eq('pdr_id', pdrId)
+      .order('priority', { ascending: true }) // HIGH first, then MEDIUM, then LOW
+      .order('created_at', { ascending: true });
+
+    if (goalsError) {
+      throw goalsError;
+    }
 
     return createApiResponse(goals);
   } catch (error) {
@@ -75,43 +83,54 @@ export async function POST(
     }
 
     const goalData = validation.data;
+    const supabase = await createClient();
 
     // Get PDR and verify access
-    const pdr = await prisma.pDR.findUnique({
-      where: { id: pdrId },
-      include: { user: true },
-    });
+    const { data: pdr, error: pdrError } = await supabase
+      .from('pdrs')
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(*)
+      `)
+      .eq('id', pdrId)
+      .single();
 
-    if (!pdr) {
+    if (pdrError || !pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
     // Check access permissions
-    if (user.role !== 'CEO' && pdr.userId !== user.id) {
+    if (user.role !== 'CEO' && pdr.user_id !== user.id) {
       return createApiError('Access denied', 403, 'ACCESS_DENIED');
     }
 
     // Check if PDR is locked
-    if (pdr.isLocked) {
+    if (pdr.is_locked) {
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
-    // Check if PDR allows editing (only DRAFT and SUBMITTED)
-    if (!['DRAFT', 'SUBMITTED'].includes(pdr.status)) {
+    // Check if PDR allows editing (Created, DRAFT and SUBMITTED)
+    if (!['Created', 'DRAFT', 'SUBMITTED'].includes(pdr.status)) {
       return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
     }
 
     // Create the goal
-    const goal = await prisma.goal.create({
-      data: {
-        pdrId,
+    const { data: goal, error: goalError } = await supabase
+      .from('goals')
+      .insert({
+        pdr_id: pdrId,
         title: goalData.title,
         description: goalData.description || null,
-        targetOutcome: goalData.targetOutcome || null,
-        successCriteria: goalData.successCriteria || null,
+        target_outcome: goalData.targetOutcome || null,
+        success_criteria: goalData.successCriteria || null,
         priority: goalData.priority || 'MEDIUM',
-      },
-    });
+      })
+      .select()
+      .single();
+
+    if (goalError) {
+      throw goalError;
+    }
 
     // Create audit log
     await createAuditLog({

@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useDemoAuth } from '@/hooks/use-demo-auth';
+import { useAuth } from '@/providers/supabase-auth-provider';
 import {
   Sidebar,
   SidebarContent,
@@ -68,7 +68,7 @@ const navigation = [
 
 export function EmployeeSidebar() {
   const pathname = usePathname();
-  const { user, logout } = useDemoAuth();
+  const { user, signOut: logout } = useAuth();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ZodError, ZodSchema } from 'zod';
-import { getUserFromRequest } from './auth';
+import { getAuthenticatedUser } from './auth-server';
 import { AuthUser, ApiResponse } from '@/types';
 
 /**
@@ -87,15 +87,28 @@ export async function authenticateRequest(
   request: NextRequest
 ): Promise<{ success: true; user: AuthUser } | { success: false; response: NextResponse }> {
   try {
-    const user = await getUserFromRequest(request);
-    if (!user) {
+    const authenticatedUser = await getAuthenticatedUser();
+    if (!authenticatedUser) {
       return {
         success: false,
         response: createApiError('Authentication required', 401, 'UNAUTHORIZED'),
       };
     }
+    
+    // Convert AuthenticatedUser to AuthUser format
+    const user: AuthUser = {
+      id: authenticatedUser.id,
+      email: authenticatedUser.email,
+      firstName: authenticatedUser.first_name || '',
+      lastName: authenticatedUser.last_name || '',
+      role: authenticatedUser.role as 'EMPLOYEE' | 'CEO',
+    };
+    
     return { success: true, user };
-  } catch {
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Authentication error:', error);
+    }
     return {
       success: false,
       response: createApiError('Authentication failed', 401, 'UNAUTHORIZED'),

@@ -31,8 +31,10 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
   // Allow public routes
-  const publicRoutes = ['/login', '/auth/confirm', '/auth/error', '/auth/reset-password', '/api/health']
-  if (publicRoutes.includes(pathname) || pathname.startsWith('/api/')) {
+  const publicRoutes = ['/login', '/auth/confirm', '/auth/error', '/auth/reset-password']
+  const publicApiRoutes = ['/api/health', '/api/auth/']
+  
+  if (publicRoutes.includes(pathname) || publicApiRoutes.some(route => pathname.startsWith(route))) {
     // Still need to refresh the session for public routes
     await supabase.auth.getUser()
     return supabaseResponse
@@ -41,7 +43,19 @@ export async function middleware(request: NextRequest) {
   // Check authentication for protected routes
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Redirect unauthenticated users to login
+  // Handle API routes that require authentication
+  if (pathname.startsWith('/api/')) {
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+    // For authenticated API requests, just continue
+    return supabaseResponse
+  }
+
+  // Redirect unauthenticated users to login for page routes
   if (!user) {
     const redirectUrl = new URL('/login', request.url)
     return NextResponse.redirect(redirectUrl)

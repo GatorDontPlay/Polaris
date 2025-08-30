@@ -7,7 +7,7 @@ import {
   validateRequestBody,
 } from '@/lib/api-helpers';
 import { behaviorSchema } from '@/lib/validations';
-import { prisma } from '@/lib/db';
+import { createClient } from '@/lib/supabase/server';
 import { createAuditLog } from '@/lib/auth';
 
 export async function GET(
@@ -23,33 +23,41 @@ export async function GET(
 
     const { user } = authResult;
     const pdrId = params.id;
+    const supabase = await createClient();
 
     // Get PDR and verify access
-    const pdr = await prisma.pDR.findUnique({
-      where: { id: pdrId },
-      include: { user: true },
-    });
+    const { data: pdr, error: pdrError } = await supabase
+      .from('pdrs')
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(*)
+      `)
+      .eq('id', pdrId)
+      .single();
 
-    if (!pdr) {
+    if (pdrError || !pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
     // Check access permissions
-    if (user.role !== 'CEO' && pdr.userId !== user.id) {
+    if (user.role !== 'CEO' && pdr.user_id !== user.id) {
       return createApiError('Access denied', 403, 'ACCESS_DENIED');
     }
 
     // Get behaviors for this PDR with company values
-    const behaviors = await prisma.behavior.findMany({
-      where: { pdrId },
-      include: {
-        value: true,
-      },
-      orderBy: [
-        { value: { sortOrder: 'asc' } },
-        { createdAt: 'asc' },
-      ],
-    });
+    const { data: behaviors, error: behaviorsError } = await supabase
+      .from('behaviors')
+      .select(`
+        *,
+        value:company_values(*)
+      `)
+      .eq('pdr_id', pdrId)
+      .order('value(sort_order)', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (behaviorsError) {
+      throw behaviorsError;
+    }
 
     return createApiResponse(behaviors);
   } catch (error) {
@@ -78,65 +86,82 @@ export async function POST(
     }
 
     const behaviorData = validation.data;
+    const supabase = await createClient();
 
     // Get PDR and verify access
-    const pdr = await prisma.pDR.findUnique({
-      where: { id: pdrId },
-      include: { user: true },
-    });
+    const { data: pdr, error: pdrError } = await supabase
+      .from('pdrs')
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(*)
+      `)
+      .eq('id', pdrId)
+      .single();
 
-    if (!pdr) {
+    if (pdrError || !pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
     // Check access permissions
-    if (user.role !== 'CEO' && pdr.userId !== user.id) {
+    if (user.role !== 'CEO' && pdr.user_id !== user.id) {
       return createApiError('Access denied', 403, 'ACCESS_DENIED');
     }
 
     // Check if PDR is locked
-    if (pdr.isLocked) {
+    if (pdr.is_locked) {
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
-    // Check if PDR allows editing (only DRAFT and SUBMITTED)
-    if (!['DRAFT', 'SUBMITTED'].includes(pdr.status)) {
+    // Check if PDR allows editing (Created, DRAFT and SUBMITTED)
+    if (!['Created', 'DRAFT', 'SUBMITTED'].includes(pdr.status)) {
       return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
     }
 
     // Verify the company value exists and is active
-    const companyValue = await prisma.companyValue.findUnique({
-      where: { id: behaviorData.valueId },
-    });
+    const { data: companyValue, error: valueError } = await supabase
+      .from('company_values')
+      .select('*')
+      .eq('id', behaviorData.valueId)
+      .single();
 
-    if (!companyValue || !companyValue.isActive) {
+    if (valueError || !companyValue || !companyValue.is_active) {
       return createApiError('Invalid or inactive company value', 400, 'INVALID_COMPANY_VALUE');
     }
 
     // Check if behavior already exists for this value
-    const existingBehavior = await prisma.behavior.findFirst({
-      where: {
-        pdrId,
-        valueId: behaviorData.valueId,
-      },
-    });
+    const { data: existingBehavior, error: checkError } = await supabase
+      .from('behaviors')
+      .select('id')
+      .eq('pdr_id', pdrId)
+      .eq('value_id', behaviorData.valueId)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      throw checkError;
+    }
 
     if (existingBehavior) {
       return createApiError('Behavior already exists for this company value', 400, 'BEHAVIOR_EXISTS');
     }
 
     // Create the behavior
-    const behavior = await prisma.behavior.create({
-      data: {
-        pdrId,
-        valueId: behaviorData.valueId,
+    const { data: behavior, error: behaviorError } = await supabase
+      .from('behaviors')
+      .insert({
+        pdr_id: pdrId,
+        value_id: behaviorData.valueId,
         description: behaviorData.description,
         examples: behaviorData.examples || null,
-      },
-      include: {
-        value: true,
-      },
-    });
+      })
+      .select(`
+        *,
+        value:company_values(*)
+      `)
+      .single();
+
+    if (behaviorError) {
+      throw behaviorError;
+    }
 
     // Create audit log
     await createAuditLog({

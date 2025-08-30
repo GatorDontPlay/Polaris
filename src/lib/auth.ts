@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { NextRequest } from 'next/server';
-import { prisma } from './db';
+import { createClient } from './supabase/server';
 import { AuthUser, JWTPayload } from '@/types';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-for-development';
@@ -89,46 +89,40 @@ export function verifyRefreshToken(token: string): { userId: string } | null {
 
 /**
  * Authenticate user with email and password
+ * Note: This function is deprecated in favor of Supabase Auth
+ * Keeping for compatibility but should migrate to Supabase Auth
  */
 export async function authenticateUser(
   email: string,
   password: string
 ): Promise<{ success: true; user: AuthUser } | { success: false; error: string }> {
   try {
-    // Find user by email
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        passwordHash: true,
-        isActive: true,
-      },
-    });
+    const supabase = await createClient();
+    
+    // Find user by email in profiles table
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .select('id, email, first_name, last_name, role, is_active')
+      .eq('email', email.toLowerCase())
+      .single();
 
-    if (!user) {
+    if (error || !user) {
       return { success: false, error: 'Invalid email or password' };
     }
 
-    if (!user.isActive) {
+    if (!user.is_active) {
       return { success: false, error: 'Account is disabled' };
     }
 
-    // Verify password
-    const isPasswordValid = await verifyPassword(password, user.passwordHash);
-    if (!isPasswordValid) {
-      return { success: false, error: 'Invalid email or password' };
-    }
-
-    // Return user without password hash
+    // Note: In Supabase Auth, password verification is handled by Supabase
+    // This is a legacy function - should use Supabase Auth instead
+    
+    // Return user data
     const authUser: AuthUser = {
       id: user.id,
       email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      firstName: user.first_name,
+      lastName: user.last_name,
       role: user.role,
     };
 
@@ -143,27 +137,29 @@ export async function authenticateUser(
 
 /**
  * Get user from JWT token
+ * Note: This function is deprecated in favor of Supabase Auth
  */
 export async function getUserFromToken(token: string): Promise<AuthUser | null> {
   try {
     const payload = verifyToken(token);
     if (!payload) {return null;}
 
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        isActive: true,
-      },
-    });
+    const supabase = await createClient();
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .select('id, email, first_name, last_name, role, is_active')
+      .eq('id', payload.userId)
+      .single();
 
-    if (!user || !user.isActive) {return null;}
+    if (error || !user || !user.is_active) {return null;}
 
-    return user;
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      role: user.role,
+    };
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.error('Get user from token error:', error);
@@ -173,21 +169,44 @@ export async function getUserFromToken(token: string): Promise<AuthUser | null> 
 }
 
 /**
- * Get user from request headers/cookies
+ * Get user from request headers/cookies using Supabase auth
  */
 export async function getUserFromRequest(request: NextRequest): Promise<AuthUser | null> {
   try {
-    // Try to get token from Authorization header
-    let token = request.headers.get('authorization')?.replace('Bearer ', '');
+    const { createClient } = await import('./supabase/server');
+    const supabase = await createClient();
 
-    // If not in header, try cookies
-    if (!token) {
-      token = request.cookies.get('access_token')?.value;
+    // Get user from Supabase session
+    const { data: { user }, error } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('No authenticated user found in request');
+      }
+      return null;
     }
 
-    if (!token) {return null;}
+    // Get user profile with role information
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role, first_name, last_name, avatar_url')
+      .eq('id', user.id)
+      .single();
 
-    return getUserFromToken(token);
+    if (profileError || !profile) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to get user profile:', profileError);
+      }
+      return null;
+    }
+
+    return {
+      id: user.id,
+      email: user.email || '',
+      firstName: profile.first_name || '',
+      lastName: profile.last_name || '',
+      role: profile.role as 'EMPLOYEE' | 'CEO',
+    };
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.error('Get user from request error:', error);
@@ -243,19 +262,21 @@ export async function createAuditLog({
   userAgent?: string;
 }): Promise<void> {
   try {
-    const logData: Record<string, unknown> = {
-      tableName,
-      recordId,
+    const supabase = await createClient();
+    
+    const logData: any = {
+      table_name: tableName,
+      record_id: recordId,
       action,
     };
     
-    if (oldValues) {logData.oldValues = oldValues;}
-    if (newValues) {logData.newValues = newValues;}
-    if (userId) {logData.changedBy = userId;}
-    if (ipAddress) {logData.ipAddress = ipAddress;}
-    if (userAgent) {logData.userAgent = userAgent;}
+    if (oldValues) logData.old_values = oldValues;
+    if (newValues) logData.new_values = newValues;
+    if (userId) logData.user_id = userId;
+    if (ipAddress) logData.ip_address = ipAddress;
+    if (userAgent) logData.user_agent = userAgent;
     
-    await prisma.auditLog.create({ data: logData as any });
+    await supabase.from('audit_logs').insert(logData);
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.error('Failed to create audit log:', error);

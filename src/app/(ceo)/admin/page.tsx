@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useCEODashboard } from '@/hooks/use-admin';
-import { useDemoAdminDashboard } from '@/hooks/use-demo-admin';
-import { useDemoAuth } from '@/hooks/use-demo-auth';
+import { useSupabaseAdminDashboard } from '@/hooks/use-supabase-pdrs';
+import { useAuth } from '@/providers/supabase-auth-provider';
 import { AdminHeader, PageHeader } from '@/components/admin/admin-header';
 import { PDRManagementDashboard } from '@/components/admin/pdr-management-dashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,49 +60,21 @@ const StatCard = ({ title, value, change, changeType, icon: Icon }: {
 export default function CEODashboard() {
   console.log('CEODashboard component mounted');
   
-  // Check if we're in demo mode
-  const { user: demoUser } = useDemoAuth();
-  const isDemo = !!demoUser;
+  // Get authenticated user
+  const { user } = useAuth();
   
   // Filter state for pending reviews
   const [pendingReviewsFilter, setPendingReviewsFilter] = useState<'goal-setting' | 'mid-year' | 'year-end' | 'calibration' | 'closed'>('goal-setting');
   
-  // Use appropriate data source based on authentication mode
-  const realDashboard = useCEODashboard();
-  const demoDashboard = useDemoAdminDashboard();
-  
+  // Use Supabase admin dashboard
   const { 
     data: dashboardData, 
     isLoading, 
     error, 
-    refetch: realRefresh,
-    refreshDashboard: demoRefresh
-  } = isDemo 
-    ? { ...demoDashboard, refetch: demoDashboard.refreshDashboard, refreshDashboard: demoDashboard.refreshDashboard }
-    : { ...realDashboard, refetch: realDashboard.refetch, refreshDashboard: realDashboard.refetch };
-  
-  const refreshDashboard = isDemo ? demoRefresh : realRefresh;
+    refreshDashboard
+  } = useSupabaseAdminDashboard();
 
-  // Auto-refresh dashboard periodically (handled by React Query)
-  // In demo mode, we need to listen for localStorage changes
-  useEffect(() => {
-    if (isDemo) {
-      // Listen for PDR changes to refresh dashboard
-      const handlePDRChange = () => {
-        console.log('🔄 CEO Dashboard: PDR change detected, refreshing...');
-        refreshDashboard();
-      };
-
-      // Listen for demo PDR changes
-      window.addEventListener('demo-pdr-changed', handlePDRChange);
-      window.addEventListener('demo-audit-updated', handlePDRChange);
-
-      return () => {
-        window.removeEventListener('demo-pdr-changed', handlePDRChange);
-        window.removeEventListener('demo-audit-updated', handlePDRChange);
-      };
-    }
-  }, [isDemo, refreshDashboard]);
+  // React Query handles auto-refresh and caching automatically
 
   if (isLoading) {
     return (
@@ -158,15 +130,13 @@ export default function CEODashboard() {
   }
 
   const stats = dashboardData?.stats;
-  const recentActivity = dashboardData?.recentActivity || [];
   const allPendingReviews = dashboardData?.pendingReviews || [];
   
   // Calculate counts for each filter category
-  const goalSettingCount = allPendingReviews.filter((review: any) => review.status === 'OPEN_FOR_REVIEW' || review.status === 'SUBMITTED').length;
+  const goalSettingCount = allPendingReviews.filter((review: any) => review.status === 'SUBMITTED').length;
 
   // Debug logging after all variables are declared
   console.log('CEO Dashboard Debug:', { 
-    isDemo,
     dashboardData, 
     isLoading, 
     error: error?.message || error,
@@ -185,11 +155,11 @@ export default function CEODashboard() {
   const pendingReviews = allPendingReviews.filter((review: any) => {
     switch (pendingReviewsFilter) {
       case 'goal-setting':
-        return review.status === 'OPEN_FOR_REVIEW' || review.status === 'SUBMITTED';
+        return review.status === 'SUBMITTED' || review.status === 'UNDER_REVIEW';
       case 'mid-year':
-        return review.status === 'PLAN_LOCKED' || review.status === 'LOCKED' || review.status === 'MID_YEAR_CHECK';
+        return review.status === 'PLAN_LOCKED';
       case 'year-end':
-        return review.status === 'FINAL_REVIEW' || review.status === 'END_YEAR_REVIEW';
+        return review.status === 'FINAL_REVIEW';
       case 'calibration':
         return review.status === 'CALIBRATION';
       case 'closed':
@@ -213,57 +183,7 @@ export default function CEODashboard() {
             title="Welcome back!"
             description="Your PDRs in progress or awaiting your review..."
           />
-          {isDemo && (
-            <div className="flex space-x-2">
-              <Button
-                onClick={() => {
-                  console.log('🔍 Debug localStorage state:');
-                  const keys = Object.keys(localStorage);
-                  const demoKeys = keys.filter(key => key.startsWith('demo_'));
-                  console.log('Demo keys found:', demoKeys);
-                  demoKeys.forEach(key => {
-                    const value = localStorage.getItem(key);
-                    try {
-                      const parsed = JSON.parse(value || '{}');
-                      console.log(`${key}:`, parsed);
-                      if (key.includes('pdr')) {
-                        console.log(`PDR ${key} status:`, parsed.status, 'submitted:', parsed.submittedAt);
-                      }
-                    } catch {
-                      console.log(`${key}:`, value);
-                    }
-                  });
-                  
-                  // Force check the current PDR specifically
-                  const currentPDR = localStorage.getItem('demo_current_pdr');
-                  if (currentPDR) {
-                    const parsed = JSON.parse(currentPDR);
-                    console.log('🎯 CURRENT PDR ANALYSIS:');
-                    console.log('- ID:', parsed.id);
-                    console.log('- Status:', parsed.status);
-                    console.log('- Submitted At:', parsed.submittedAt);
-                    console.log('- Is Locked:', parsed.isLocked);
-                    console.log('- Should show in Goal Setting?', ['OPEN_FOR_REVIEW', 'SUBMITTED'].includes(parsed.status));
-                  }
-                }}
-                variant="outline"
-                size="sm"
-              >
-                Debug Storage
-              </Button>
-              <Button
-                onClick={() => {
-                  console.log('🔄 Manual refresh triggered');
-                  refreshDashboard();
-                }}
-                variant="outline"
-                size="sm"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh Data
-              </Button>
-            </div>
-          )}
+
         </div>
 
         {/* Stats Overview */}

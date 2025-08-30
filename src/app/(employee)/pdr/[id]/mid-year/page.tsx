@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useDemoPDR, useDemoGoals, useDemoCompanyValues } from '@/hooks/use-demo-pdr';
+import { useSupabasePDR, useSupabasePDRGoals } from '@/hooks/use-supabase-pdrs';
 import { midYearReviewSchema } from '@/lib/validations';
 import { MidYearFormData } from '@/types';
 import { toast } from '@/hooks/use-toast';
@@ -53,9 +53,8 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   const [accessDenied, setAccessDenied] = useState(false);
   const [showAccessDeniedView, setShowAccessDeniedView] = useState(false);
   
-  const { data: pdr, isLoading: pdrLoading, updatePdr } = useDemoPDR(params.id);
-  const { data: goals, isLoading: goalsLoading } = useDemoGoals(params.id);
-  const { data: companyValues } = useDemoCompanyValues();
+  const { data: pdr, isLoading: pdrLoading } = useSupabasePDR(params.id);
+  const { data: goals, isLoading: goalsLoading } = useSupabasePDRGoals(params.id);
   
   // Initialize form
   const { 

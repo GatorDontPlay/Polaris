@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useEmployees } from '@/hooks/use-admin';
-import { useDemoAuth } from '@/hooks/use-demo-auth';
+import { useAuth } from '@/providers/supabase-auth-provider';
 import { AdminHeader, PageHeader } from '@/components/admin/admin-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,7 +40,7 @@ import { formatDateAU } from '@/lib/utils';
 
 export default function EmployeesPage() {
   const { data: employeesResponse, isLoading } = useEmployees();
-  const { user } = useDemoAuth();
+  const { user } = useAuth();
   const [employees, setEmployees] = useState(employeesResponse?.data || []);
   
   // State to track edited fields

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDemoPDR, useDemoBehaviors, useDemoCompanyValues } from '@/hooks/use-demo-pdr';
+import { useSupabasePDR, useSupabasePDRBehaviors } from '@/hooks/use-supabase-pdrs';
 import { StructuredBehaviorForm, StructuredBehaviorFormHandle } from '@/components/forms/structured-behavior-form';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Heart } from 'lucide-react';
@@ -26,11 +26,10 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
   //   localStorage.removeItem('demo_behaviors_pdr-1');
   // }, []);
   
-  const { data: pdr, isLoading: pdrLoading, updatePdr } = useDemoPDR(params.id);
-  const { data: behaviors, isLoading: behaviorsLoading, addBehavior, updateBehavior, deleteBehavior } = useDemoBehaviors(params.id);
-  const { data: companyValues, isLoading: valuesLoading } = useDemoCompanyValues();
+  const { data: pdr, isLoading: pdrLoading } = useSupabasePDR(params.id);
+  const { data: behaviors, isLoading: behaviorsLoading } = useSupabasePDRBehaviors(params.id);
 
-  const isLoading = pdrLoading || behaviorsLoading || valuesLoading;
+  const isLoading = pdrLoading || behaviorsLoading;
   const isReadOnly = pdr?.isLocked || false;
   const canEdit = pdr && !isReadOnly && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'OPEN_FOR_REVIEW' || pdr.status === 'Created');
 

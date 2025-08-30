@@ -5,7 +5,7 @@ import { AdminHeader, PageHeader } from '@/components/admin/admin-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
-import { useDemoAuth } from '@/hooks/use-demo-auth';
+import { useAuth } from '@/providers/supabase-auth-provider';
 import { useCalibrationData } from '@/hooks/use-calibration';
 
 // Import custom components
@@ -14,7 +14,7 @@ import { CalibrationEmployeeTable } from '@/components/calibration/calibration-e
 import { FinancialYearSelector } from '@/components/calibration/financial-year-selector';
 
 export default function CalibrationPage() {
-  const { user } = useDemoAuth();
+  const { user } = useAuth();
   const [selectedFinancialYear, setSelectedFinancialYear] = useState<string>('current');
   const { 
     employees, 

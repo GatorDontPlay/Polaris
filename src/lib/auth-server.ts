@@ -17,28 +17,41 @@ export interface AuthenticatedUser {
  */
 export async function getAuthenticatedUser(): Promise<AuthenticatedUser | null> {
   try {
+    console.log('Auth Server: Getting authenticated user...');
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) return null
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    console.log('Auth Server: Supabase auth response:', { user: user?.id || 'null', error: authError });
+    if (!user) {
+      console.log('Auth Server: No user found');
+      return null;
+    }
 
     // Get user profile with role information
-    const { data: profile } = await supabase
+    console.log('Auth Server: Fetching profile for user:', user.id);
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role, first_name, last_name, avatar_url')
       .eq('id', user.id)
       .single()
 
-    if (!profile) return null
+    console.log('Auth Server: Profile response:', { profile, error: profileError });
+    if (!profile) {
+      console.log('Auth Server: No profile found for user:', user.id);
+      return null;
+    }
 
-    return {
+    const authenticatedUser = {
       id: user.id,
       email: user.email || '',
       role: profile.role as UserRole,
       first_name: profile.first_name || undefined,
       last_name: profile.last_name || undefined,
       avatar_url: profile.avatar_url || undefined,
-    }
+    };
+    
+    console.log('Auth Server: Returning authenticated user:', { id: authenticatedUser.id, email: authenticatedUser.email, role: authenticatedUser.role });
+    return authenticatedUser;
   } catch (error) {
     console.error('Error getting authenticated user:', error)
     return null

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { useDemoAuth } from '@/hooks/use-demo-auth';
+import { useAuth } from '@/providers/supabase-auth-provider';
 import { 
   User, 
   Mail, 
@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 
 export default function ProfilePage() {
-  const { user } = useDemoAuth();
+  const { user } = useAuth();
 
   const getInitials = (firstName?: string, lastName?: string) => {
     if (!firstName || !lastName) return 'U';

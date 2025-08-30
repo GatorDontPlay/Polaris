@@ -7,7 +7,7 @@ import {
   extractPagination,
   createPaginatedResponse 
 } from '@/lib/api-helpers';
-import { prisma } from '@/lib/db';
+import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,42 +20,41 @@ export async function GET(request: NextRequest) {
     const { user } = authResult;
     const url = new URL(request.url);
     const { page, limit, offset } = extractPagination(url);
+    const supabase = await createClient();
 
     // Get query parameters
     const unreadOnly = url.searchParams.get('unread') === 'true';
 
-    // Build where clause
-    const whereClause: any = {
-      userId: user.id,
-    };
+    // Build query
+    let query = supabase
+      .from('notifications')
+      .select(`
+        *,
+        pdr:pdrs(id, fy_label, status)
+      `, { count: 'exact' })
+      .eq('user_id', user.id);
 
     if (unreadOnly) {
-      whereClause.readAt = null;
+      query = query.is('read_at', null);
     }
 
-    // Get total count
-    const total = await prisma.notification.count({ where: whereClause });
+    // Get total count first
+    const { count: total } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('read_at', unreadOnly ? null : 'read_at');
 
-    // Get notifications
-    const notifications = await prisma.notification.findMany({
-      where: whereClause,
-      include: {
-        pdr: {
-          select: {
-            id: true,
-            fyLabel: true,
-            status: true,
-          },
-        },
-      },
-      orderBy: [
-        { createdAt: 'desc' },
-      ],
-      skip: offset,
-      take: limit,
-    });
+    // Get notifications with pagination
+    const { data: notifications, error } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
-    const response = createPaginatedResponse(notifications, total, page, limit);
+    if (error) {
+      throw error;
+    }
+
+    const response = createPaginatedResponse(notifications || [], total || 0, page, limit);
     return NextResponse.json(response);
   } catch (error) {
     return handleApiError(error);

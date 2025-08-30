@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useDemoPDR, useDemoGoals, useDemoBehaviors, useDemoCompanyValues } from '@/hooks/use-demo-pdr';
+import { useSupabasePDR, useSupabasePDRGoals, useSupabasePDRBehaviors } from '@/hooks/use-supabase-pdrs';
 import { useEndYearReview, useEndYearReviewMutation } from '@/hooks/use-reviews';
 import { endYearReviewSchema } from '@/lib/validations';
 import { EndYearFormData, Goal, Behavior, CompanyValue } from '@/types';
@@ -41,10 +41,9 @@ export default function EndYearPage({ params }: EndYearPageProps) {
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   
   // Demo data hooks
-  const { data: pdr, isLoading: pdrLoading, updatePdr } = useDemoPDR(params.id);
-  const { data: goals, isLoading: goalsLoading } = useDemoGoals(params.id);
-  const { data: behaviors, isLoading: behaviorsLoading } = useDemoBehaviors(params.id);
-  const { data: companyValues } = useDemoCompanyValues();
+  const { data: pdr, isLoading: pdrLoading } = useSupabasePDR(params.id);
+  const { data: goals, isLoading: goalsLoading } = useSupabasePDRGoals(params.id);
+  const { data: behaviors, isLoading: behaviorsLoading } = useSupabasePDRBehaviors(params.id);
   const { data: endYearReview, isLoading: reviewLoading } = useEndYearReview(params.id);
   const { create: createReview, update: updateReview } = useEndYearReviewMutation(params.id);
 
