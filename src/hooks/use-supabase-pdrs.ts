@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/providers/supabase-auth-provider';
 import { computeAustralianFY } from '@/lib/financial-year';
@@ -42,7 +42,12 @@ export function useSupabasePDRDashboard() {
       if (!user?.id) return null;
       
       // Always fetch all PDRs and find current one client-side for reliability
-      const response = await fetch('/api/pdrs?limit=10');
+      const response = await fetch('/api/pdrs?limit=10', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       if (!response.ok) {
         console.error('Dashboard PDR fetch failed:', response.status, response.statusText);
         throw new Error('Failed to fetch PDRs');
@@ -56,10 +61,10 @@ export function useSupabasePDRDashboard() {
       console.log('Dashboard - Data length:', result.data?.length);
       
       // Fix: Handle nested data structure - API returns {data: {data: Array, pagination: {}}}
-      const pdrs = Array.isArray(result.data) ? result.data : result.data?.data || [];
+      const pdrs = Array.isArray(result.data) ? result.data : (result.data as any)?.data || [];
       
       // Debug: Log what PDRs are returned
-      console.log('Dashboard PDRs received:', pdrs?.map(p => ({ 
+      console.log('Dashboard PDRs received:', pdrs?.map((p: any) => ({ 
         id: p.id, 
         fyLabel: p.fyLabel || p.fy_label, 
         status: p.status,
@@ -68,11 +73,11 @@ export function useSupabasePDRDashboard() {
       
       // Find active PDR (any non-closed PDR, regardless of FY)
       // This allows users to work on future FY PDRs or complete past FY PDRs
-      const activePDR = pdrs.find(pdr => pdr.status !== 'CLOSED');
+      const activePDR = pdrs.find((pdr: any) => pdr.status !== 'CLOSED');
       
       // Also log current FY for debugging
       const currentFY = computeAustralianFY();
-      const currentFYPDR = pdrs.find(pdr => (pdr.fyLabel || pdr.fy_label) === currentFY.label);
+      const currentFYPDR = pdrs.find((pdr: any) => (pdr.fyLabel || pdr.fy_label) === currentFY.label);
       
       console.log('PDR Search Results:', { 
         currentFY: currentFY.label,
@@ -89,7 +94,7 @@ export function useSupabasePDRDashboard() {
           status: currentFYPDR.status,
           currentStep: currentFYPDR.currentStep || currentFYPDR.current_step
         } : null,
-        allPDRStatuses: pdrs.map(p => ({ 
+        allPDRStatuses: pdrs.map((p: any) => ({ 
           fyLabel: p.fyLabel || p.fy_label, 
           status: p.status,
           currentStep: p.currentStep || p.current_step
@@ -140,6 +145,9 @@ export function useSupabasePDRDashboard() {
         window.removeEventListener('pdr-updated', handlePDRUpdate as EventListener);
       };
     }
+    
+    // Return undefined explicitly for the other path
+    return undefined;
   }, [queryClient, user?.id]);
 
   // Create PDR mutation
@@ -147,13 +155,14 @@ export function useSupabasePDRDashboard() {
     mutationFn: async (financialYear?: { label: string; startDate: Date; endDate: Date }): Promise<PDR> => {
       const response = await fetch('/api/pdrs', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(financialYear ? {
           fyLabel: financialYear.label,
-          fyStartDate: financialYear.startDate,
-          fyEndDate: financialYear.endDate,
+          fyStartDate: financialYear.startDate.toISOString().split('T')[0],
+          fyEndDate: financialYear.endDate.toISOString().split('T')[0],
         } : {}),
       });
 
@@ -201,10 +210,17 @@ export function useSupabasePDRDashboard() {
 
 // Hook for fetching single PDR
 export function useSupabasePDR(pdrId: string) {
+  const queryClient = useQueryClient();
+  
   const { data: pdr, isLoading, error } = useQuery({
     queryKey: ['pdr', pdrId],
     queryFn: async (): Promise<PDR> => {
-      const response = await fetch(`/api/pdrs/${pdrId}`);
+      const response = await fetch(`/api/pdrs/${pdrId}`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch PDR');
       }
@@ -215,10 +231,47 @@ export function useSupabasePDR(pdrId: string) {
     staleTime: 60 * 1000, // 1 minute
   });
 
+  // Delete PDR mutation
+  const deletePDRMutation = useMutation({
+    mutationFn: async (): Promise<void> => {
+      const response = await fetch(`/api/pdrs/${pdrId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to delete PDR: ${response.status}`);
+      }
+
+      // Return void as we don't need the response data
+      return;
+    },
+    onSuccess: () => {
+      // Invalidate all PDR-related queries to refresh the data
+      queryClient.invalidateQueries({ queryKey: ['pdr', pdrId] });
+      queryClient.invalidateQueries({ queryKey: ['user-current-pdr'] });
+      queryClient.invalidateQueries({ queryKey: ['user-pdr-history'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
+      
+      // Remove the specific PDR from cache as it no longer exists
+      queryClient.removeQueries({ queryKey: ['pdr', pdrId] });
+    },
+    onError: (error) => {
+      console.error('Failed to delete PDR:', error);
+    },
+  });
+
   return {
     data: pdr,
     isLoading,
     error: error?.message,
+    deletePDR: deletePDRMutation.mutateAsync,
+    isDeleting: deletePDRMutation.isPending,
+    deleteError: deletePDRMutation.error?.message,
   };
 }
 
@@ -229,7 +282,12 @@ export function useSupabasePDRGoals(pdrId: string) {
   const { data: goals, isLoading, error } = useQuery({
     queryKey: ['pdr-goals', pdrId],
     queryFn: async (): Promise<Goal[]> => {
-      const response = await fetch(`/api/pdrs/${pdrId}/goals`);
+      const response = await fetch(`/api/pdrs/${pdrId}/goals`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch goals');
       }
@@ -245,6 +303,7 @@ export function useSupabasePDRGoals(pdrId: string) {
     mutationFn: async (goalData: GoalFormData): Promise<Goal> => {
       const response = await fetch(`/api/pdrs/${pdrId}/goals`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -269,6 +328,7 @@ export function useSupabasePDRGoals(pdrId: string) {
     mutationFn: async ({ goalId, updates }: { goalId: string; updates: Partial<Goal> }): Promise<Goal> => {
       const response = await fetch(`/api/goals/${goalId}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -295,6 +355,7 @@ export function useSupabasePDRGoals(pdrId: string) {
     mutationFn: async (goalId: string): Promise<void> => {
       const response = await fetch(`/api/goals/${goalId}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -327,7 +388,12 @@ export function useSupabasePDRBehaviors(pdrId: string) {
   const { data: behaviors, isLoading, error } = useQuery({
     queryKey: ['pdr-behaviors', pdrId],
     queryFn: async (): Promise<Behavior[]> => {
-      const response = await fetch(`/api/pdrs/${pdrId}/behaviors`);
+      const response = await fetch(`/api/pdrs/${pdrId}/behaviors`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch behaviors');
       }
@@ -343,6 +409,7 @@ export function useSupabasePDRBehaviors(pdrId: string) {
     mutationFn: async (behaviorData: BehaviorFormData): Promise<Behavior> => {
       const response = await fetch(`/api/pdrs/${pdrId}/behaviors`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -367,6 +434,7 @@ export function useSupabasePDRBehaviors(pdrId: string) {
     mutationFn: async ({ behaviorId, updates }: { behaviorId: string; updates: Partial<Behavior> }): Promise<Behavior> => {
       const response = await fetch(`/api/behaviors/${behaviorId}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -406,7 +474,12 @@ export function useSupabasePDRHistory() {
     queryFn: async (): Promise<PDR[]> => {
       if (!user?.id) return [];
       
-      const response = await fetch('/api/pdrs?limit=10');
+      const response = await fetch('/api/pdrs?limit=10', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       if (!response.ok) {
         console.error('PDR History fetch failed:', response.status, response.statusText);
         throw new Error(`Failed to fetch PDR history: ${response.status}`);
@@ -420,8 +493,8 @@ export function useSupabasePDRHistory() {
       console.log('PDR History - Data length:', result.data?.length);
       
       // Fix: Handle nested data structure - API returns {data: {data: Array, pagination: {}}}
-      const pdrs = Array.isArray(result.data) ? result.data : result.data?.data || [];
-      console.log('PDR History - Extracted PDRs:', pdrs?.length, pdrs?.map(p => ({ id: p.id, status: p.status })));
+      const pdrs = Array.isArray(result.data) ? result.data : (result.data as any)?.data || [];
+      console.log('PDR History - Extracted PDRs:', pdrs?.length, pdrs?.map((p: any) => ({ id: p.id, status: p.status })));
       
       // Ensure we always return an array
       return pdrs;
@@ -446,7 +519,12 @@ export function useSupabaseAdminDashboard() {
     queryKey: ['admin-dashboard'],
     queryFn: async () => {
       // Fetch all PDRs for admin view
-      const response = await fetch('/api/pdrs?limit=100');
+      const response = await fetch('/api/pdrs?limit=100', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch admin dashboard data');
       }
@@ -507,6 +585,7 @@ export function useSupabasePDRUpdate(pdrId: string) {
     mutationFn: async (updates: { currentStep?: number; status?: string }) => {
       const response = await fetch(`/api/pdrs/${pdrId}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },

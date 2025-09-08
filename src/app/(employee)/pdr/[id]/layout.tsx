@@ -35,9 +35,15 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, isLoading: authLoading } = useAuth();
-  const { data: pdr, isLoading: pdrLoading, error } = useSupabasePDR(params.id);
+  const { 
+    data: pdr, 
+    isLoading: pdrLoading, 
+    error,
+    deletePDR,
+    isDeleting,
+    deleteError 
+  } = useSupabasePDR(params.id);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  // Delete functionality will be added to Supabase hooks later
 
   // Helper function to determine effective current step based on current page
   const getEffectiveCurrentStep = (actualCurrentStep: number) => {
@@ -149,10 +155,19 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
     }
   };
 
-  const handleDeletePdr = () => {
-    // TODO: Implement delete functionality with Supabase
-    console.log('Delete PDR functionality not yet implemented');
-    router.push('/dashboard');
+  const handleDeletePdr = async () => {
+    try {
+      // Call the delete function from the hook
+      await deletePDR();
+      // Close the confirmation dialog
+      setShowDeleteConfirm(false);
+      // Navigate back to dashboard on success
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Failed to delete PDR:', error);
+      // The error will be shown in the modal via deleteError
+      // Keep the modal open to show the error
+    }
   };
 
   return (
@@ -210,20 +225,6 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
       {/* Stepper */}
       <div className="bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Debug: Log stepper props */}
-          {(() => {
-            const effectiveStep = getEffectiveCurrentStep(pdr.currentStep);
-            console.log('🔧 Stepper Debug:', {
-              pdrId: pdr.id,
-              actualCurrentStep: pdr.currentStep,
-              effectiveCurrentStep: effectiveStep,
-              pathname: pathname,
-              status: pdr.status,
-              totalSteps: PDR_STEPS.length,
-              isLocked: pdr.isLocked
-            });
-            return null;
-          })()}
           <StepperIndicator
             currentStep={getEffectiveCurrentStep(pdr.currentStep)}
             totalSteps={PDR_STEPS.length}
@@ -240,8 +241,8 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
         </PDRErrorBoundary>
       </div>
 
-      {/* Delete Confirmation Dialog - TODO: Re-enable when Supabase delete is implemented */}
-      {/* {showDeleteConfirm && (
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md">
             <CardHeader>
@@ -251,25 +252,44 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
               <p className="text-muted-foreground mb-4">
                 Are you sure you want to delete this PDR? This action cannot be undone and will remove all your goals, behaviors, and progress.
               </p>
+              
+              {/* Show error message if deletion failed */}
+              {deleteError && (
+                <div className="mb-4 p-3 bg-status-error/10 border border-status-error/20 rounded-md">
+                  <p className="text-status-error text-sm">{deleteError}</p>
+                </div>
+              )}
+              
               <div className="flex justify-end space-x-2">
                 <Button
                   variant="outline"
                   onClick={() => setShowDeleteConfirm(false)}
+                  disabled={isDeleting}
                 >
                   Cancel
                 </Button>
                 <Button
                   variant="destructive"
                   onClick={handleDeletePdr}
+                  disabled={isDeleting}
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete PDR
+                  {isDeleting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete PDR
+                    </>
+                  )}
                 </Button>
               </div>
             </CardContent>
           </Card>
         </div>
-      )} */}
+      )}
     </div>
   );
 }

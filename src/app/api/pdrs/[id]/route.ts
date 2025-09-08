@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { 
   createApiResponse, 
   createApiError,
@@ -8,10 +8,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { transformPDRFields } from '@/lib/case-transform';
 import { 
-  getPDRPermissions, 
-  validateStateTransition,
-  validateTransitionRequirements,
-  createPDRNotification 
+  getPDRPermissions
 } from '@/lib/pdr-state-machine';
 
 export async function GET(
@@ -221,6 +218,164 @@ export async function PATCH(
   } catch (error) {
     console.error('🔧 PATCH route error:', error);
     console.error('🔧 Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    return handleApiError(error);
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  console.log('🗑️ PDR DELETE route called with ID:', params.id);
+  
+  try {
+    // Authenticate user
+    console.log('🗑️ Starting authentication...');
+    const authResult = await authenticateRequest(request);
+    console.log('🗑️ Authentication result:', authResult.success);
+    if (!authResult.success) {
+      return authResult.response;
+    }
+
+    const { user } = authResult;
+    const pdrId = params.id;
+    
+    console.log('🗑️ Creating Supabase client...');
+    const supabase = await createClient();
+    console.log('🗑️ Supabase client created successfully');
+
+    // Get current PDR to check permissions
+    const { data: pdr, error: fetchError } = await supabase
+      .from('pdrs')
+      .select(`
+        *,
+        user:profiles!pdrs_user_id_fkey(id, first_name, last_name, email, role),
+        goals(id),
+        behaviors(id)
+      `)
+      .eq('id', pdrId)
+      .single();
+
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        console.log('🗑️ PDR not found');
+        return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
+      }
+      throw fetchError;
+    }
+
+    if (!pdr) {
+      console.log('🗑️ PDR not found (null)');
+      return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
+    }
+
+    // Check permissions
+    const isOwner = pdr.user_id === user.id;
+    const isCEO = user.role === 'CEO';
+    
+    console.log('🗑️ PDR Delete Debug:', {
+      pdrId,
+      pdrStatus: pdr.status,
+      userRole: user.role,
+      isOwner,
+      isCEO,
+      userId: user.id,
+      pdrUserId: pdr.user_id
+    });
+
+    // Only allow deletion by:
+    // 1. The PDR owner (employee) if the PDR is in DRAFT status
+    // 2. CEO (can delete any PDR in DRAFT status)
+    const canDelete = (isOwner && pdr.status === 'DRAFT') || 
+                      (isCEO && pdr.status === 'DRAFT');
+
+    if (!canDelete) {
+      const reason = pdr.status !== 'DRAFT' 
+        ? 'PDR can only be deleted when in DRAFT status'
+        : 'You do not have permission to delete this PDR';
+      console.log('🗑️ Delete not allowed:', reason);
+      return createApiError(reason, 403, 'DELETE_NOT_ALLOWED');
+    }
+
+    console.log('🗑️ Permission granted, proceeding with deletion');
+
+    // Start transaction-like deletion
+    // Note: Supabase should handle cascading deletes if configured properly,
+    // but we'll be explicit for safety
+
+    try {
+      // Delete related records first (if cascade delete isn't configured)
+      
+      // Delete behavior entries if they exist
+      console.log('🗑️ Deleting behavior entries...');
+      await supabase
+        .from('behavior_entries')
+        .delete()
+        .eq('pdr_id', pdrId);
+
+      // Delete behaviors
+      console.log('🗑️ Deleting behaviors...');
+      await supabase
+        .from('behaviors')
+        .delete()
+        .eq('pdr_id', pdrId);
+
+      // Delete goals
+      console.log('🗑️ Deleting goals...');
+      await supabase
+        .from('goals')
+        .delete()
+        .eq('pdr_id', pdrId);
+
+      // Delete mid-year reviews
+      console.log('🗑️ Deleting mid-year reviews...');
+      await supabase
+        .from('mid_year_reviews')
+        .delete()
+        .eq('pdr_id', pdrId);
+
+      // Delete end-year reviews
+      console.log('🗑️ Deleting end-year reviews...');
+      await supabase
+        .from('end_year_reviews')
+        .delete()
+        .eq('pdr_id', pdrId);
+
+      // Delete notifications related to this PDR
+      console.log('🗑️ Deleting notifications...');
+      await supabase
+        .from('notifications')
+        .delete()
+        .eq('pdr_id', pdrId);
+
+      // Finally, delete the PDR itself
+      console.log('🗑️ Deleting PDR...');
+      const { error: deleteError } = await supabase
+        .from('pdrs')
+        .delete()
+        .eq('id', pdrId);
+
+      if (deleteError) {
+        console.error('🗑️ PDR deletion error:', deleteError);
+        throw deleteError;
+      }
+
+      console.log('🗑️ PDR successfully deleted');
+      
+      // Return success response
+      return createApiResponse({
+        message: 'PDR deleted successfully',
+        deletedId: pdrId
+      });
+
+    } catch (deletionError) {
+      console.error('🗑️ Error during PDR deletion process:', deletionError);
+      throw deletionError;
+    }
+
+  } catch (error) {
+    console.error('🗑️ DELETE route error:', error);
+    console.error('🗑️ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return handleApiError(error);
   }
 }
