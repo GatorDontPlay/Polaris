@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { StatusBlockingModal } from '@/components/ui/status-blocking-modal';
 import { 
   ArrowLeft, 
   Save, 
@@ -52,6 +53,7 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   const [existingReviewData, setExistingReviewData] = useState<any>(null);
   const [accessDenied, setAccessDenied] = useState(false);
   const [showAccessDeniedView, setShowAccessDeniedView] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
   
   const { data: pdr, isLoading: pdrLoading } = useSupabasePDR(params.id);
   const { data: goals, isLoading: goalsLoading } = useSupabasePDRGoals(params.id);
@@ -198,6 +200,13 @@ export default function MidYearPage({ params }: MidYearPageProps) {
 
       if (!response.ok) {
         const errorData = await response.json();
+        
+        // Check if this is a status blocking error
+        if (response.status === 400 && errorData.code === 'INVALID_STATUS') {
+          setShowStatusModal(true);
+          return; // Don't throw error, just show modal
+        }
+        
         throw new Error(errorData.error || 'Failed to submit mid-year review');
       }
 
@@ -513,6 +522,27 @@ export default function MidYearPage({ params }: MidYearPageProps) {
           Step 4 of 5 - Mid-Year Check-In
         </div>
       </div>
+
+      {/* Status Blocking Modal */}
+      <StatusBlockingModal
+        isOpen={showStatusModal}
+        onClose={() => setShowStatusModal(false)}
+        currentStatus={pdr?.status || 'UNKNOWN'}
+        requiredStatus="PLAN_LOCKED"
+        title="CEO Approval Required"
+        description="Your PDR has been submitted and is waiting for your manager's approval and plan lock-in before you can proceed to the mid-year check-in."
+        nextSteps={[
+          "Your manager will review your submitted PDR",
+          "Once approved, your manager will lock in your plan for the year",
+          "Your PDR status will be updated to 'Plan Locked'",
+          "You'll then be able to access the mid-year check-in",
+          "You'll receive a notification when this happens"
+        ]}
+        actionButton={{
+          label: "Return to Dashboard",
+          onClick: () => router.push('/dashboard')
+        }}
+      />
     </div>
   );
 }

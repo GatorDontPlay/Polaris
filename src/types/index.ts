@@ -19,8 +19,7 @@ export type PDRStatus =
   | 'MID_YEAR_CHECK' 
   | 'END_YEAR_REVIEW' 
   | 'COMPLETED' 
-  | 'LOCKED'
-  | 'CALIBRATION';
+  | 'LOCKED';
 
 export type Priority = 'HIGH' | 'MEDIUM' | 'LOW'; // Legacy - use weighting instead
 

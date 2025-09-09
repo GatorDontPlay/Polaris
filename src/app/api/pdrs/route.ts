@@ -11,6 +11,9 @@ import { createClient } from '@/lib/supabase/server';
 import { computeAustralianFY } from '@/lib/financial-year';
 import { transformPDRFields } from '@/lib/case-transform';
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     // Authenticate user
@@ -32,11 +35,8 @@ export async function GET(request: NextRequest) {
       .select(`
         *,
         user:profiles!pdrs_user_id_fkey(id, first_name, last_name, email, role),
-        period:pdr_periods(*),
         goals(id, title, priority, employee_rating, ceo_rating),
-        behaviors(id, employee_rating, ceo_rating),
-        mid_year_review:mid_year_reviews(id, submitted_at),
-        end_year_review:end_year_reviews(id, submitted_at, employee_overall_rating, ceo_overall_rating)
+        behaviors(id, employee_rating, ceo_rating)
       `);
 
     // Apply role-based filtering (RLS will also enforce this)
@@ -102,9 +102,13 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
+    console.log('🔍 Executing PDR query...');
     const { data: pdrs, error } = await query;
+    console.log('🔍 Query result:', { pdrCount: pdrs?.length, error: error?.message });
 
     if (error) {
+      console.error('🔍 Database query error:', error);
+      console.error('🔍 Error details:', JSON.stringify(error, null, 2));
       throw error;
     }
 
@@ -132,7 +136,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform PDR fields to camelCase
-    const transformedPDRs = filteredPDRs.map(transformPDRFields);
+    console.log('🔍 Transforming PDRs to camelCase...');
+    let transformedPDRs;
+    try {
+      transformedPDRs = filteredPDRs.map(transformPDRFields);
+      console.log('🔍 Transformation successful');
+    } catch (transformError) {
+      console.error('🔍 Transformation error:', transformError);
+      throw transformError;
+    }
 
     // Debug: Log transformation results
     console.log('GET PDRs: Before transformation:', filteredPDRs?.slice(0,1).map(p => ({ fy_label: p.fy_label, status: p.status })));
@@ -210,7 +222,7 @@ export async function POST(request: NextRequest) {
       fy_label: fy_label,
       fy_start_date: new Date(fy_start_date).toISOString().split('T')[0], // Convert ISO string to YYYY-MM-DD
       fy_end_date: new Date(fy_end_date).toISOString().split('T')[0], // Convert ISO string to YYYY-MM-DD
-      status: 'Created' as const,
+      status: 'DRAFT' as const,
       current_step: 1,
       is_locked: false,
       meeting_booked: false,

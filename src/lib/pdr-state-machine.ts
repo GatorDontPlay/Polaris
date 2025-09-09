@@ -61,7 +61,14 @@ export const STATE_TRANSITIONS: StateTransition[] = [
   },
   {
     from: 'MID_YEAR_CHECK',
-    to: 'CALIBRATION',
+    to: 'END_YEAR_REVIEW',
+    action: 'startEndYearReview',
+    allowedRoles: ['EMPLOYEE'],
+    requiresValidation: false,
+  },
+  {
+    from: 'END_YEAR_REVIEW',
+    to: 'COMPLETED',
     action: 'completeFinalReview',
     allowedRoles: ['CEO'],
     requiresValidation: false,
@@ -149,6 +156,7 @@ export function getPDRPermissions(
   if (userRole === 'EMPLOYEE' && isOwner) {
     switch (pdrStatus) {
       case 'Created':
+      case 'DRAFT':
         return {
           ...basePermissions,
           canView: true,
@@ -235,6 +243,7 @@ export function getPDRPermissions(
   if (userRole === 'CEO') {
     switch (pdrStatus) {
       case 'Created':
+      case 'DRAFT':
         return {
           ...basePermissions,
           canView: true, // Can list but cannot open/edit per requirements

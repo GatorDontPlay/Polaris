@@ -102,12 +102,13 @@ export async function POST(
     }
 
     // Check if mid-year review already exists
-    if (pdr.mid_year_review && pdr.mid_year_review.length > 0) {
+    if (pdr.mid_year_review && Array.isArray(pdr.mid_year_review) && pdr.mid_year_review.length > 0) {
       return createApiError('Mid-year review already exists', 400, 'REVIEW_EXISTS');
     }
 
     // Check if PDR is in the right status
-    if (!['Created', 'SUBMITTED', 'UNDER_REVIEW', 'MID_YEAR_CHECK'].includes(pdr.status)) {
+    // Mid-year review should only be allowed after CEO has approved and locked the plan
+    if (!['PLAN_LOCKED', 'PDR_BOOKED', 'MID_YEAR_CHECK'].includes(pdr.status)) {
       return createApiError('PDR status does not allow mid-year review', 400, 'INVALID_STATUS');
     }
 
@@ -197,7 +198,7 @@ export async function PUT(
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
-    if (!pdr.mid_year_review || pdr.mid_year_review.length === 0) {
+    if (!pdr.mid_year_review || !Array.isArray(pdr.mid_year_review) || pdr.mid_year_review.length === 0) {
       return createApiError('Mid-year review not found', 404, 'REVIEW_NOT_FOUND');
     }
 
@@ -230,10 +231,15 @@ export async function PUT(
     }
 
     // Update the mid-year review
+    const midYearReviewId = Array.isArray(pdr.mid_year_review) ? pdr.mid_year_review[0]?.id : null;
+    if (!midYearReviewId) {
+      return createApiError('Mid-year review ID not found', 400, 'INVALID_DATA');
+    }
+
     const { data: updatedReview, error: updateError } = await supabase
       .from('mid_year_reviews')
       .update(updateData)
-      .eq('id', pdr.mid_year_review[0].id)
+      .eq('id', midYearReviewId)
       .select()
       .single();
 
@@ -242,16 +248,19 @@ export async function PUT(
     }
 
     // Create audit log
-    await createAuditLog({
-      tableName: 'mid_year_reviews',
-      recordId: pdr.mid_year_review[0].id,
-      action: 'UPDATE',
-      oldValues: pdr.mid_year_review[0],
-      newValues: updatedReview,
-      userId: user.id,
-      ipAddress: request.ip || 'Unknown',
-      userAgent: request.headers.get('user-agent') || 'Unknown',
-    });
+    const oldMidYearReview = Array.isArray(pdr.mid_year_review) ? pdr.mid_year_review[0] : null;
+    if (oldMidYearReview) {
+      await createAuditLog({
+        tableName: 'mid_year_reviews',
+        recordId: midYearReviewId,
+        action: 'UPDATE',
+        oldValues: oldMidYearReview,
+        newValues: updatedReview,
+        userId: user.id,
+        ipAddress: request.ip || 'Unknown',
+        userAgent: request.headers.get('user-agent') || 'Unknown',
+      });
+    }
 
     return createApiResponse(updatedReview);
   } catch (error) {

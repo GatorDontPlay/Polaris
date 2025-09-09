@@ -39,13 +39,6 @@ export default function EmployeeDashboard() {
   const router = useRouter();
   const { user, session, isLoading: authLoading } = useAuth();
   
-  console.log('EmployeeDashboard - Auth Debug:', { 
-    user, 
-    session, 
-    authLoading,
-    userRole: user?.role 
-  });
-  
   // Get current user's PDRs using Supabase
   const { data: currentPDR, createPDR, isLoading: pdrLoading } = useSupabasePDRDashboard();
   const { data: pdrHistory, isLoading: historyLoading } = useSupabasePDRHistory();
@@ -53,15 +46,6 @@ export default function EmployeeDashboard() {
   const [isCreatingPDR, setIsCreatingPDR] = useState(false);
   const [showFYDialog, setShowFYDialog] = useState(false);
   const [creationError, setCreationError] = useState<string | null>(null);
-  
-  console.log('EmployeeDashboard - PDR Debug:', { 
-    currentPDR, 
-    pdrLoading,
-    hasPDR: !!currentPDR,
-    pdrHistory,
-    pdrHistoryType: typeof pdrHistory,
-    pdrHistoryIsArray: Array.isArray(pdrHistory)
-  });
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -83,7 +67,7 @@ export default function EmployeeDashboard() {
       // Collect all the ratings from both goals and behaviors
       let totalSelfRating = 0;
       let selfRatingCount = 0;
-      let detailedScores: Array<{score: number, title: string, type: string, description?: string}> = [];
+      const detailedScores: Array<{score: number, title: string, type: string, description?: string}> = [];
       
       // Check for goal self-assessments from real Supabase data
       if (currentPDR.goals && Array.isArray(currentPDR.goals)) {
@@ -237,7 +221,6 @@ export default function EmployeeDashboard() {
   }
 
   if (pdrLoading) {
-    console.log('EmployeeDashboard: PDRs still loading');
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center p-8">
@@ -377,6 +360,10 @@ export default function EmployeeDashboard() {
               <CardDescription>
                 {currentPDR.status === 'SUBMITTED' 
                   ? 'Your PDR has been submitted and is awaiting CEO review'
+                  : currentPDR.status === 'OPEN_FOR_REVIEW'
+                  ? 'Your PDR is being reviewed by your manager. Mid-year check-in will be available once approved and plan is locked in.'
+                  : currentPDR.status === 'PLAN_LOCKED'
+                  ? 'Your plan has been approved and locked in. You can now access the mid-year check-in.'
                   : currentPDR.status === 'UNDER_REVIEW'
                   ? 'Your PDR is currently under review by the CEO'
                   : currentPDR.status === 'COMPLETED'
@@ -505,24 +492,28 @@ if ((currentPDR.currentStep || currentPDR.current_step || 1) >= 3 && (e.key === 
                       <TooltipTrigger asChild>
                         <div 
                           className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-      (currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)
+      (currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'PDR_BOOKED'].includes(currentPDR.status)
                               ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20' 
+                              : currentPDR.status === 'OPEN_FOR_REVIEW'
+                              ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 opacity-70'
                               : currentPDR.status === 'SUBMITTED'
                               ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 opacity-70'
                               : 'bg-muted/50 text-muted-foreground border border-border/50'
                           }`}
-onClick={() => ((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) && router.push(`/pdr/${currentPDR.id}/mid-year`)}
-role={((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) ? "button" : undefined}
-tabIndex={((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) ? 0 : undefined}
+onClick={() => ((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'PDR_BOOKED'].includes(currentPDR.status)) && router.push(`/pdr/${currentPDR.id}/mid-year`)}
+role={((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'PDR_BOOKED'].includes(currentPDR.status)) ? "button" : undefined}
+tabIndex={((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'PDR_BOOKED'].includes(currentPDR.status)) ? 0 : undefined}
                           onKeyDown={(e) => {
-if (((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status)) && (e.key === 'Enter' || e.key === ' ')) {
+if (((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'PDR_BOOKED'].includes(currentPDR.status)) && (e.key === 'Enter' || e.key === ' ')) {
                               e.preventDefault();
                               router.push(`/pdr/${currentPDR.id}/mid-year`);
                             }
                           }}
                         >
-{(currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status) ? (
+{(currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'PDR_BOOKED'].includes(currentPDR.status) ? (
                             <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                          ) : currentPDR.status === 'OPEN_FOR_REVIEW' ? (
+                            <Clock className="h-4 w-4 flex-shrink-0" />
                           ) : currentPDR.status === 'SUBMITTED' ? (
                             <Lock className="h-4 w-4 flex-shrink-0" />
                           ) : (
@@ -531,9 +522,11 @@ if (((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOC
                           <span>Mid-Year</span>
                         </div>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-[250px]">
-{(currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW'].includes(currentPDR.status) 
+                                            <TooltipContent side="bottom" className="max-w-[250px]">
+                        {(currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'PDR_BOOKED'].includes(currentPDR.status) 
                           ? "Click to access your Mid-Year Check-in"
+                          : currentPDR.status === 'OPEN_FOR_REVIEW'
+                          ? "Your PDR is under review. Mid-year will be available once your manager approves and locks in your plan."
                           : currentPDR.status === 'SUBMITTED'
                           ? "Waiting for manager review before Mid-Year Check-in becomes available"
                           : "Complete previous steps first"
@@ -680,7 +673,6 @@ if ((currentPDR.currentStep || currentPDR.current_step || 1) >= 5 && (e.key === 
                 ) : (
                   // Filter PDRs to ensure they have valid dates and required fields
                   (() => {
-                    console.log('PDR History Debug:', { pdrHistory, type: typeof pdrHistory, isArray: Array.isArray(pdrHistory) });
                     
                     // Ensure we have a valid array
                     const safeHistory = Array.isArray(pdrHistory) ? pdrHistory : [];

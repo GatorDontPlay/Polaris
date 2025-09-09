@@ -148,7 +148,7 @@ export default function CEODashboard() {
   });
   const midYearCount = allPendingReviews.filter((review: any) => review.status === 'PLAN_LOCKED' || review.status === 'LOCKED' || review.status === 'MID_YEAR_CHECK').length;
   const yearEndCount = allPendingReviews.filter((review: any) => review.status === 'FINAL_REVIEW' || review.status === 'END_YEAR_REVIEW').length;
-  const calibrationCount = allPendingReviews.filter((review: any) => review.status === 'CALIBRATION').length;
+  const calibrationCount = allPendingReviews.filter((review: any) => review.status === 'COMPLETED').length;
   const closedCount = allPendingReviews.filter((review: any) => review.status === 'COMPLETED').length;
   
   // Filter pending reviews based on selected filter
@@ -161,7 +161,7 @@ export default function CEODashboard() {
       case 'year-end':
         return review.status === 'FINAL_REVIEW';
       case 'calibration':
-        return review.status === 'CALIBRATION';
+        return review.status === 'COMPLETED';
       case 'closed':
         return review.status === 'COMPLETED';
       default:

@@ -134,6 +134,10 @@ export const behaviorUpdateSchema = behaviorSchema.extend({
 // PDR schemas
 export const pdrUpdateSchema = z.object({
   status: z.enum([
+    'Created',
+    'OPEN_FOR_REVIEW',
+    'PLAN_LOCKED',
+    'PDR_BOOKED',
     'DRAFT',
     'SUBMITTED',
     'UNDER_REVIEW',
@@ -244,6 +248,10 @@ export const pdrPeriodSchema = z.object({
 // Filter schemas
 export const pdrFiltersSchema = z.object({
   status: z.array(z.enum([
+    'Created',
+    'OPEN_FOR_REVIEW',
+    'PLAN_LOCKED',
+    'PDR_BOOKED',
     'DRAFT',
     'SUBMITTED',
     'UNDER_REVIEW',

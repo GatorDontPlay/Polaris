@@ -41,20 +41,10 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
   const isReadOnly = pdr?.isLocked || false;
   const canEdit = pdr && !isReadOnly && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'OPEN_FOR_REVIEW' || pdr.status === 'Created');
 
-  // Debug PDR permissions
-  console.log('🔧 PDR Permissions Debug:', {
-    pdr: pdr,
-    pdrStatus: pdr?.status,
-    isLocked: pdr?.isLocked,
-    isReadOnly: isReadOnly,
-    canEdit: canEdit,
-    isFormReadOnly: !canEdit
-  });
 
   // Update PDR step to 2 (Behaviors) when user reaches this page
   useEffect(() => {
     if (pdr && pdr.currentStep < 2) {
-      console.log('🔧 Behaviors page - Updating PDR step from', pdr.currentStep, 'to 2');
       updatePDR({ currentStep: 2 }).catch(error => {
         console.error('Failed to update PDR step:', error);
       });

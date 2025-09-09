@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from 'react'
 import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import AuthForm from './auth-form'
@@ -27,7 +28,9 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <AuthForm />
+          <Suspense fallback={<div className="flex items-center justify-center p-8">Loading...</div>}>
+            <AuthForm />
+          </Suspense>
         </CardContent>
       </Card>
     </div>

@@ -125,8 +125,8 @@ export default function SalaryCalibrationPage() {
             performanceCount++;
           }
 
-          // Include PDRs that are in CALIBRATION status or have ratings
-          if (pdr.status === 'CALIBRATION' || pdr.status === 'COMPLETED' || pdr.status === 'SUBMITTED_FOR_REVIEW' || allRatings.length > 0) {
+          // Include PDRs that are in COMPLETED status or have ratings
+          if (pdr.status === 'COMPLETED' || pdr.status === 'END_YEAR_REVIEW' || pdr.status === 'SUBMITTED' || allRatings.length > 0) {
             // Create employee name from PDR or use default
             const employeeName = pdr.employeeName || 'Demo Employee';
             const employeeRole = pdr.employeeRole || 'Developer';
@@ -164,7 +164,7 @@ export default function SalaryCalibrationPage() {
           role: 'Senior Developer',
           currentSalary: `$${baseSalary.toLocaleString()}`,
           performance: averageRating,
-          pdrStatus: 'CALIBRATION',
+          pdrStatus: 'COMPLETED',
           pdrId: 'demo-pdr-placeholder',
           completedGoals: 3,
           completedBehaviors: 6,

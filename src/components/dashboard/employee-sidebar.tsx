@@ -92,6 +92,7 @@ export function EmployeeSidebar() {
               width={160}
               height={48}
               className="h-10 w-auto"
+              priority
             />
             <span className="text-white font-black text-lg tracking-wide block text-center mt-2">
               POLARIS

@@ -22,7 +22,7 @@ export interface BehaviorReviewSectionRef {
 }
 
 export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, BehaviorReviewSectionProps>(
-  ({ pdr, currentUser }, ref) => {
+  function BehaviorReviewSection({ pdr, currentUser }, ref) {
   const {
     isLoading,
     isSaving,

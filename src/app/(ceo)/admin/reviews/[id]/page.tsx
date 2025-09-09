@@ -613,7 +613,7 @@ export default function CEOPDRReviewPage() {
     // Update PDR status to CALIBRATION to move it to calibration phase
     const updatedPdr = {
       ...pdr,
-      status: 'CALIBRATION',
+      status: 'COMPLETED',
       finalReviewCompletedAt: new Date().toISOString(),
       finalReviewCompletedBy: 'CEO', // In a real app, this would be the current user
       updatedAt: new Date().toISOString()
@@ -627,7 +627,7 @@ export default function CEOPDRReviewPage() {
     window.dispatchEvent(new CustomEvent('demo-pdr-changed'));
     window.dispatchEvent(new CustomEvent('demo-audit-updated'));
     
-    console.log('✅ Final review completed, PDR moved to CALIBRATION status');
+    console.log('✅ Final review completed, PDR moved to COMPLETED status');
     
     // Show success message
     alert('Final review completed successfully! PDR has been moved to calibration phase.');

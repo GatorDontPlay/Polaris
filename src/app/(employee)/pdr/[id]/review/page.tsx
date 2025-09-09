@@ -143,15 +143,6 @@ export default function ReviewPage({ params }: ReviewPageProps) {
     stats: stats
   });
 
-  // Debug: Check what behaviors are loaded and what company values exist
-  console.log('🔍 Behaviors vs Company Values Debug:', {
-    behaviors: behaviors,
-    companyValues: companyValues,
-    behaviorsCount: behaviors?.length || 0,
-    companyValuesCount: companyValues?.length || 0,
-    behaviorValueIds: behaviors?.map(b => ({ id: b.valueId, name: 'unknown' })) || [],
-    companyValueIds: companyValues?.map(v => ({ id: v.id, name: v.name })) || []
-  });
 
   const handlePrevious = () => {
     router.push(`/pdr/${params.id}/behaviors`);

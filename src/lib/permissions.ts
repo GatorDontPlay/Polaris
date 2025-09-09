@@ -55,9 +55,9 @@ export const PERMISSIONS = {
     description: 'Manage system settings',
     roles: ['CEO'] as UserRole[],
   },
-  CALIBRATION_ACCESS: {
-    name: 'calibration_access',
-    description: 'Access calibration features',
+  SALARY_REVIEW_ACCESS: {
+    name: 'salary_review_access',
+    description: 'Access salary review and calibration features',
     roles: ['CEO'] as UserRole[],
   },
 } as const
@@ -116,7 +116,7 @@ export function canViewAnalytics(userRole: UserRole | null): boolean {
  * Check if a user can access calibration features (CEO only)
  */
 export function canAccessCalibration(userRole: UserRole | null): boolean {
-  return hasPermission(userRole, PERMISSIONS.CALIBRATION_ACCESS)
+  return hasPermission(userRole, PERMISSIONS.SALARY_REVIEW_ACCESS)
 }
 
 /**
