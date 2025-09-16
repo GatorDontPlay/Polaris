@@ -45,6 +45,22 @@ export const STATE_TRANSITIONS: StateTransition[] = [
     validationFields: ['goals', 'behaviors'],
   },
   {
+    from: 'DRAFT',
+    to: 'OPEN_FOR_REVIEW',
+    action: 'submitForReview',
+    allowedRoles: ['EMPLOYEE'],
+    requiresValidation: true,
+    validationFields: ['goals', 'behaviors'],
+  },
+  {
+    from: 'OPEN_FOR_REVIEW',
+    to: 'OPEN_FOR_REVIEW',
+    action: 'submitForReview',
+    allowedRoles: ['EMPLOYEE'],
+    requiresValidation: true,
+    validationFields: ['goals', 'behaviors'],
+  },
+  {
     from: 'OPEN_FOR_REVIEW',
     to: 'PLAN_LOCKED',
     action: 'submitCeoReview',
@@ -265,8 +281,10 @@ export function getPDRPermissions(
         return {
           ...basePermissions,
           canView: true,
+          canEdit: true,
           canViewEmployeeFields: true,
           canViewCeoFields: true,
+          canEditCeoFields: true,
           canMarkBooked: true,
           readOnlyReason: 'PDR is locked, only booking action available',
         };
@@ -386,19 +404,13 @@ export function validateTransitionRequirements(
         break;
 
       case 'ceoFields':
-        if (!pdrData.ceoFields) {
-          errors.push('CEO review fields are required before submitting review');
-        } else {
-          // Validate CEO has provided feedback on goals and behaviors
-          const ceoGoalComments = pdrData.goals?.some((goal: any) => goal.ceoComments?.trim());
-          const ceoBehaviorComments = pdrData.behaviors?.some((behavior: any) => behavior.ceoComments?.trim());
-          
-          if (!ceoGoalComments) {
-            errors.push('CEO must provide comments on at least one goal');
-          }
-          if (!ceoBehaviorComments) {
-            errors.push('CEO must provide comments on at least one behavior');
-          }
+        // Validate CEO has provided feedback on behaviors only
+        // Note: Goal CEO feedback requirement removed as per UI changes
+
+        const ceoBehaviorComments = pdrData.behaviors?.some((behavior: any) => behavior.ceo_comments?.trim());
+        
+        if (!ceoBehaviorComments) {
+          errors.push('CEO must provide comments on at least one behavior');
         }
         break;
 

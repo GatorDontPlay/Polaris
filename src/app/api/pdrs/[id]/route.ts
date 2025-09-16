@@ -285,14 +285,23 @@ export async function DELETE(
 
     // Only allow deletion by:
     // 1. The PDR owner (employee) if the PDR is in DRAFT status
-    // 2. CEO (can delete any PDR in DRAFT status)
+    // 2. The PDR owner (employee) if the PDR is in OPEN_FOR_REVIEW status AND not locked by CEO
+    // 3. CEO (can delete any PDR in DRAFT status)
     const canDelete = (isOwner && pdr.status === 'DRAFT') || 
+                      (isOwner && pdr.status === 'OPEN_FOR_REVIEW' && !pdr.is_locked) ||
                       (isCEO && pdr.status === 'DRAFT');
 
     if (!canDelete) {
-      const reason = pdr.status !== 'DRAFT' 
-        ? 'PDR can only be deleted when in DRAFT status'
-        : 'You do not have permission to delete this PDR';
+      let reason;
+      if (pdr.status === 'OPEN_FOR_REVIEW' && pdr.is_locked) {
+        reason = 'PDR is locked by CEO and cannot be deleted';
+      } else if (!['DRAFT', 'OPEN_FOR_REVIEW'].includes(pdr.status)) {
+        reason = 'PDR can only be deleted when in DRAFT or OPEN_FOR_REVIEW status';
+      } else if (!isOwner && !isCEO) {
+        reason = 'You do not have permission to delete this PDR';
+      } else {
+        reason = 'PDR deletion not allowed in current state';
+      }
       console.log('🗑️ Delete not allowed:', reason);
       return createApiError(reason, 403, 'DELETE_NOT_ALLOWED');
     }

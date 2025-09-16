@@ -6,6 +6,7 @@ import {
   authenticateRequest
 } from '@/lib/api-helpers';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { 
   validateStateTransition,
   validateTransitionRequirements,
@@ -17,15 +18,20 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  console.log('🚀 API ROUTE HIT: submit-ceo-review called with PDR ID:', params.id);
+  
   try {
     // Authenticate user
+    console.log('🔐 Authenticating request...');
     const authResult = await authenticateRequest(request);
     if (!authResult.success) {
+      console.log('❌ Authentication failed');
       return authResult.response;
     }
 
     const { user } = authResult;
     const pdrId = params.id;
+    console.log('✅ Authentication successful, user role:', user.role, 'PDR ID:', pdrId);
 
     // Only CEOs can submit reviews
     if (user.role !== 'CEO') {
@@ -33,9 +39,13 @@ export async function POST(
     }
 
     const supabase = await createClient();
+    const supabaseAdmin = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
-    // Get PDR with all relations for validation
-    const { data: pdr, error: pdrError } = await supabase
+    // Get PDR with all relations for validation using service role to bypass RLS
+    const { data: pdr, error: pdrError } = await supabaseAdmin
       .from('pdrs')
       .select(`
         *,
@@ -49,9 +59,41 @@ export async function POST(
       .eq('id', pdrId)
       .single();
 
+    console.log('🔍 DATABASE QUERY DEBUG:', {
+      pdrError,
+      pdrExists: !!pdr,
+      rawBehaviorsFromDB: pdr?.behaviors,
+      behaviorsCount: pdr?.behaviors?.length || 0
+    });
+
+    // Let's also check if behaviors exist separately
+    const { data: directBehaviors, error: behaviorError } = await supabaseAdmin
+      .from('behaviors')
+      .select('*')
+      .eq('pdr_id', pdrId);
+
+    console.log('🔍 DIRECT BEHAVIORS QUERY:', {
+      behaviorError,
+      directBehaviorsCount: directBehaviors?.length || 0,
+      directBehaviors: directBehaviors
+    });
+
     if (pdrError || !pdr) {
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
+
+    // Add debugging to see what data we have
+    console.log('🔍 API DEBUG: PDR data for validation:', {
+      pdrId: pdr.id,
+      status: pdr.status,
+      behaviorsCount: pdr.behaviors?.length || 0,
+      behaviors: pdr.behaviors?.map(b => ({
+        id: b.id,
+        value_id: b.value_id,
+        ceo_comments: b.ceo_comments,
+        hasCeoComments: !!b.ceo_comments?.trim()
+      })) || []
+    });
 
     // Validate state transition
     const transitionValidation = validateStateTransition(
@@ -78,12 +120,17 @@ export async function POST(
       // Validate required fields
       const requirementsValidation = validateTransitionRequirements(pdr, transition);
       
+      console.log('🔍 API DEBUG: Validation result:', {
+        isValid: requirementsValidation.isValid,
+        errors: requirementsValidation.errors,
+        validationFields: transition.requirementFields
+      });
+      
       if (!requirementsValidation.isValid) {
         return createApiError(
           'Validation failed: ' + requirementsValidation.errors.join(', '),
           400,
-          'VALIDATION_FAILED',
-          requirementsValidation.errors
+          'VALIDATION_FAILED'
         );
       }
     }
@@ -128,9 +175,18 @@ export async function POST(
       `${user.firstName} ${user.lastName}`
     );
 
+    // Transform notification data to match database schema (snake_case)
+    const dbNotificationData = {
+      user_id: notificationData.userId,
+      pdr_id: notificationData.pdrId,
+      type: notificationData.type,
+      title: notificationData.title,
+      message: notificationData.message,
+    };
+
     const { error: notificationError } = await supabase
       .from('notifications')
-      .insert(notificationData);
+      .insert(dbNotificationData);
 
     if (notificationError) {
       console.error('Failed to create notification:', notificationError);
@@ -139,6 +195,12 @@ export async function POST(
 
     return createApiResponse(updatedPdr);
   } catch (error) {
+    console.error('💥 CRITICAL ERROR in submit-ceo-review API:', {
+      error: error,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace',
+      pdrId: params.id
+    });
     return handleApiError(error);
   }
 }

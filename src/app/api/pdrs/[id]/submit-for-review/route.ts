@@ -6,6 +6,7 @@ import {
   authenticateRequest
 } from '@/lib/api-helpers';
 import { createClient } from '@/lib/supabase/server';
+import { createAuditLog } from '@/lib/auth';
 import { 
   validateStateTransition,
   validateTransitionRequirements,
@@ -138,6 +139,23 @@ export async function POST(
 
     if (updateError) {
       throw updateError;
+    }
+
+    // Create audit log for PDR submission
+    try {
+      await createAuditLog({
+        tableName: 'pdrs',
+        recordId: pdrId,
+        action: 'UPDATE',
+        oldValues: pdr,
+        newValues: updatedPdr,
+        userId: user.id,
+        ipAddress: request.ip || 'Unknown',
+        userAgent: request.headers.get('user-agent') || 'Unknown',
+      });
+    } catch (auditError) {
+      console.error('Failed to create audit log for PDR submission:', auditError);
+      // Don't fail the request if audit logging fails
     }
 
     // TODO: Create notification for CEO users about new PDR submission

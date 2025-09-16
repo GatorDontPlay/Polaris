@@ -112,8 +112,8 @@ export async function POST(
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
-    // Check if PDR allows editing (Created, DRAFT and SUBMITTED)
-    if (!['Created', 'DRAFT', 'SUBMITTED'].includes(pdr.status)) {
+    // Check if PDR allows editing (Created, DRAFT, SUBMITTED and OPEN_FOR_REVIEW)
+    if (!['Created', 'DRAFT', 'SUBMITTED', 'OPEN_FOR_REVIEW'].includes(pdr.status)) {
       return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
     }
 

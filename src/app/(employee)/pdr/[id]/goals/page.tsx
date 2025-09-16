@@ -66,7 +66,7 @@ export default function GoalsPage({ params }: GoalsPageProps) {
   const handleUpdateGoal = async (goalId: string, data: GoalFormData) => {
     try {
       setIsSubmitting(true);
-      updateGoal(goalId, data);
+      await updateGoal({ goalId, updates: data });
     } catch (error) {
       console.error('Failed to update goal:', error);
     } finally {

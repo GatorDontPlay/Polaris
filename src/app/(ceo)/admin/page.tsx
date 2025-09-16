@@ -131,21 +131,14 @@ export default function CEODashboard() {
 
   const stats = dashboardData?.stats;
   const allPendingReviews = dashboardData?.pendingReviews || [];
+  const recentActivity = dashboardData?.recentActivity || [];
   
   // Calculate counts for each filter category
-  const goalSettingCount = allPendingReviews.filter((review: any) => review.status === 'SUBMITTED').length;
+  const goalSettingCount = allPendingReviews.filter((review: any) => 
+    review.status === 'SUBMITTED' || review.status === 'UNDER_REVIEW' || 
+    (review.status === 'OPEN_FOR_REVIEW' && !review.is_locked)
+  ).length;
 
-  // Debug logging after all variables are declared
-  console.log('CEO Dashboard Debug:', { 
-    dashboardData, 
-    isLoading, 
-    error: error?.message || error,
-    hasData: !!dashboardData,
-    statsExists: !!dashboardData?.stats,
-    pendingReviewsCount: allPendingReviews?.length || 0,
-    pendingReviewsData: allPendingReviews,
-    goalSettingCount
-  });
   const midYearCount = allPendingReviews.filter((review: any) => review.status === 'PLAN_LOCKED' || review.status === 'LOCKED' || review.status === 'MID_YEAR_CHECK').length;
   const yearEndCount = allPendingReviews.filter((review: any) => review.status === 'FINAL_REVIEW' || review.status === 'END_YEAR_REVIEW').length;
   const calibrationCount = allPendingReviews.filter((review: any) => review.status === 'COMPLETED').length;
@@ -155,7 +148,8 @@ export default function CEODashboard() {
   const pendingReviews = allPendingReviews.filter((review: any) => {
     switch (pendingReviewsFilter) {
       case 'goal-setting':
-        return review.status === 'SUBMITTED' || review.status === 'UNDER_REVIEW';
+        return review.status === 'SUBMITTED' || review.status === 'UNDER_REVIEW' || 
+               (review.status === 'OPEN_FOR_REVIEW' && !review.is_locked);
       case 'mid-year':
         return review.status === 'PLAN_LOCKED';
       case 'year-end':
@@ -397,7 +391,7 @@ export default function CEODashboard() {
                       ) : (
                         pendingReviews.map((review: any) => {
                           // Calculate days since submission
-                          const submittedDate = review.submittedAt ? new Date(review.submittedAt) : new Date(review.updatedAt);
+                          const submittedDate = review.submitted_at ? new Date(review.submitted_at) : new Date(review.updated_at);
                           const daysSince = Math.floor((Date.now() - submittedDate.getTime()) / (1000 * 60 * 60 * 24));
                           const priority = daysSince > 7 ? 'HIGH' : daysSince > 3 ? 'MEDIUM' : 'LOW';
                           
@@ -405,14 +399,14 @@ export default function CEODashboard() {
                             <div key={review.id} className="flex items-center gap-3 p-3 rounded border bg-card/50 hover:bg-accent/30 transition-colors min-h-[3.5rem]">
                               <Avatar className="h-8 w-8 flex-shrink-0">
                                 <AvatarFallback className="text-xs">
-                                  {review.user?.firstName?.[0] || 'U'}{review.user?.lastName?.[0] || 'N'}
+                                  {review.user?.first_name?.[0] || 'U'}{review.user?.last_name?.[0] || 'N'}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="min-w-0 flex-1 flex items-center justify-between">
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2 mb-1">
                                     <span className="text-sm font-medium truncate">
-                                      {review.user ? `${review.user.firstName} ${review.user.lastName}` : 'Unknown Employee'}
+                                      {review.user ? `${review.user.first_name} ${review.user.last_name}` : 'Unknown Employee'}
                                     </span>
                                     <Badge 
                                       variant={

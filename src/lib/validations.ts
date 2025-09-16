@@ -72,7 +72,7 @@ export const goalSchema = z.object({
     .default(0),
 });
 
-export const goalUpdateSchema = goalSchema.extend({
+export const goalUpdateSchema = goalSchema.partial().extend({
   employeeProgress: z
     .string()
     .max(1000, 'Progress must be less than 1000 characters')

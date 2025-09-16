@@ -327,7 +327,7 @@ export function useSupabasePDRGoals(pdrId: string) {
   const updateGoalMutation = useMutation({
     mutationFn: async ({ goalId, updates }: { goalId: string; updates: Partial<Goal> }): Promise<Goal> => {
       const response = await fetch(`/api/goals/${goalId}`, {
-        method: 'PATCH',
+        method: 'PUT',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
@@ -518,47 +518,28 @@ export function useSupabaseAdminDashboard() {
   const { data: dashboardData, isLoading, error } = useQuery({
     queryKey: ['admin-dashboard'],
     queryFn: async () => {
-      // Fetch all PDRs for admin view
-      const response = await fetch('/api/pdrs?limit=100', {
+      // Call the proper admin dashboard API endpoint
+      const response = await fetch('/api/admin/dashboard', {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
       });
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch admin dashboard data');
+        const errorText = await response.text();
+        console.error('Admin dashboard API error:', response.status, errorText);
+        throw new Error(`Failed to fetch admin dashboard data: ${response.status}`);
       }
       
-      const result: PaginatedResponse<PDR> = await response.json();
-      const pdrs = result.data;
-
-      // Process PDRs into dashboard stats
-      const stats = {
-        totalEmployees: new Set(pdrs.map(pdr => pdr.userId)).size,
-        completedPDRs: pdrs.filter(pdr => pdr.status === 'COMPLETED').length,
-        pendingReviews: pdrs.filter(pdr => ['SUBMITTED', 'UNDER_REVIEW'].includes(pdr.status)).length,
-        inProgress: pdrs.filter(pdr => ['Created', 'DRAFT'].includes(pdr.status)).length,
-      };
-
-      // Get pending reviews with more details
-      const pendingReviews = pdrs
-        .filter(pdr => ['SUBMITTED', 'UNDER_REVIEW', 'PLAN_LOCKED'].includes(pdr.status))
-        .map(pdr => ({
-          id: pdr.id,
-          employeeName: `${pdr.user?.firstName || ''} ${pdr.user?.lastName || ''}`.trim(),
-          employeeEmail: pdr.user?.email || '',
-          status: pdr.status,
-          submittedAt: pdr.submittedAt || pdr.updatedAt,
-          daysSinceSubmission: pdr.submittedAt 
-            ? Math.floor((Date.now() - new Date(pdr.submittedAt).getTime()) / (1000 * 60 * 60 * 24))
-            : 0,
-        }));
-
-      return {
-        stats,
-        pendingReviews,
-        allPDRs: pdrs,
-      };
+      const result = await response.json();
+      
+      if (!result.success) {
+        console.error('Admin dashboard API returned error:', result.error);
+        throw new Error(result.error || 'Failed to fetch admin dashboard data');
+      }
+      
+      return result.data;
     },
     staleTime: 60 * 1000, // 1 minute
   });

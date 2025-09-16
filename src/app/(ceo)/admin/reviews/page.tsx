@@ -30,7 +30,7 @@ import { formatDateAU } from '@/lib/utils';
 import { useSupabaseAdminDashboard } from '@/hooks/use-supabase-pdrs';
 
 export default function ReviewsPage() {
-  const { data: dashboardData, isLoading, refetch: refreshReviews } = useSupabaseAdminDashboard();
+  const { data: dashboardData, isLoading, refreshDashboard: refreshReviews } = useSupabaseAdminDashboard();
   
   // Extract reviews (PDRs) from dashboard data
   const reviews = dashboardData?.pdrs || [];

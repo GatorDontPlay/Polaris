@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
         .from('audit_logs')
         .select(`
           *,
-          user:profiles!audit_logs_user_id_fkey(id, first_name, last_name, email, role)
+          user:profiles!audit_logs_changed_by_fkey(id, first_name, last_name, email, role)
         `)
         .in('table_name', ['pdrs', 'goals', 'behaviors', 'mid_year_reviews', 'end_year_reviews', 'profiles'])
         .gte('changed_at', new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString())
@@ -74,7 +74,8 @@ export async function GET(request: NextRequest) {
 
     // Calculate statistics
     const pendingReviews = allPDRs?.filter(pdr => 
-      ['SUBMITTED', 'UNDER_REVIEW'].includes(pdr.status)
+      ['SUBMITTED', 'UNDER_REVIEW'].includes(pdr.status) ||
+      (pdr.status === 'OPEN_FOR_REVIEW' && !pdr.is_locked)
     ).length || 0;
 
     const completedPDRs = allPDRs?.filter(pdr => 

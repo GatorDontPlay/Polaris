@@ -106,7 +106,7 @@ export async function createAuditLog({
     
     if (oldValues) logData.old_values = oldValues;
     if (newValues) logData.new_values = newValues;
-    if (userId) logData.user_id = userId;
+    if (userId) logData.changed_by = userId;
     if (ipAddress) logData.ip_address = ipAddress;
     if (userAgent) logData.user_agent = userAgent;
     

@@ -22,6 +22,12 @@ describe('PDR State Machine', () => {
       expect(result.errors).toHaveLength(0);
     });
 
+    it('should allow employee to submit PDR for review from DRAFT status', () => {
+      const result = validateStateTransition('DRAFT', 'OPEN_FOR_REVIEW', 'submitForReview', 'EMPLOYEE');
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
     it('should allow CEO to submit review from open for review status', () => {
       const result = validateStateTransition('OPEN_FOR_REVIEW', 'PLAN_LOCKED', 'submitCeoReview', 'CEO');
       expect(result.isValid).toBe(true);
@@ -84,7 +90,7 @@ describe('PDR State Machine', () => {
     });
 
     it('should return empty array when user role cannot perform any actions', () => {
-      const nextStates = getValidNextStates('OPEN_FOR_REVIEW', 'EMPLOYEE');
+      const nextStates = getValidNextStates('PDR_BOOKED', 'EMPLOYEE');
       expect(nextStates).toHaveLength(0);
     });
   });
@@ -145,10 +151,11 @@ describe('PDR State Machine', () => {
         expect(permissions.canSubmitCeoReview).toBe(true);
       });
 
-      it('should allow CEO to book meetings in Plan - Locked status', () => {
+      it('should allow CEO to edit and book meetings in Plan - Locked status', () => {
         const permissions = getPDRPermissions('PLAN_LOCKED', 'CEO');
         expect(permissions.canView).toBe(true);
-        expect(permissions.canEdit).toBe(false);
+        expect(permissions.canEdit).toBe(true);
+        expect(permissions.canEditCeoFields).toBe(true);
         expect(permissions.canMarkBooked).toBe(true);
         expect(permissions.readOnlyReason).toContain('locked');
       });
@@ -182,10 +189,10 @@ describe('PDR State Machine', () => {
 
     const validCeoData = {
       goals: [
-        { title: 'Goal 1', ceoComments: 'CEO feedback on goal 1' },
+        { title: 'Goal 1' },
       ],
       behaviors: [
-        { description: 'Behavior 1', ceoComments: 'CEO feedback on behavior 1' },
+        { description: 'Behavior 1', ceo_comments: 'CEO feedback on behavior 1' },
       ],
       ceoFields: { overallRating: 4 },
     };
@@ -229,16 +236,16 @@ describe('PDR State Machine', () => {
       expect(result.errors).toContain('All goals must have a title');
     });
 
-    it('should reject behaviors without self-assessment', () => {
+    it('should accept behaviors with description only', () => {
       const transition = STATE_TRANSITIONS.find(t => t.action === 'submitForReview')!;
       const pdrData = {
         goals: validGoals,
-        behaviors: [{ description: 'Behavior', employeeSelfAssessment: '' }],
+        behaviors: [{ description: 'Valid behavior description' }],
       };
       
       const result = validateTransitionRequirements(pdrData, transition);
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('All behavior assessments must have a self-assessment');
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
     });
 
     it('should validate CEO submission requirements', () => {
@@ -249,17 +256,16 @@ describe('PDR State Machine', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should reject CEO submission without comments', () => {
+    it('should reject CEO submission without behavior comments', () => {
       const transition = STATE_TRANSITIONS.find(t => t.action === 'submitCeoReview')!;
       const pdrData = {
-        goals: [{ title: 'Goal 1', ceoComments: '' }],
+        goals: [{ title: 'Goal 1' }],
         behaviors: [{ description: 'Behavior 1', ceoComments: '' }],
         ceoFields: { overallRating: 4 },
       };
       
       const result = validateTransitionRequirements(pdrData, transition);
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('CEO must provide comments on at least one goal');
       expect(result.errors).toContain('CEO must provide comments on at least one behavior');
     });
 
@@ -347,12 +353,18 @@ describe('PDR State Machine', () => {
 
   describe('Edge Cases and Integration', () => {
     it('should handle all defined transitions in STATE_TRANSITIONS', () => {
-      expect(STATE_TRANSITIONS).toHaveLength(3);
+      expect(STATE_TRANSITIONS).toHaveLength(7);
       
       const actions = STATE_TRANSITIONS.map(t => t.action);
       expect(actions).toContain('submitForReview');
       expect(actions).toContain('submitCeoReview');
       expect(actions).toContain('markBooked');
+      expect(actions).toContain('startEndYearReview');
+      expect(actions).toContain('completeFinalReview');
+      
+      // Should have transitions from both Created and DRAFT to OPEN_FOR_REVIEW
+      const submitTransitions = STATE_TRANSITIONS.filter(t => t.action === 'submitForReview');
+      expect(submitTransitions).toHaveLength(3); // Created, DRAFT, and OPEN_FOR_REVIEW
     });
 
     it('should maintain consistency between permissions and transitions', () => {

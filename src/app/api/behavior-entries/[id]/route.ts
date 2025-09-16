@@ -17,6 +17,9 @@ const updateBehaviorEntrySchema = z.object({
   selfAssessment: z.string().optional(),
   rating: z.number().int().min(1).max(5).optional(),
   comments: z.string().optional(),
+  // CEO-specific fields
+  ceoNotes: z.string().optional(),
+  ceoRating: z.number().int().min(1).max(5).optional(),
 });
 
 export async function GET(
@@ -192,7 +195,7 @@ export async function PATCH(
 
     // Check if PDR allows editing for employees
     if (behaviorEntry.author_type === 'EMPLOYEE' && 
-        !['Created', 'DRAFT', 'SUBMITTED'].includes(behaviorEntry.pdr.status)) {
+        !['Created', 'DRAFT', 'SUBMITTED', 'OPEN_FOR_REVIEW'].includes(behaviorEntry.pdr.status)) {
       return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
     }
 
@@ -210,8 +213,11 @@ export async function PATCH(
     if (updateData.description !== undefined) supabaseUpdateData.description = updateData.description;
     if (updateData.examples !== undefined) supabaseUpdateData.examples = updateData.examples;
     if (updateData.selfAssessment !== undefined) supabaseUpdateData.self_assessment = updateData.selfAssessment;
-    if (updateData.rating !== undefined) supabaseUpdateData.rating = updateData.rating;
-    if (updateData.comments !== undefined) supabaseUpdateData.comments = updateData.comments;
+    if (updateData.rating !== undefined) supabaseUpdateData.employee_rating = updateData.rating;
+    if (updateData.comments !== undefined) supabaseUpdateData.employee_notes = updateData.comments;
+    // CEO-specific fields
+    if (updateData.ceoNotes !== undefined) supabaseUpdateData.ceo_notes = updateData.ceoNotes;
+    if (updateData.ceoRating !== undefined) supabaseUpdateData.ceo_rating = updateData.ceoRating;
     supabaseUpdateData.updated_at = new Date().toISOString();
 
     // Update the behavior entry
@@ -313,7 +319,7 @@ export async function DELETE(
 
     // Check if PDR allows editing for employees
     if (behaviorEntry.author_type === 'EMPLOYEE' && 
-        !['Created', 'DRAFT', 'SUBMITTED'].includes(behaviorEntry.pdr.status)) {
+        !['Created', 'DRAFT', 'SUBMITTED', 'OPEN_FOR_REVIEW'].includes(behaviorEntry.pdr.status)) {
       return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
     }
 
