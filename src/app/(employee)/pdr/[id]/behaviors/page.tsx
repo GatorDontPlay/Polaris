@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabasePDR, useSupabasePDRBehaviors, useSupabasePDRUpdate } from '@/hooks/use-supabase-pdrs';
+import { usePDRPermissions } from '@/hooks/use-pdr-permissions';
 import { useCompanyValues } from '@/hooks/use-company-values';
 import { StructuredBehaviorForm, StructuredBehaviorFormHandle } from '@/components/forms/structured-behavior-form';
 import { Button } from '@/components/ui/button';
@@ -34,22 +35,38 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
     createBehavior,
     updateBehavior
   } = useSupabasePDRBehaviors(params.id);
-  const { data: companyValues, isLoading: companyValuesLoading } = useCompanyValues();
+  const { data: companyValues, isLoading: companyValuesLoading, error: companyValuesError } = useCompanyValues();
   const { updatePDR } = useSupabasePDRUpdate(params.id);
+  const { permissions, isEditable } = usePDRPermissions({ pdr });
 
   const isLoading = pdrLoading || behaviorsLoading || companyValuesLoading;
-  const isReadOnly = pdr?.isLocked || false;
-  const canEdit = pdr && !isReadOnly && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'OPEN_FOR_REVIEW' || pdr.status === 'Created');
+  const canEdit = isEditable;
+
+  // Debug loading states and data
+  console.log('🔍 [PAGE] Behaviors Page Debug:', {
+    pdrLoading,
+    behaviorsLoading,
+    companyValuesLoading,
+    companyValuesError,
+    isLoading,
+    pdrData: pdr,
+    behaviorsData: behaviors,
+    companyValuesData: companyValues,
+    companyValuesCount: companyValues?.length,
+    behaviorsCount: behaviors?.length,
+    companyValuesType: typeof companyValues,
+    companyValuesIsArray: Array.isArray(companyValues)
+  });
 
 
-  // Update PDR step to 2 (Behaviors) when user reaches this page
+  // Update PDR step to 2 (Behaviors) when user reaches this page - only if PDR is editable
   useEffect(() => {
-    if (pdr && pdr.currentStep < 2) {
+    if (pdr && pdr.currentStep < 2 && isEditable) {
       updatePDR({ currentStep: 2 }).catch(error => {
         console.error('Failed to update PDR step:', error);
       });
     }
-  }, [pdr, updatePDR]);
+  }, [pdr, updatePDR, isEditable]);
 
   // Clean up duplicates on first load only and filter out Self Reflection and CodeFish 3D from the grid
   useEffect(() => {
@@ -202,11 +219,11 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
       }
       
       // Update PDR step to 3 (Review) when moving to next section
-      if (pdr && pdr.currentStep < 3) {
-        console.log('🔧 Updating PDR step from', pdr.currentStep, 'to 3 (Review)');
-        await updatePDR({ currentStep: 3 });
-        console.log('✅ PDR step updated to 3');
-      }
+    if (pdr && pdr.currentStep < 3 && isEditable) {
+      console.log('🔧 Updating PDR step from', pdr.currentStep, 'to 3 (Review)');
+      await updatePDR({ currentStep: 3 });
+      console.log('✅ PDR step updated to 3');
+    }
       
       // Small delay to ensure localStorage is updated
       await new Promise(resolve => setTimeout(resolve, 200));
@@ -242,6 +259,61 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
         <div className="h-8 bg-muted rounded animate-pulse" />
         <div className="h-32 bg-muted rounded animate-pulse" />
         <div className="h-32 bg-muted rounded animate-pulse" />
+        <div className="text-sm text-muted-foreground mt-4">
+          Loading company values... ({companyValuesLoading ? 'fetching' : 'done'})
+        </div>
+      </div>
+    );
+  }
+
+  // Error state for company values
+  if (companyValuesError) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-status-error/10 border border-status-error/20 rounded-lg p-6">
+          <h2 className="text-xl font-semibold text-status-error mb-2">Error Loading Company Values</h2>
+          <p className="text-foreground mb-4">
+            Unable to load company values. Please check the browser console for details.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Error: {companyValuesError instanceof Error ? companyValuesError.message : 'Unknown error'}
+          </p>
+          <Button 
+            onClick={() => window.location.reload()} 
+            className="mt-4"
+          >
+            Reload Page
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // No company values state
+  if (!companyValues || companyValues.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-6">
+          <h2 className="text-xl font-semibold text-yellow-500 mb-2">No Company Values Found</h2>
+          <p className="text-foreground mb-4">
+            No active company values were found in the database. Please contact your administrator.
+          </p>
+          <div className="text-sm text-muted-foreground bg-background/50 p-4 rounded mt-4">
+            <p className="font-mono">Debug Info:</p>
+            <ul className="list-disc list-inside mt-2">
+              <li>Loading: {companyValuesLoading ? 'Yes' : 'No'}</li>
+              <li>Data exists: {companyValues ? 'Yes' : 'No'}</li>
+              <li>Is Array: {Array.isArray(companyValues) ? 'Yes' : 'No'}</li>
+              <li>Length: {companyValues?.length || 0}</li>
+            </ul>
+          </div>
+          <Button 
+            onClick={() => window.location.reload()} 
+            className="mt-4"
+          >
+            Reload Page
+          </Button>
+        </div>
       </div>
     );
   }

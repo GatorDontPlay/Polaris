@@ -61,15 +61,31 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
   const [showCelebration, setShowCelebration] = useState(false);
   const [isGrantInfoOpen, setIsGrantInfoOpen] = useState(false);
 
+  // Debug: Log received props
+  console.log('🔍 [FORM] StructuredBehaviorForm received props:', {
+    companyValuesCount: companyValues?.length,
+    companyValuesType: typeof companyValues,
+    companyValuesIsArray: Array.isArray(companyValues),
+    companyValuesData: companyValues,
+    existingBehaviorsCount: existingBehaviors?.length
+  });
+
   // Initialize form with all company values
   const defaultValues = companyValues.map(value => {
     const existingBehavior = existingBehaviors.find(b => b.valueId === value.id);
+    console.log(`🔍 [FORM] Mapping value ${value.name}:`, {
+      valueId: value.id,
+      existingBehavior: existingBehavior ? 'found' : 'not found',
+      description: existingBehavior?.description || 'empty'
+    });
     return {
       valueId: value.id,
       valueName: value.name,
       description: existingBehavior?.description || '',
     };
   });
+
+  console.log('🔍 [FORM] Default values for form:', defaultValues);
 
   // Load existing development data
   const getExistingDevelopmentData = () => {
