@@ -55,61 +55,7 @@ export function useBehaviorEntries({ pdrId, currentUser }: UseBehaviorEntriesPro
       }
 
       const result = await response.json();
-      let organizedData = result.data || [];
-
-      // In demo mode, merge real employee behavior data from localStorage
-      const isDemoMode = pdrId.startsWith('demo-pdr-');
-      if (isDemoMode && typeof window !== 'undefined') {
-        const savedBehaviors = localStorage.getItem(`demo_behaviors_${pdrId}`);
-        if (savedBehaviors) {
-          try {
-            const employeeBehaviors = JSON.parse(savedBehaviors);
-            
-            // Merge employee behavior data into organized structure
-            organizedData = organizedData.map((valueData: any) => {
-              const employeeBehavior = employeeBehaviors.find((b: any) => b.valueId === valueData.companyValue.id);
-              
-              if (employeeBehavior) {
-                const employeeEntry = {
-                  id: `demo-employee-entry-${valueData.companyValue.id}`,
-                  pdrId,
-                  valueId: valueData.companyValue.id,
-                  authorId: 'demo-employee-1',
-                  authorType: 'EMPLOYEE' as const,
-                  description: employeeBehavior.description || '',
-                  examples: employeeBehavior.examples,
-                  selfAssessment: employeeBehavior.employeeSelfAssessment,
-                  rating: employeeBehavior.employeeRating,
-                  comments: null,
-                  employeeEntryId: null,
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                  value: valueData.companyValue,
-                  author: {
-                    id: 'demo-employee-1',
-                    firstName: 'Demo',
-                    lastName: 'Employee',
-                    email: 'employee@demo.com',
-                    role: 'EMPLOYEE' as const,
-                  },
-                  employeeEntry: null,
-                  ceoEntries: [] as any[],
-                };
-
-                return {
-                  ...valueData,
-                  employeeEntries: [employeeEntry],
-                  hasEmployeeEntry: true,
-                };
-              }
-              
-              return valueData;
-            });
-          } catch (error) {
-            console.error('Error parsing demo behavior data:', error);
-          }
-        }
-      }
+      const organizedData = result.data || [];
 
       setOrganizedData(organizedData);
     } catch (error) {

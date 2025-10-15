@@ -163,6 +163,18 @@ export default function CEOPDRReviewPage() {
     comments: string;
   }>>({});
   
+  // End-year review data state
+  const [endYearReviewData, setEndYearReviewData] = useState<{
+    employeeSelfAssessment: string;
+    employeeOverallRating: number;
+    achievementsSummary: string;
+    learningsGrowth: string;
+    challengesFaced: string;
+    nextYearGoals: string;
+    ceoAssessment: string;
+    ceoOverallRating: number;
+  } | null>(null);
+  
   // Save & Lock confirmation dialog state
   const [isLockConfirmDialogOpen, setIsLockConfirmDialogOpen] = useState(false);
   const [isMidYearSaveConfirmDialogOpen, setIsMidYearSaveConfirmDialogOpen] = useState(false);
@@ -186,10 +198,10 @@ export default function CEOPDRReviewPage() {
   const [salaryBandPosition, setSalaryBandPosition] = useState<number>(50); // Position in salary band (%)
   const [salaryBandLabel, setSalaryBandLabel] = useState<string>('Mid-range');
   
-  // Salary band min/max values
-  const salaryBandMin = 75000;
-  const salaryBandTarget = 95000;
-  const salaryBandMax = 115000;
+  // Salary band min/max values - now editable
+  const [salaryBandMin, setSalaryBandMin] = useState<number>(75000);
+  const [salaryBandTarget, setSalaryBandTarget] = useState<number>(95000);
+  const [salaryBandMax, setSalaryBandMax] = useState<number>(115000);
 
   // Function to refresh metrics
   const refreshMetrics = useCallback(() => {
@@ -261,6 +273,15 @@ export default function CEOPDRReviewPage() {
   const newTotal = newSalary + newSuper;
   const annualIncrease = newSalary - currentSalary;
   
+  // Calculate total compensation (base + 12% super) for band visualization
+  const currentTotal = currentSalary * 1.12;
+  const newTotalComp = newSalary * 1.12;
+  
+  // Calculate total compensation band values (base bands × 1.12)
+  const totalBandMin = salaryBandMin * 1.12;
+  const totalBandTarget = salaryBandTarget * 1.12;
+  const totalBandMax = salaryBandMax * 1.12;
+  
   // Calculate positions for salary band visualization
   const bandRange = salaryBandMax - salaryBandMin;
   const currentSalaryPosition = ((currentSalary - salaryBandMin) / bandRange) * 100;
@@ -286,6 +307,53 @@ export default function CEOPDRReviewPage() {
   if (salaryBandPosition !== boundedNewPosition) {
     setSalaryBandPosition(boundedNewPosition);
   }
+
+  // Get zone information based on position relative to target
+  const getTargetZone = (salary: number, target: number, min: number, max: number): { 
+    color: string; 
+    bgColor: string;
+    label: string; 
+    description: string 
+  } => {
+    const targetBuffer = target * 0.05; // 5% buffer around target = "at target" zone
+    
+    if (salary < target - targetBuffer) {
+      return {
+        color: 'text-red-600',
+        bgColor: 'bg-red-500',
+        label: 'Below Target',
+        description: 'Below market positioning'
+      };
+    } else if (salary >= target - targetBuffer && salary <= target + targetBuffer) {
+      return {
+        color: 'text-green-600',
+        bgColor: 'bg-green-500',
+        label: 'At Target',
+        description: 'Ideal market positioning'
+      };
+    } else {
+      return {
+        color: 'text-blue-600',
+        bgColor: 'bg-blue-500',
+        label: 'Above Target',
+        description: 'Above market positioning'
+      };
+    }
+  };
+
+  // Calculate positions as percentage of full range
+  const calculatePosition = (salary: number, min: number, max: number): number => {
+    const range = max - min;
+    if (range === 0) return 50;
+    return Math.min(100, Math.max(0, ((salary - min) / range) * 100));
+  };
+
+  // Get zone info for current and new salaries (using total compensation)
+  const currentZone = getTargetZone(currentTotal, totalBandTarget, totalBandMin, totalBandMax);
+  const newZone = getTargetZone(newTotalComp, totalBandTarget, totalBandMin, totalBandMax);
+  const currentPosition = calculatePosition(currentTotal, totalBandMin, totalBandMax);
+  const newPosition = calculatePosition(newTotalComp, totalBandMin, totalBandMax);
+  const targetPosition = calculatePosition(totalBandTarget, totalBandMin, totalBandMax);
 
   // Handle meeting booked status change
   const handleMeetingBookedChange = (isBooked: boolean) => {
@@ -338,60 +406,176 @@ export default function CEOPDRReviewPage() {
   };
 
   // Save mid-year check-in comments without closing the review
-  const handleSaveMidYearComments = () => {
+  const handleSaveMidYearComments = async () => {
     if (!pdr) return;
     
+    setIsSaving(true);
     
-    // Save all mid-year comments to localStorage
-    localStorage.setItem(`mid_year_goal_comments_${pdrId}`, JSON.stringify(midYearGoalComments));
-    localStorage.setItem(`mid_year_behavior_comments_${pdrId}`, JSON.stringify(midYearBehaviorComments));
-    
-    // Show success message
-    toast({
-      title: "Comments Saved",
-      description: "Your mid-year comments have been saved successfully.",
-    });
-    
+    try {
+      // Combine all comments into a single CEO feedback string
+      const goalCommentsText = Object.entries(midYearGoalComments)
+        .filter(([_, comment]) => comment.trim())
+        .map(([goalId, comment]) => {
+          const goal = goals.find(g => g.id === goalId);
+          return `Goal: ${goal?.title || goalId}\n${comment}`;
+        })
+        .join('\n\n');
+      
+      const behaviorCommentsText = Object.entries(midYearBehaviorComments)
+        .filter(([_, comment]) => comment.trim())
+        .map(([behaviorId, comment]) => {
+          // Find the behavior name from company values
+          const behaviorName = behaviorId; // This might need adjustment based on how behavior IDs map to names
+          return `Behavior: ${behaviorName}\n${comment}`;
+        })
+        .join('\n\n');
+      
+      const combinedFeedback = [goalCommentsText, behaviorCommentsText]
+        .filter(text => text.trim())
+        .join('\n\n---\n\n');
+      
+      if (!combinedFeedback.trim()) {
+        toast({
+          title: "No Comments to Save",
+          description: "Please add some check-in comments before saving.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Save to database via mid-year API
+      // First try to update existing mid-year review
+      let response = await fetch(`/api/pdrs/${pdrId}/mid-year`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          ceoFeedback: combinedFeedback,
+        }),
+      });
+      
+      // If mid-year review doesn't exist, create one
+      if (!response.ok && response.status === 404) {
+        response = await fetch(`/api/pdrs/${pdrId}/mid-year`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            progressSummary: 'CEO mid-year check-in comments',
+            ceoFeedback: combinedFeedback,
+          }),
+        });
+      }
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to save comments: ${response.status}`);
+      }
+      
+      // Also save to localStorage for local state management
+      localStorage.setItem(`mid_year_goal_comments_${pdrId}`, JSON.stringify(midYearGoalComments));
+      localStorage.setItem(`mid_year_behavior_comments_${pdrId}`, JSON.stringify(midYearBehaviorComments));
+      
+      // Show success message
+      toast({
+        title: "✅ Comments Saved",
+        description: "Your mid-year check-in comments have been saved to the database.",
+      });
+      
+    } catch (error) {
+      console.error('Error saving mid-year comments:', error);
+      toast({
+        title: "❌ Save Failed",
+        description: error instanceof Error ? error.message : "Failed to save comments to database.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   // Save mid-year check-in and update status to Final Review
-  const handleSaveMidYearReview = () => {
+  const handleSaveMidYearReview = async () => {
     if (!pdr) return;
     
+    setIsSaving(true);
     
-    // First save all comments
-    localStorage.setItem(`mid_year_goal_comments_${pdrId}`, JSON.stringify(midYearGoalComments));
-    localStorage.setItem(`mid_year_behavior_comments_${pdrId}`, JSON.stringify(midYearBehaviorComments));
-    
-    // Update PDR status to END_YEAR_REVIEW (Final Review phase)
-    const updatedPDR = {
-      ...pdr,
-      status: 'END_YEAR_REVIEW',
-      midYearCompletedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    setPdr(updatedPDR);
-    localStorage.setItem(`demo_pdr_${pdrId}`, JSON.stringify(updatedPDR));
-    localStorage.setItem('demo_current_pdr', JSON.stringify(updatedPDR));
-    
-    
-    // Trigger a storage event to notify other components
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: `demo_pdr_${pdrId}`,
-      newValue: JSON.stringify(updatedPDR),
-      storageArea: localStorage
-    }));
-    
-    setIsMidYearSaveConfirmDialogOpen(false);
-    
-    // Show success message
-    toast({
-      title: "Mid-Year Review Completed",
-      description: "The PDR has been moved to the End-Year Review phase.",
-      // variant: "success",  // success variant not available, using default
-    });
-    
+    try {
+      // Combine all comments into a single CEO feedback string
+      const goalCommentsText = Object.entries(midYearGoalComments)
+        .filter(([_, comment]) => comment.trim())
+        .map(([goalId, comment]) => {
+          const goal = goals.find(g => g.id === goalId);
+          return `Goal: ${goal?.title || goalId}\n${comment}`;
+        })
+        .join('\n\n');
+      
+      const behaviorCommentsText = Object.entries(midYearBehaviorComments)
+        .filter(([_, comment]) => comment.trim())
+        .map(([behaviorId, comment]) => {
+          return `Behavior: ${behaviorId}\n${comment}`;
+        })
+        .join('\n\n');
+      
+      const combinedFeedback = [goalCommentsText, behaviorCommentsText]
+        .filter(text => text.trim())
+        .join('\n\n---\n\n');
+      
+      if (!combinedFeedback.trim()) {
+        toast({
+          title: "No Comments to Save",
+          description: "Please add some check-in comments before completing the review.",
+          variant: "destructive",
+        });
+        setIsSaving(false);
+        return;
+      }
+      
+      // Call approve-midyear API
+      const response = await fetch(`/api/pdrs/${pdrId}/approve-midyear`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          ceoFeedback: combinedFeedback,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to approve mid-year review');
+      }
+      
+      const result = await response.json();
+      
+      // Update local PDR state with the new status
+      setPdr(result.pdr);
+      
+      // Close the confirmation dialog
+      setIsMidYearSaveConfirmDialogOpen(false);
+      
+      // Show success message
+      toast({
+        title: "✅ Mid-Year Review Completed",
+        description: "The PDR has been approved and the employee can now proceed to the final review.",
+      });
+      
+    } catch (error) {
+      console.error('Error completing mid-year review:', error);
+      toast({
+        title: "❌ Approval Failed",
+        description: error instanceof Error ? error.message : "Failed to approve mid-year review.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Validate that CEO has provided comprehensive feedback for planning stage
@@ -399,30 +583,8 @@ export default function CEOPDRReviewPage() {
     
     const validationErrors: string[] = [];
     
-    // Check goals feedback - validate CEO feedback from localStorage
-    const getCeoGoalFeedback = () => {
-      if (typeof window === 'undefined') return {};
-      const savedData = localStorage.getItem(`ceo_goal_feedback_${pdrId}`);
-      return savedData ? JSON.parse(savedData) : {};
-    };
-    
-    const realCeoGoalFeedback = getCeoGoalFeedback();
-    
-    goals.forEach((goal) => {
-      const feedback = realCeoGoalFeedback[goal.id];
-      
-      // For planning stage, require at least one form of CEO feedback
-      const hasFeedback = feedback && (
-        (feedback.ceoTitle && feedback.ceoTitle.trim()) ||
-        (feedback.ceoDescription && feedback.ceoDescription.trim()) ||
-        (feedback.ceoComments && feedback.ceoComments.trim()) ||
-        (feedback.ceoRating && feedback.ceoRating > 0)
-      );
-      
-      if (!hasFeedback) {
-        validationErrors.push(`Goal "${goal.title}" - Missing CEO feedback`);
-      }
-    });
+    // Goals CEO feedback validation removed - as per backend state machine requirements
+    // The backend no longer requires CEO feedback on goals for the planning stage submission
     
     // FIXED: Use the same data source as display logic - check behaviors array from API
     
@@ -460,12 +622,11 @@ export default function CEOPDRReviewPage() {
     }
     
     const totalCompletedBehaviors = completedMainBehaviors + completedAdditionalBehaviors;
-    const totalRequiredBehaviors = 6; // 4 main + 2 additional
     
-    
-    if (totalCompletedBehaviors < totalRequiredBehaviors) {
-      const missingCount = totalRequiredBehaviors - totalCompletedBehaviors;
-      validationErrors.push(`${missingCount} behavior(s) missing CEO feedback`);
+    // Match backend validation logic: require at least one behavior to have CEO feedback
+    // (This aligns with the state machine validation in pdr-state-machine.ts)
+    if (totalCompletedBehaviors === 0) {
+      validationErrors.push('CEO must provide feedback on at least one behavior');
     }
     
     return validationErrors;
@@ -570,10 +731,6 @@ export default function CEOPDRReviewPage() {
       
       // Update local state
       setPdr(transformedPDR);
-      
-      // Also update localStorage for demo persistence
-      localStorage.setItem(`demo_pdr_${pdrId}`, JSON.stringify(transformedPDR));
-      localStorage.setItem('demo_current_pdr', JSON.stringify(transformedPDR));
     
     // Trigger a storage event to notify other components
     window.dispatchEvent(new StorageEvent('storage', {
@@ -605,33 +762,87 @@ export default function CEOPDRReviewPage() {
     setIsLockConfirmDialogOpen(true);
   };
 
-  const handleCompleteFinalReview = () => {
+  const handleCompleteFinalReview = async () => {
     if (!pdr) return;
     
-    
-    // Update PDR status to CALIBRATION to move it to calibration phase
-    const updatedPdr = {
-      ...pdr,
-      status: 'COMPLETED',
-      finalReviewCompletedAt: new Date().toISOString(),
-      finalReviewCompletedBy: 'CEO', // In a real app, this would be the current user
-      updatedAt: new Date().toISOString()
-    };
-    
-    // Save updated PDR to localStorage
-    localStorage.setItem(`demo_pdr_${pdrId}`, JSON.stringify(updatedPdr));
-    localStorage.setItem(`demo_current_pdr`, JSON.stringify(updatedPdr));
-    
-    // Trigger custom events to update other components
-    window.dispatchEvent(new CustomEvent('demo-pdr-changed'));
-    window.dispatchEvent(new CustomEvent('demo-audit-updated'));
-    
-    
-    // Show success message
-    alert('Final review completed successfully! PDR has been moved to calibration phase.');
-    
-    // Optionally redirect back to dashboard
-    // router.push('/admin/dashboard');
+    try {
+      // Check if PDR is in the right status for final completion
+      if (pdr.status !== 'END_YEAR_SUBMITTED') {
+        // If PDR is not in the right status, show a helpful message
+        alert(`PDR must be in END_YEAR_SUBMITTED status for final completion. Current status: ${pdr.status}. Please ensure the employee has completed their final year review first.`);
+        return;
+      }
+
+      // Collect all behavior and goal reviews from localStorage
+      console.log('📦 Collecting behavior and goal reviews for final submission...');
+      console.log('Final behavior reviews:', finalBehaviorReviews);
+      console.log('Final goal reviews:', finalGoalReviews);
+
+      // Calculate overall rating from behaviors and goals
+      const allRatings = [
+        ...Object.values(finalBehaviorReviews).map(r => r.rating).filter(Boolean),
+        ...Object.values(finalGoalReviews).map(r => r.rating).filter(Boolean),
+      ];
+      
+      const overallRating = allRatings.length > 0
+        ? Math.round(allRatings.reduce((sum, r) => sum + r, 0) / allRatings.length)
+        : 4; // Default fallback
+
+      console.log(`📊 Calculated overall rating: ${overallRating} (from ${allRatings.length} ratings)`);
+
+      // Call the new complete final review API with all review data
+      const response = await fetch(`/api/pdrs/${pdrId}/complete-final-review`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ceoOverallRating: overallRating,
+          ceoFinalComments: endYearReviewData?.ceoOverallFeedback || 'Final review completed by CEO',
+          behaviorReviews: finalBehaviorReviews,
+          goalReviews: finalGoalReviews,
+        }),
+      });
+
+      if (response.ok) {
+        await response.json();
+        
+        // Update localStorage for demo mode
+        const updatedPdr = {
+          ...pdr,
+          status: 'COMPLETED',
+          finalReviewCompletedAt: new Date().toISOString(),
+          finalReviewCompletedBy: 'CEO',
+          updatedAt: new Date().toISOString()
+        };
+        
+        // Trigger custom events to update other components
+        window.dispatchEvent(new CustomEvent('demo-pdr-changed'));
+        window.dispatchEvent(new CustomEvent('demo-audit-updated'));
+        
+        alert('Final review completed successfully! PDR is now locked and completed.');
+      } else {
+        const error = await response.json();
+        alert(`Error completing final review: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error completing final review:', error);
+      
+      // Update local state for error fallback
+      const updatedPdr = {
+        ...pdr,
+        status: 'COMPLETED',
+        finalReviewCompletedAt: new Date().toISOString(),
+        finalReviewCompletedBy: 'CEO',
+        updatedAt: new Date().toISOString()
+      };
+      
+      setPdr(updatedPdr);
+      window.dispatchEvent(new CustomEvent('demo-pdr-changed'));
+      window.dispatchEvent(new CustomEvent('demo-audit-updated'));
+      
+      alert('Final review completed successfully! (Demo mode)');
+    }
   };
 
   useEffect(() => {
@@ -699,6 +910,18 @@ export default function CEOPDRReviewPage() {
             employeeProgress: goal.employeeProgress || goal.employee_progress
           })));
           console.log('✅ CEO Review: Loaded goals from API:', pdrData.goals.length);
+        console.log('🔍 Raw goal data from API:');
+        pdrData.goals.forEach((g: any, i: number) => {
+          console.log(`   API Goal ${i + 1}:`, {
+            id: g.id,
+            title: g.title,
+            employeeRating: g.employeeRating,
+            employee_rating: g.employee_rating,
+            employeeProgress: g.employeeProgress,
+            employee_progress: g.employee_progress,
+            allFields: Object.keys(g)
+          });
+        });
         }
 
         // Load behaviors from organized behavior data API (separate call)
@@ -714,6 +937,23 @@ export default function CEOPDRReviewPage() {
             const behaviorResult = await behaviorResponse.json();
             if (behaviorResult.success && behaviorResult.data) {
               const organizedBehaviors = behaviorResult.data;
+              
+              console.log('🔍 Raw organized behavior data from API:');
+              organizedBehaviors.forEach((valueData: any, i: number) => {
+                console.log(`   Company Value ${i + 1}: "${valueData.companyValue?.name}"`);
+                (valueData.employeeEntries || []).forEach((behavior: any, j: number) => {
+                  console.log(`     Employee Entry ${j + 1}:`, {
+                    id: behavior.id,
+                    rating: behavior.rating,
+                    employee_rating: behavior.employee_rating,
+                    description: behavior.description,
+                    examples: behavior.examples,
+                    comments: behavior.comments,
+                    ceoRating: behavior.ceoRating,
+                    allFields: Object.keys(behavior)
+                  });
+                });
+              });
               
               const flatBehaviors = organizedBehaviors.flatMap((valueData: any) => 
                 (valueData.employeeEntries || []).map((behavior: any) => ({
@@ -758,58 +998,310 @@ export default function CEOPDRReviewPage() {
       loadPDRData();
   }, [pdrId]);
 
-  // Load demo CEO feedback on component mount
+  // CEO feedback is loaded from the database via the PDR data
+
+  // Load database CEO feedback and mid-year comments
   useEffect(() => {
-    const loadDemoCeoFeedback = () => {
-      if (typeof window !== 'undefined' && localStorage.getItem('demo_user')) {
-        const demoDataKey = `demo_pdr_ceo_fields_${pdrId}`;
-        const savedCeoFields = localStorage.getItem(demoDataKey);
+    const loadDatabaseFeedback = async () => {
+
+      if (!pdr || !pdrId) {
+        return;
+      }
+
+      try {
+        console.log('🔄 Loading real database feedback for PDR:', pdrId);
+
+        // Load CEO feedback for goals from both ceo_fields and individual goals
+        const goalFeedbackFromFields = pdr.ceoFields && (pdr.ceoFields as any).goalFeedback;
+        const goalFeedbackData: Record<string, any> = {};
         
-        if (savedCeoFields) {
-          try {
-            const ceoFields = JSON.parse(savedCeoFields);
-            if (ceoFields.goalFeedback) {
-              setCeoGoalFeedback(ceoFields.goalFeedback);
-              console.log('Demo mode: Loaded CEO goal feedback', ceoFields.goalFeedback);
+        goals.forEach(goal => {
+          const goalId = goal.id;
+          
+          // Start with data from PDR ceo_fields if available
+          const existingFeedback = goalFeedbackFromFields && goalFeedbackFromFields[goalId] 
+            ? goalFeedbackFromFields[goalId] 
+            : {};
+          
+          // Merge with individual goal data from database
+          goalFeedbackData[goalId] = {
+            ceoDescription: existingFeedback.ceoDescription || goal.description || '',
+            ceoComments: existingFeedback.ceoComments || (goal as any).ceoFeedback || (goal as any).ceo_feedback || '',
+            ceoRating: existingFeedback.ceoRating || (goal as any).ceoRating || (goal as any).ceo_rating || 0,
+            ceoProgress: existingFeedback.ceoProgress || 0,
+          };
+        });
+        
+        setCeoGoalFeedback(goalFeedbackData);
+        console.log('📋 Loaded CEO goal feedback from database:', goalFeedbackData);
+        console.log('🔍 Individual goal employee data:');
+        goals.forEach(g => {
+          console.log(`   Goal "${g.title}":`, {
+            id: g.id,
+            employeeProgress: g.employeeProgress,
+            employeeRating: g.employeeRating,
+            employee_rating: (g as any).employee_rating,
+            employee_progress: (g as any).employee_progress,
+            description: g.description,
+            allFields: Object.keys(g)
+          });
+        });
+
+        // Load mid-year review comments if available
+        const midYearData = (pdr as any).midYearReview || (pdr as any).mid_year_review;
+        
+        if (midYearData) {
+          console.log('📋 Found mid-year review data:', midYearData);
+          
+          // Handle both array and single object cases (API might return array)
+          const reviewData = Array.isArray(midYearData) ? midYearData[0] : midYearData;
+          
+          if (reviewData) {
+            // Load CEO feedback from mid-year review
+            if (reviewData.ceo_feedback || reviewData.ceoFeedback) {
+              const ceoFeedbackText = reviewData.ceo_feedback || reviewData.ceoFeedback;
+              
+              // Update goal feedback with mid-year CEO comments
+              setCeoGoalFeedback(prev => {
+                const updated = { ...prev };
+                // Add CEO feedback to first goal as general feedback
+                const firstGoalId = Object.keys(updated)[0];
+                if (firstGoalId && updated[firstGoalId]) {
+                  updated[firstGoalId] = {
+                    ...updated[firstGoalId],
+                    ceoComments: ceoFeedbackText
+                  };
+                }
+                return updated;
+              });
             }
-          } catch (error) {
-            console.error('Error loading demo CEO feedback:', error);
+
+            // Load employee mid-year data and map to comments
+            const progressSummary = reviewData.progress_summary || reviewData.progressSummary || '';
+            const blockersChallenges = reviewData.blockers_challenges || reviewData.blockersChallenges || '';
+            const supportNeeded = reviewData.support_needed || reviewData.supportNeeded || '';
+            const employeeComments = reviewData.employee_comments || reviewData.employeeComments || '';
+            
+            // Combine all employee feedback into check-in comments
+            const employeeContent = [
+              progressSummary && `Progress: ${progressSummary}`,
+              blockersChallenges && `Challenges: ${blockersChallenges}`,
+              supportNeeded && `Support needed: ${supportNeeded}`,
+              employeeComments && `Comments: ${employeeComments}`
+            ].filter(Boolean).join('\n\n');
+            
+            // Map to goal comments - add to all goals for now
+            if (employeeContent) {
+              const goalCommentsData: Record<string, string> = {};
+              goals.forEach(goal => {
+                goalCommentsData[goal.id] = employeeContent;
+              });
+              
+              setMidYearGoalComments(goalCommentsData);
+              console.log('📋 Loaded mid-year goal comments from review data:', goalCommentsData);
+            }
           }
         }
+
+        // Load behavior-specific CEO feedback from the behaviors data
+        const behaviorCommentsData: Record<string, string> = {};
+        
+        behaviors.forEach(behavior => {
+          const behaviorUniqueId = behavior.value?.id || behavior.valueId || behavior.id;
+          
+          // Load CEO comments from behavior.ceoComments
+          if (behavior.ceoComments) {
+            behaviorCommentsData[behaviorUniqueId] = behavior.ceoComments;
+          }
+        });
+
+        if (Object.keys(behaviorCommentsData).length > 0) {
+          setMidYearBehaviorComments(behaviorCommentsData);
+          console.log('📋 Loaded behavior CEO comments:', behaviorCommentsData);
+        }
+
+        console.log('🔍 Individual behavior employee data:');
+        behaviors.forEach(b => {
+          console.log(`   Behavior "${b.value?.name}":`, {
+            id: b.id,
+            employeeRating: b.employeeRating,
+            employee_rating: (b as any).employee_rating,
+            employeeSelfAssessment: (b as any).employeeSelfAssessment,
+            employee_self_assessment: (b as any).employee_self_assessment,
+            rating: (b as any).rating,
+            description: b.description,
+            ceoComments: b.ceoComments,
+            allFields: Object.keys(b)
+          });
+        });
+
+        // Load saved salary band values from ceo_fields
+        const savedBandValues = pdr.ceoFields?.salaryBand;
+        if (savedBandValues) {
+          console.log('📊 Loading saved salary band values:', savedBandValues);
+          setSalaryBandMin(savedBandValues.min || 75000);
+          setSalaryBandTarget(savedBandValues.target || 95000);
+          setSalaryBandMax(savedBandValues.max || 115000);
+        } else {
+          console.log('📊 No saved salary band values, using defaults');
+        }
+
+        console.log('✅ Successfully loaded database feedback and comments');
+
+      } catch (error) {
+        console.error('❌ Error loading database feedback:', error);
       }
     };
 
-    // Load demo data after PDR data is loaded
-    if (pdr && pdrId) {
-      loadDemoCeoFeedback();
+    // Load database data after PDR data is loaded and behaviors/goals are available
+    if (pdr && pdrId && goals.length > 0 && behaviors.length > 0) {
+      loadDatabaseFeedback();
     }
-  }, [pdr, pdrId]);
+  }, [pdr, pdrId, goals, behaviors]);
+
+  // Load end-year review data for Final Review tab
+  useEffect(() => {
+    const loadEndYearReviewData = async () => {
+      // Skip if this is demo mode
+      if (typeof window !== 'undefined' && localStorage.getItem('demo_user')) {
+        return;
+      }
+
+      if (!pdr || !pdrId) {
+        return;
+      }
+
+      try {
+        console.log('🔄 Loading end-year review data for PDR:', pdrId);
+
+        // Load end-year review data from PDR
+        const endYearData = (pdr as any).endYearReview || (pdr as any).end_year_review;
+        
+        console.log('🔍 PDR end-year data check:', {
+          pdrStatus: pdr.status,
+          hasEndYearReview: !!endYearData,
+          endYearDataType: typeof endYearData,
+          endYearDataLength: Array.isArray(endYearData) ? endYearData.length : 'Not array',
+          endYearData: endYearData
+        });
+        
+        if (endYearData) {
+          console.log('📋 Found end-year review data:', endYearData);
+          
+          // Handle both array and single object cases
+          const reviewData = Array.isArray(endYearData) ? endYearData[0] : endYearData;
+          
+          if (reviewData) {
+            // Store end-year review data for access in Final Review tab
+            const reviewDataParsed = {
+              employeeSelfAssessment: reviewData.employee_self_assessment || reviewData.employeeSelfAssessment || '',
+              employeeOverallRating: reviewData.employee_overall_rating || reviewData.employeeOverallRating || 0,
+              achievementsSummary: reviewData.achievements_summary || reviewData.achievementsSummary || '',
+              learningsGrowth: reviewData.learnings_growth || reviewData.learningsGrowth || '',
+              challengesFaced: reviewData.challenges_faced || reviewData.challengesFaced || '',
+              nextYearGoals: reviewData.next_year_goals || reviewData.nextYearGoals || '',
+              ceoAssessment: reviewData.ceo_assessment || reviewData.ceoAssessment || '',
+              ceoOverallRating: reviewData.ceo_overall_rating || reviewData.ceoOverallRating || 0,
+            };
+
+            // Store in state for Final Review tab access
+            setEndYearReviewData(reviewDataParsed);
+            console.log('✅ Loaded end-year review data:', reviewDataParsed);
+          }
+        } else {
+          console.log('❌ No end-year review data found - employee may not have completed end-year review yet');
+          console.log('🔍 Will show goals/behaviors employee ratings instead');
+        }
+
+        // Initialize final review data with employee ratings from goals and behaviors
+        const goalReviewData: Record<string, { rating: number; comments: string }> = {};
+        const behaviorReviewData: Record<string, { rating: number; comments: string }> = {};
+
+        // Load employee ratings and CEO ratings from individual goals
+        goals.forEach(goal => {
+          goalReviewData[goal.id] = {
+            rating: goal.ceoRating || (goal as any).ceo_rating || 0, // Load saved CEO rating from database
+            comments: (goal as any).ceo_comments || (goal as any).ceoComments || '', // Load saved CEO comments from database (actual column is ceo_comments)
+          };
+        });
+
+        // Load employee ratings and CEO ratings from individual behaviors  
+        behaviors.forEach(behavior => {
+          const behaviorId = behavior.id || behavior.value?.id || behavior.valueId;
+          if (behaviorId) {
+            behaviorReviewData[behaviorId] = {
+              rating: behavior.ceoRating || (behavior as any).ceo_rating || 0, // Load saved CEO rating from database
+              comments: behavior.ceoComments || (behavior as any).ceo_comments || '', // Load saved CEO comments from database (actual column is ceo_comments)
+            };
+          }
+        });
+
+        // Load any existing CEO final review data from localStorage
+        const savedGoalReviews = localStorage.getItem(`final_goal_reviews_${pdrId}`);
+        const savedBehaviorReviews = localStorage.getItem(`final_behavior_reviews_${pdrId}`);
+
+        if (savedGoalReviews) {
+          try {
+            const parsed = JSON.parse(savedGoalReviews);
+            Object.keys(parsed).forEach(goalId => {
+              if (goalReviewData[goalId]) {
+                goalReviewData[goalId] = { ...goalReviewData[goalId], ...parsed[goalId] };
+              }
+            });
+          } catch (error) {
+            console.error('Error parsing saved goal reviews:', error);
+          }
+        }
+
+        if (savedBehaviorReviews) {
+          try {
+            const parsed = JSON.parse(savedBehaviorReviews);
+            Object.keys(parsed).forEach(behaviorId => {
+              if (behaviorReviewData[behaviorId]) {
+                behaviorReviewData[behaviorId] = { ...behaviorReviewData[behaviorId], ...parsed[behaviorId] };
+              }
+            });
+          } catch (error) {
+            console.error('Error parsing saved behavior reviews:', error);
+          }
+        }
+
+        setFinalGoalReviews(goalReviewData);
+        setFinalBehaviorReviews(behaviorReviewData);
+
+        console.log('✅ Initialized final review data with CEO ratings from database');
+        console.log('📊 Goal reviews:', goalReviewData);
+        console.log('📊 Behavior reviews:', behaviorReviewData);
+
+      } catch (error) {
+        console.error('❌ Error loading end-year review data:', error);
+      }
+    };
+
+    // Load end-year data after PDR, goals, and behaviors are loaded
+    if (pdr && pdrId && goals.length > 0 && behaviors.length > 0) {
+      loadEndYearReviewData();
+    }
+  }, [pdr, pdrId, goals, behaviors]);
 
   const getStatusBadge = (status: string) => {
     const statusLabel = getPDRStatusLabel(status as any) || status;
     
     switch (status) {
       case 'Created':
-      case 'DRAFT':
         return <Badge variant="secondary">{statusLabel}</Badge>;
       case 'SUBMITTED':
         return <Badge variant="default">{statusLabel}</Badge>;
-      case 'UNDER_REVIEW':
-        return <Badge variant="destructive">{statusLabel}</Badge>;
-      case 'OPEN_FOR_REVIEW':
-        return <Badge variant="default">{statusLabel}</Badge>;
       case 'PLAN_LOCKED':
         return <Badge variant="outline" className="border-orange-500 text-orange-600">{statusLabel}</Badge>;
-      case 'PDR_BOOKED':
-        return <Badge variant="outline" className="border-blue-500 text-blue-600">{statusLabel}</Badge>;
-      case 'MID_YEAR_CHECK':
+      case 'MID_YEAR_SUBMITTED':
         return <Badge variant="outline" className="border-purple-500 text-purple-600">{statusLabel}</Badge>;
-      case 'END_YEAR_REVIEW':
+      case 'MID_YEAR_APPROVED':
+        return <Badge variant="outline" className="border-purple-500 text-purple-600">{statusLabel}</Badge>;
+      case 'END_YEAR_SUBMITTED':
         return <Badge variant="outline" className="border-indigo-500 text-indigo-600">{statusLabel}</Badge>;
       case 'COMPLETED':
         return <Badge variant="outline" className="border-green-500 text-green-600">{statusLabel}</Badge>;
-      case 'LOCKED':
-        return <Badge variant="destructive">{statusLabel}</Badge>;
       default:
         return <Badge variant="outline">{statusLabel}</Badge>;
     }
@@ -900,6 +1392,43 @@ export default function CEOPDRReviewPage() {
         description: 'Unable to change tabs. Please try again.',
         variant: 'destructive',
       });
+    }
+  };
+  
+  // Function to save salary band configuration to database
+  const saveBandValues = async (min: number, target: number, max: number) => {
+    try {
+      // Get existing ceo_fields
+      const existingCeoFields = pdr?.ceoFields || {};
+      
+      // Update with new salary band values
+      const updatedCeoFields = {
+        ...existingCeoFields,
+        salaryBand: {
+          min,
+          target,
+          max,
+          updatedAt: new Date().toISOString()
+        }
+      };
+      
+      // Save to database via API
+      const response = await fetch(`/api/pdrs/${pdrId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ceo_fields: updatedCeoFields
+        }),
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to save salary band values');
+      } else {
+        console.log('✅ Salary band values saved successfully');
+      }
+    } catch (error) {
+      console.error('Error saving salary band values:', error);
     }
   };
   
@@ -1140,8 +1669,6 @@ export default function CEOPDRReviewPage() {
     };
     
     setPdr(updatedPDR);
-    localStorage.setItem(`demo_pdr_${pdrId}`, JSON.stringify(updatedPDR));
-    localStorage.setItem('demo_current_pdr', JSON.stringify(updatedPDR));
     
     console.log('🔒 CEO Review: PDR locked');
   };
@@ -1157,8 +1684,6 @@ export default function CEOPDRReviewPage() {
     };
     
     setPdr(updatedPDR);
-    localStorage.setItem(`demo_pdr_${pdrId}`, JSON.stringify(updatedPDR));
-    localStorage.setItem('demo_current_pdr', JSON.stringify(updatedPDR));
     
     console.log('🔓 CEO Review: PDR unlocked');
   };
@@ -1309,7 +1834,7 @@ export default function CEOPDRReviewPage() {
                 )}
                 
                 {/* Show current status if different from basic states */}
-                {pdr.status !== 'Created' && pdr.status !== 'SUBMITTED' && pdr.status !== 'DRAFT' && (
+                {pdr.status !== 'Created' && pdr.status !== 'SUBMITTED' && (
                   <div className="flex items-center gap-3">
                     {pdr.status === 'COMPLETED' ? (
                       <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
@@ -1615,7 +2140,7 @@ export default function CEOPDRReviewPage() {
                 <CardContent>
                   {(() => {
                     // Force re-calculation when metricsRefreshKey changes
-                    metricsRefreshKey; // This ensures the calculation runs when metrics refresh
+                    metricsRefreshKey; // eslint-disable-line @typescript-eslint/no-unused-expressions // This ensures the calculation runs when metrics refresh
                     
                     // Get real CEO feedback data from localStorage
                     const getCeoGoalFeedback = () => {
@@ -1624,19 +2149,9 @@ export default function CEOPDRReviewPage() {
                       return savedData ? JSON.parse(savedData) : {};
                     };
 
-
-                    const getAdditionalCeoFeedback = () => {
-                      if (typeof window === 'undefined') return {};
-                      const savedData = localStorage.getItem(`ceo_additional_feedback_${pdrId}`);
-                      const parsedData = savedData ? JSON.parse(savedData) : {};
-                      console.log('Raw additional CEO feedback from localStorage:', parsedData);
-                      return parsedData;
-                    };
-
                     const realCeoGoalFeedback = getCeoGoalFeedback();
                     // Real CEO behavior feedback calculation removed - handled by BehaviorReviewSection
-                    const additionalCeoFeedback = getAdditionalCeoFeedback();
-
+                    
                     // Calculate completion based on real system data
                     const totalBehaviors = 6; // Fixed count of 6 company values/behaviors
                     const totalGoals = goals.length;
@@ -1656,37 +2171,65 @@ export default function CEOPDRReviewPage() {
                       );
                     }).length;
 
-                    // Count completed behaviors (CEO has provided feedback)
+                    // Count completed behaviors (CEO has provided feedback, not employee input)
                     
-                    // Count main behaviors (4 company values) from loaded behavior data
-                    let completedMainBehaviors = 0;
-                    if (behaviors && behaviors.length > 0) {
-                      completedMainBehaviors = behaviors.filter(behavior => {
-                        const behaviorData = behavior as any; // Runtime structure differs from type
-                        const hasNotes = behaviorData.ceoComments && behaviorData.ceoComments.trim().length > 0;
-                        const hasRating = behaviorData.ceoRating && behaviorData.ceoRating > 0;
-                        return hasNotes || hasRating;
-                      }).length;
-                    }
-                    
-                    // Count additional behaviors (2 sections: self-reflection and deep dive)
+                    // Get CEO behavior feedback from localStorage
+                    const getCeoBehaviorFeedback = () => {
+                      if (typeof window === 'undefined') return {};
+                      const storageKey = `ceo_behavior_feedback_${pdrId}`;
+                      const savedData = localStorage.getItem(storageKey);
+                      console.log('🔍 CEO Behavior Feedback Storage Key:', storageKey);
+                      console.log('🔍 CEO Behavior Feedback Raw Data:', savedData);
+                      const parsed = savedData ? JSON.parse(savedData) : {};
+                      console.log('🔍 CEO Behavior Feedback Parsed:', parsed);
+                      console.log('🔍 CEO Behavior Feedback Keys:', Object.keys(parsed));
+                      return parsed;
+                    };
+
+                    const ceoBehaviorFeedback = getCeoBehaviorFeedback();
+
+                    // Get additional CEO feedback (self-reflection and deep dive)
+                    const getCeoAdditionalFeedback = () => {
+                      if (typeof window === 'undefined') return {};
+                      const storageKey = `ceo_additional_feedback_${pdrId}`;
+                      const savedData = localStorage.getItem(storageKey);
+                      console.log('🔍 CEO Additional Feedback Storage Key:', storageKey);
+                      console.log('🔍 CEO Additional Feedback Raw Data:', savedData);
+                      const parsed = savedData ? JSON.parse(savedData) : {};
+                      console.log('🔍 CEO Additional Feedback Parsed:', parsed);
+                      return parsed;
+                    };
+
+                    const ceoAdditionalFeedback = getCeoAdditionalFeedback();
+
+                    // Count main behaviors (4 company values) - CEO feedback completion
+                    const completedMainBehaviors = Object.keys(ceoBehaviorFeedback).filter(valueId => {
+                      const feedback = ceoBehaviorFeedback[valueId];
+                      console.log(`🔍 Checking valueId: ${valueId}`, feedback);
+                      // CEO has provided feedback if either description or comments are filled
+                      const hasDescription = feedback && feedback.description && feedback.description.trim();
+                      const hasComments = feedback && feedback.comments && feedback.comments.trim();
+                      const isComplete = hasDescription || hasComments;
+                      console.log(`  - Has description: ${!!hasDescription}, Has comments: ${!!hasComments}, Complete: ${isComplete}`);
+                      return isComplete;
+                    }).length;
+
+                    // Count additional behaviors (2 development sections) - CEO feedback completion
                     let completedAdditionalBehaviors = 0;
-                    if (additionalCeoFeedback) {
-                      const hasSelfReflection = additionalCeoFeedback.selfReflection && additionalCeoFeedback.selfReflection.trim().length > 0;
-                      const hasDeepDive = additionalCeoFeedback.deepDive && additionalCeoFeedback.deepDive.trim().length > 0;
-                      
-                      if (hasSelfReflection) completedAdditionalBehaviors++;
-                      if (hasDeepDive) completedAdditionalBehaviors++;
+                    if (ceoAdditionalFeedback.selfReflection && ceoAdditionalFeedback.selfReflection.trim()) {
+                      completedAdditionalBehaviors++;
                     }
-                    
+                    if (ceoAdditionalFeedback.deepDive && ceoAdditionalFeedback.deepDive.trim()) {
+                      completedAdditionalBehaviors++;
+                    }
+
                     const completedBehaviors = completedMainBehaviors + completedAdditionalBehaviors;
-                    
-                    console.log('Behavior completion breakdown:');
+
+                    console.log('CEO Feedback completion breakdown:');
                     console.log('- Main behaviors (4 company values):', completedMainBehaviors, '/ 4');
                     console.log('- Additional behaviors (2 sections):', completedAdditionalBehaviors, '/ 2'); 
                     console.log('- Total completed behaviors:', completedBehaviors, '/ 6');
-                    
-                    // Use the accurate completed behaviors count (no more overrides needed)
+
                     const adjustedCompletedBehaviors = Math.min(completedBehaviors, totalBehaviors);
                     
                     const completedItems = completedGoals + adjustedCompletedBehaviors;
@@ -1752,9 +2295,10 @@ export default function CEOPDRReviewPage() {
                     {/* Save Feedback Button removed - auto-save now handles this */}
                     
                     {(() => {
-                      const showButton = pdr.status === 'OPEN_FOR_REVIEW' && !pdr.isLocked;
+                      // Show initial review button for SUBMITTED or OPEN_FOR_REVIEW status
+                      const showButton = (['SUBMITTED', 'OPEN_FOR_REVIEW'].includes(pdr.status)) && !pdr.isLocked;
                       console.log('🎯 Button visibility check - PDR status:', pdr.status, 'isLocked:', pdr.isLocked);
-                      console.log('🎯 Expected status: OPEN_FOR_REVIEW');
+                      console.log('🎯 Expected status: SUBMITTED or OPEN_FOR_REVIEW');
                       console.log('🎯 Should show button:', showButton);
                       return showButton;
                     })() && (
@@ -1792,6 +2336,71 @@ export default function CEOPDRReviewPage() {
                       <Button onClick={handleUnlockPDR} variant="outline" className="w-full">
                         <Unlock className="mr-2 h-4 w-4" />
                         Unlock PDR
+                      </Button>
+                    )}
+
+                    {/* Mid-Year Approval Button */}
+                    {(pdr.status === 'MID_YEAR_SUBMITTED' || pdr.status === 'PLAN_LOCKED') && (
+                      <Button 
+                        onClick={async () => {
+                          try {
+                            const response = await fetch(`/api/pdrs/${pdrId}/approve-midyear`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                ceoFeedback: pdr.status === 'PLAN_LOCKED' 
+                                  ? 'Mid-year review approved directly by CEO - skipping employee mid-year submission'
+                                  : 'Mid-year progress approved by CEO',
+                                ceoRating: 4
+                              })
+                            });
+                            
+                            if (response.ok) {
+                              // Update local state
+                              const updatedPdr = { ...pdr, status: 'MID_YEAR_APPROVED' };
+                              setPdr(updatedPdr);
+                              window.dispatchEvent(new CustomEvent('demo-pdr-changed'));
+                              
+                              toast({
+                                title: "✅ Mid-Year Review Approved",
+                                description: "Final year review is now available for the employee.",
+                                variant: "default",
+                              });
+                              
+                              // Refresh the page to show updated status
+                              window.location.reload();
+                            } else {
+                              const error = await response.json();
+                              toast({
+                                title: "❌ Approval Failed",
+                                description: error.error || 'Failed to approve mid-year review',
+                                variant: "destructive",
+                              });
+                            }
+                          } catch (error) {
+                            console.error('Error approving mid-year:', error);
+                            toast({
+                              title: "❌ Approval Failed",
+                              description: 'Failed to approve mid-year review',
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        {pdr.status === 'PLAN_LOCKED' ? 'Approve Mid-Year (Skip Employee Submission)' : 'Approve Mid-Year Review'}
+                      </Button>
+                    )}
+
+                    {/* Final Review Completion Button */}
+                    {pdr.status === 'END_YEAR_SUBMITTED' && (
+                      <Button 
+                        onClick={handleCompleteFinalReview}
+                        className="w-full bg-green-600 hover:bg-green-700"
+                      >
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Complete Final Review
                       </Button>
                     )}
 
@@ -1855,7 +2464,7 @@ export default function CEOPDRReviewPage() {
                       </h4>
                       <div className="space-y-6">
                         {goals.map((goal) => {
-                          const employeeComments = ceoGoalFeedback[goal.id]?.ceoDescription || goal.description || '';
+                          const employeeComments = goal.employeeProgress || goal.description || ceoGoalFeedback[goal.id]?.ceoDescription || '';
                           const ceoComments = ceoGoalFeedback[goal.id]?.ceoComments || ceoGoalFeedback[goal.id]?.ceoDescription || '';
                           const goalCheckinComments = midYearGoalComments[goal.id] || '';
                           
@@ -1939,7 +2548,7 @@ export default function CEOPDRReviewPage() {
                       </h4>
                       <div className="space-y-6">
                         {behaviors.map((behavior) => {
-                          const employeeComments = behavior.description || '';
+                          const employeeComments = (behavior as any).employeeSelfAssessment || behavior.description || behavior.comments || '';
                           // Get CEO comments from the actual database data
                           const ceoComments = behavior.ceoComments || '';
                           const behaviorUniqueId = behavior.value?.id || behavior.valueId || behavior.id;
@@ -2043,20 +2652,40 @@ export default function CEOPDRReviewPage() {
                         {/* Save Comments Button */}
                         <Button 
                           onClick={handleSaveMidYearComments}
+                          disabled={isSaving}
                           variant="outline"
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                          className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
                         >
-                          <Save className="mr-2 h-4 w-4" />
-                          Save Comments
+                          {isSaving ? (
+                            <>
+                              <div className="mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="mr-2 h-4 w-4" />
+                              Save Comments
+                            </>
+                          )}
                         </Button>
                         
                         {/* Save and Close Button */}
                         <Button 
                           onClick={() => setIsMidYearSaveConfirmDialogOpen(true)}
+                          disabled={isSaving}
                           className="bg-primary hover:bg-primary/90"
                         >
-                          <CheckCircle className="mr-2 h-4 w-4" />
-                          Save and Close Mid-Year Review
+                          {isSaving ? (
+                            <>
+                              <div className="mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              Completing...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Save and Close Mid-Year Review
+                            </>
+                          )}
                         </Button>
                       </div>
                     )}
@@ -2084,6 +2713,16 @@ export default function CEOPDRReviewPage() {
                   
                   {goals.map((goal) => {
                     const finalReview = finalGoalReviews[goal.id] || { rating: 0, comments: '' };
+                    
+                    // Debug goal data in Final Review rendering
+                    console.log('🔍 Final Review Goal Debug:', {
+                      goalId: goal.id,
+                      goalTitle: goal.title,
+                      employeeRating: goal.employeeRating,
+                      employeeProgress: goal.employeeProgress,
+                      endYearData: endYearReviewData,
+                      finalReview: finalReview
+                    });
                     
                     return (
                       <div key={goal.id} className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm rounded-lg overflow-hidden">
@@ -2155,10 +2794,17 @@ export default function CEOPDRReviewPage() {
                               <div>
                                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Employee Final Self-Assessment</p>
                                 <div className="bg-muted/50 p-2 rounded-md border border-border/50">
-                                  <p className="text-sm text-foreground">{(goal as any).employeeFinalComments || 'No final comments provided'}</p>
+                                  <p className="text-sm text-foreground">
+                                    {(endYearReviewData?.employeeSelfAssessment || 
+                                      goal.employeeProgress || 
+                                      goal.description ||
+                                      'No final comments provided')}
+                                  </p>
                                   <div className="flex items-center gap-2 mt-1">
                                     <span className="text-xs font-medium text-muted-foreground">Employee Rating:</span>
-                                    <span className="font-semibold text-sm text-foreground">{(goal as any).employeeFinalRating || goal.employeeRating || 0}/5</span>
+                                    <span className="font-semibold text-sm text-foreground">
+                                      {goal.employeeRating || (goal as any).employee_rating || 0}/5
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -2248,6 +2894,17 @@ export default function CEOPDRReviewPage() {
                     const behaviorUniqueId = behavior.value?.id || behavior.valueId || behavior.id;
                     const finalReview = finalBehaviorReviews[behaviorUniqueId] || { rating: 0, comments: '' };
                     
+                    // Debug behavior data in Final Review rendering
+                    console.log('🔍 Final Review Behavior Debug:', {
+                      behaviorId: behaviorUniqueId,
+                      valueName: behavior.value?.name,
+                      employeeRating: behavior.employeeRating,
+                      employeeSelfAssessment: (behavior as any).employeeSelfAssessment,
+                      description: behavior.description,
+                      endYearData: endYearReviewData,
+                      finalReview: finalReview
+                    });
+                    
                     return (
                       <div key={`final-behavior-${behaviorUniqueId}`} className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg shadow-black/5 backdrop-blur-sm rounded-lg overflow-hidden">
                         {/* Behavior Header */}
@@ -2305,10 +2962,17 @@ export default function CEOPDRReviewPage() {
                               <div>
                                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Employee Final Self-Assessment</p>
                                 <div className="bg-muted/50 p-2 rounded-md border border-border/50">
-                                  <p className="text-sm text-foreground">{(behavior as any).employeeFinalComments || 'No final comments provided'}</p>
+                                  <p className="text-sm text-foreground">
+                                    {(endYearReviewData?.employeeSelfAssessment || 
+                                      (behavior as any).employeeSelfAssessment ||
+                                      behavior.description || 
+                                      'No final comments provided')}
+                                  </p>
                                   <div className="flex items-center gap-2 mt-1">
                                     <span className="text-xs font-medium text-muted-foreground">Employee Rating:</span>
-                                    <span className="font-semibold text-sm text-foreground">{(behavior as any).employeeFinalRating || (behavior as any).employeeRating || 0}/5</span>
+                                    <span className="font-semibold text-sm text-foreground">
+                                      {behavior.employeeRating || (behavior as any).employee_rating || 0}/5
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -2567,66 +3231,330 @@ export default function CEOPDRReviewPage() {
                         </div>
                       </div>
                       
-                      {/* Salary Band Indicator */}
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-medium">Salary Band Position</h4>
-                        <div className="h-8 bg-muted rounded-full overflow-hidden relative">
-                          <div className="absolute inset-0 flex">
-                            <div className="bg-red-500/20 h-full" style={{ width: '20%' }}></div>
-                            <div className="bg-amber-500/20 h-full" style={{ width: '30%' }}></div>
-                            <div className="bg-green-500/20 h-full" style={{ width: '30%' }}></div>
-                            <div className="bg-blue-500/20 h-full" style={{ width: '20%' }}></div>
+                      {/* Salary Band Configuration */}
+                      <div className="space-y-3 p-4 bg-muted/30 rounded-md border">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-medium">Configure Total Compensation Band</h4>
+                          <span className="text-xs text-muted-foreground">Base + Super (12%)</span>
+                        </div>
+                        
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="band-min" className="text-xs">
+                              Minimum ($)
+                            </Label>
+                            <Input
+                              id="band-min"
+                              type="number"
+                              value={Math.round(totalBandMin)}
+                              onChange={(e) => {
+                                const totalValue = parseInt(e.target.value) || 0;
+                                const baseValue = Math.round(totalValue / 1.12);
+                                if (baseValue >= salaryBandTarget) {
+                                  toast({
+                                    title: 'Invalid Value',
+                                    description: 'Minimum must be less than Target',
+                                    variant: 'destructive',
+                                  });
+                                  return;
+                                }
+                                setSalaryBandMin(baseValue);
+                                saveBandValues(baseValue, salaryBandTarget, salaryBandMax);
+                              }}
+                              className="h-9"
+                            />
                           </div>
                           
-                          {/* Current salary marker */}
-                          <div 
-                            className="absolute top-0 h-full w-2 bg-gray-400 z-10"
-                            style={{ 
-                              left: `${boundedCurrentPosition}%`,
-                              transition: 'left 0.3s ease-in-out'
+                          <div className="space-y-2">
+                            <Label htmlFor="band-target" className="text-xs">
+                              Target ($)
+                            </Label>
+                            <Input
+                              id="band-target"
+                              type="number"
+                              value={Math.round(totalBandTarget)}
+                              onChange={(e) => {
+                                const totalValue = parseInt(e.target.value) || 0;
+                                const baseValue = Math.round(totalValue / 1.12);
+                                if (baseValue <= salaryBandMin || baseValue >= salaryBandMax) {
+                                  toast({
+                                    title: 'Invalid Value',
+                                    description: 'Target must be between Minimum and Maximum',
+                                    variant: 'destructive',
+                                  });
+                                  return;
+                                }
+                                setSalaryBandTarget(baseValue);
+                                saveBandValues(salaryBandMin, baseValue, salaryBandMax);
+                              }}
+                              className="h-9"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="band-max" className="text-xs">
+                              Maximum ($)
+                            </Label>
+                            <Input
+                              id="band-max"
+                              type="number"
+                              value={Math.round(totalBandMax)}
+                              onChange={(e) => {
+                                const totalValue = parseInt(e.target.value) || 0;
+                                const baseValue = Math.round(totalValue / 1.12);
+                                if (baseValue <= salaryBandTarget) {
+                                  toast({
+                                    title: 'Invalid Value',
+                                    description: 'Maximum must be greater than Target',
+                                    variant: 'destructive',
+                                  });
+                                  return;
+                                }
+                                setSalaryBandMax(baseValue);
+                                saveBandValues(salaryBandMin, salaryBandTarget, baseValue);
+                              }}
+                              className="h-9"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>Range: ${(totalBandMax - totalBandMin).toLocaleString()}</span>
+                            <span>•</span>
+                            <span>Target Position: {Math.round(((totalBandTarget - totalBandMin) / (totalBandMax - totalBandMin)) * 100)}%</span>
+                          </div>
+                          
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSalaryBandMin(75000);
+                              setSalaryBandTarget(95000);
+                              setSalaryBandMax(115000);
+                              saveBandValues(75000, 95000, 115000);
+                              toast({
+                                title: 'Reset Complete',
+                                description: 'Band reset to defaults (Min: $84k, Target: $106k, Max: $129k)',
+                              });
                             }}
+                            className="h-7 text-xs"
                           >
-                            <div className="absolute -top-6 -translate-x-1/2 text-[10px] font-medium bg-gray-400 text-white px-1 py-0.5 rounded whitespace-nowrap">
-                              Current
+                            Reset to Default
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* Simplified Target-Centric Salary Band Visualization */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-medium">Total Compensation Band</h4>
+                          <div className="text-xs text-muted-foreground">
+                            Total cost to company: ${totalBandTarget.toLocaleString()}
+                          </div>
+                        </div>
+
+                        {/* Simple 3-Zone Legend */}
+                        <div className="grid grid-cols-3 gap-3 text-xs text-center mb-2">
+                          <div className="space-y-1">
+                            <div className="h-2 bg-red-500/40 rounded"></div>
+                            <div className="font-medium">Below Target</div>
+                            <div className="text-[10px] text-muted-foreground">Under budget</div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="h-2 bg-green-500/40 rounded"></div>
+                            <div className="font-medium">At Target (±5%)</div>
+                            <div className="text-[10px] text-muted-foreground">On budget</div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="h-2 bg-blue-500/40 rounded"></div>
+                            <div className="font-medium">Above Target</div>
+                            <div className="text-[10px] text-muted-foreground">Over budget</div>
+                          </div>
+                        </div>
+
+                        {/* Main Visualization */}
+                        <div className="relative h-14 bg-muted rounded-lg overflow-visible">
+                          {/* Three Dynamic Zones */}
+                          <div className="absolute inset-0 flex rounded-lg overflow-hidden">
+                            {/* Below Target Zone (Red) - Min to Target-5% */}
+                            <div 
+                              className="bg-red-500/20 h-full border-r-2 border-red-500/40"
+                              style={{ 
+                                width: `${Math.max(0, calculatePosition(totalBandTarget * 0.95, totalBandMin, totalBandMax))}%` 
+                              }}
+                            ></div>
+                            
+                            {/* At Target Zone (Green) - Target-5% to Target+5% */}
+                            <div 
+                              className="bg-green-500/30 h-full border-r-2 border-green-500/40"
+                              style={{ 
+                                width: `${Math.max(0, calculatePosition(totalBandTarget * 1.05, totalBandMin, totalBandMax) - calculatePosition(totalBandTarget * 0.95, totalBandMin, totalBandMax))}%` 
+                              }}
+                            ></div>
+                            
+                            {/* Above Target Zone (Blue) - Target+5% to Max */}
+                            <div 
+                              className="bg-blue-500/20 h-full"
+                              style={{ 
+                                width: `${Math.max(0, 100 - calculatePosition(totalBandTarget * 1.05, totalBandMin, totalBandMax))}%` 
+                              }}
+                            ></div>
+                          </div>
+
+                          {/* Min Reference Line */}
+                          <div 
+                            className="absolute top-0 h-full w-0.5 bg-gray-500/40 z-5"
+                            style={{ left: '0%' }}
+                          >
+                            <div className="absolute top-1/2 -left-1 -translate-y-1/2 text-[10px] font-medium text-muted-foreground bg-background px-1 rounded whitespace-nowrap">
+                              Min: ${totalBandMin.toLocaleString()}
                             </div>
                           </div>
-                          
-                          {/* New salary marker (after increases) */}
+
+                          {/* Target Marker - Prominent */}
                           <div 
-                            className="absolute top-0 h-full w-2 bg-primary z-20"
+                            className="absolute top-0 h-full w-1 bg-green-600 shadow-lg z-30 border-x-2 border-green-700"
                             style={{ 
-                              left: `${boundedNewPosition}%`,
-                              transition: 'left 0.3s ease-in-out'
+                              left: `${targetPosition}%`,
+                              transform: 'translateX(-50%)'
                             }}
                           >
-                            <div className="absolute -top-6 -translate-x-1/2 text-[10px] font-medium bg-primary text-white px-1 py-0.5 rounded whitespace-nowrap">
-                              New
+                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center">
+                              <div className="text-xs font-bold text-white bg-green-600 px-2 py-1 rounded shadow-md whitespace-nowrap border border-green-700">
+                                TARGET
+                              </div>
+                              <div className="text-[10px] font-medium text-green-600 mt-0.5">
+                                ${totalBandTarget.toLocaleString()}
+                              </div>
                             </div>
                           </div>
-                          
-                          {/* Target marker */}
+
+                          {/* Max Reference Line */}
                           <div 
-                            className="absolute top-0 h-full w-1 bg-white z-5"
+                            className="absolute top-0 h-full w-0.5 bg-gray-500/40 z-5"
+                            style={{ left: '100%' }}
+                          >
+                            <div className="absolute top-1/2 -right-1 -translate-y-1/2 text-[10px] font-medium text-muted-foreground bg-background px-1 rounded whitespace-nowrap">
+                              Max: ${totalBandMax.toLocaleString()}
+                            </div>
+                          </div>
+
+                          {/* Current Salary Marker */}
+                          <div 
+                            className="absolute top-0 h-full w-3 bg-gray-700 z-20 cursor-pointer hover:bg-gray-800 transition-all group rounded-sm"
                             style={{ 
-                              left: `${((salaryBandTarget - salaryBandMin) / bandRange) * 100}%`
+                              left: `${currentPosition}%`,
+                              transform: 'translateX(-50%)',
+                              transition: 'left 0.3s ease-in-out, background-color 0.2s'
                             }}
-                          ></div>
+                            title={`Current: $${currentTotal.toLocaleString()}`}
+                          >
+                            {/* Hover Tooltip */}
+                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                              <div className="bg-gray-800 text-white px-3 py-2 rounded-lg shadow-xl border border-gray-600 whitespace-nowrap text-xs">
+                                <div className="font-bold">Current Total Compensation</div>
+                                <div className="text-lg font-bold mt-0.5">${currentTotal.toLocaleString()}</div>
+                                <div className="text-[10px] text-gray-300 mt-1">
+                                  ${Math.abs(currentTotal - totalBandTarget).toLocaleString()} {currentTotal < totalBandTarget ? 'below' : 'above'} target
+                                </div>
+                                <div className="text-[9px] text-gray-400 mt-1 pt-1 border-t border-gray-600">
+                                  Base: ${currentSalary.toLocaleString()} + Super: ${(currentSalary * 0.12).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Label */}
+                            <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-center">
+                              <div className="text-xs font-bold bg-gray-700 text-white px-2 py-0.5 rounded whitespace-nowrap">
+                                Current
+                              </div>
+                              <div className="text-[10px] font-medium text-muted-foreground mt-0.5">
+                                ${currentTotal.toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* New Salary Marker */}
+                          <div 
+                            className="absolute top-0 h-full w-3 bg-primary z-25 cursor-pointer hover:bg-primary/90 transition-all group rounded-sm"
+                            style={{ 
+                              left: `${newPosition}%`,
+                              transform: 'translateX(-50%)',
+                              transition: 'left 0.3s ease-in-out, background-color 0.2s'
+                            }}
+                            title={`New: $${newTotalComp.toLocaleString()}`}
+                          >
+                            {/* Hover Tooltip */}
+                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                              <div className="bg-primary text-white px-3 py-2 rounded-lg shadow-xl border border-primary-foreground/20 whitespace-nowrap text-xs">
+                                <div className="font-bold">New Total Compensation</div>
+                                <div className="text-lg font-bold mt-0.5">${newTotalComp.toLocaleString()}</div>
+                                <div className="text-[10px] opacity-90 mt-1">
+                                  ${Math.abs(newTotalComp - totalBandTarget).toLocaleString()} {newTotalComp < totalBandTarget ? 'below' : 'above'} target
+                                </div>
+                                <div className="text-[9px] opacity-80 mt-1 pt-1 border-t border-white/20">
+                                  Base: ${newSalary.toLocaleString()} + Super: ${(newSalary * 0.12).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Label */}
+                            <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-center">
+                              <div className="text-xs font-bold bg-primary text-white px-2 py-0.5 rounded whitespace-nowrap">
+                                New
+                              </div>
+                              <div className="text-[10px] font-medium text-primary mt-0.5">
+                                ${newTotalComp.toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>Min (${salaryBandMin.toLocaleString()})</span>
-                          <span>Target (${salaryBandTarget.toLocaleString()})</span>
-                          <span>Max (${salaryBandMax.toLocaleString()})</span>
+
+                        {/* Simple Status Cards */}
+                        <div className="grid grid-cols-2 gap-4 mt-6">
+                          {/* Current Status */}
+                          <div className="p-4 bg-card rounded-lg border-2">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-muted-foreground">Current Cost</span>
+                              <div className={`h-3 w-3 rounded-full ${currentZone.bgColor}`}></div>
+                            </div>
+                            <div className="text-2xl font-bold mb-1">${currentTotal.toLocaleString()}</div>
+                            <div className={`text-sm font-medium ${currentZone.color}`}>{currentZone.label}</div>
+                            <div className="text-xs text-muted-foreground mt-1">{currentZone.description}</div>
+                            <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                              ${Math.abs(currentTotal - totalBandTarget).toLocaleString()} {currentTotal < totalBandTarget ? 'below' : 'above'} target
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-1">
+                              (Base: ${currentSalary.toLocaleString()} + Super: ${(currentSalary * 0.12).toLocaleString()})
+                            </div>
+                          </div>
+
+                          {/* New Status */}
+                          <div className="p-4 bg-card rounded-lg border-2 border-primary/30">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-muted-foreground">New Total Cost</span>
+                              <div className={`h-3 w-3 rounded-full ${newZone.bgColor}`}></div>
+                            </div>
+                            <div className="text-2xl font-bold mb-1 text-primary">${newTotalComp.toLocaleString()}</div>
+                            <div className={`text-sm font-medium ${newZone.color}`}>{newZone.label}</div>
+                            <div className="text-xs text-muted-foreground mt-1">{newZone.description}</div>
+                            <div className="text-xs font-bold text-green-600 mt-2 pt-2 border-t">
+                              +${(newTotalComp - currentTotal).toLocaleString()} annual increase
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-1">
+                              (Base: ${newSalary.toLocaleString()} + Super: ${(newSalary * 0.12).toLocaleString()})
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          Position: {salaryBandLabel} of band for {employeeRole}
-                        </div>
-                        <div className="text-xs mt-2">
-                          <span className="font-medium">Current: </span>
-                          <span className="text-muted-foreground">${currentSalary.toLocaleString()} (${(currentSalary - salaryBandMin).toLocaleString()} above minimum)</span>
-                        </div>
-                        <div className="text-xs">
-                          <span className="font-medium">New: </span>
-                          <span className="text-primary">${newSalary.toLocaleString()} (${(newSalary - currentSalary).toLocaleString()} increase)</span>
+
+                        {/* Band Summary */}
+                        <div className="flex justify-between text-xs text-muted-foreground pt-3 border-t">
+                          <span>Total Range: ${(totalBandMax - totalBandMin).toLocaleString()}</span>
+                          <span>•</span>
+                          <span>Target Cost: ${totalBandTarget.toLocaleString()}</span>
+                          <span>•</span>
+                          <span>±5% Buffer: ${Math.round(totalBandTarget * 0.05).toLocaleString()}</span>
                         </div>
                       </div>
                     </div>

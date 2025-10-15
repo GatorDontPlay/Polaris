@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
       fy_label: fy_label,
       fy_start_date: new Date(fy_start_date).toISOString().split('T')[0], // Convert ISO string to YYYY-MM-DD
       fy_end_date: new Date(fy_end_date).toISOString().split('T')[0], // Convert ISO string to YYYY-MM-DD
-      status: 'DRAFT' as const,
+      status: 'Created' as const,
       current_step: 1,
       is_locked: false,
       meeting_booked: false,

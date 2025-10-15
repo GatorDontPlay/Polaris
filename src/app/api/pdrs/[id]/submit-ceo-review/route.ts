@@ -13,6 +13,7 @@ import {
   createPDRNotification,
   STATE_TRANSITIONS
 } from '@/lib/pdr-state-machine';
+import { PDRStatus } from '@/types/pdr-status';
 
 export async function POST(
   request: NextRequest,
@@ -95,11 +96,23 @@ export async function POST(
       })) || []
     });
 
+    // Direct transition: SUBMITTED → PLAN_LOCKED
+    if (pdr.status !== PDRStatus.SUBMITTED) {
+      return createApiError(
+        `Invalid PDR status. Expected SUBMITTED, got: ${pdr.status}`,
+        400,
+        'INVALID_STATUS'
+      );
+    }
+
+    const targetStatus = PDRStatus.PLAN_LOCKED;
+    const action = 'approvePlan';
+
     // Validate state transition
     const transitionValidation = validateStateTransition(
       pdr.status,
-      'PLAN_LOCKED',
-      'submitCeoReview',
+      targetStatus,
+      action,
       user.role
     );
 
@@ -135,16 +148,21 @@ export async function POST(
       }
     }
 
-    // Update PDR status and lock it
+    // Update PDR status - lock only if transitioning to PLAN_LOCKED
+    const updateData: any = {
+      status: targetStatus,
+      updated_at: new Date().toISOString(),
+    };
+    
+    if (targetStatus === PDRStatus.PLAN_LOCKED) {
+      updateData.locked_at = new Date().toISOString();
+      updateData.locked_by = user.id;
+      updateData.is_locked = true;
+    }
+
     const { data: updatedPdr, error: updateError } = await supabase
       .from('pdrs')
-      .update({
-        status: 'PLAN_LOCKED',
-        locked_at: new Date().toISOString(),
-        locked_by: user.id,
-        is_locked: true,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', pdrId)
       .select(`
         *,

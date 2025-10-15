@@ -11,6 +11,7 @@ interface StepperIndicatorProps {
   }>;
   onStepClick?: (step: number) => void;
   className?: string;
+  pdrStatus?: string; // Optional PDR status to help determine completion
 }
 
 export function StepperIndicator({
@@ -19,9 +20,28 @@ export function StepperIndicator({
   steps,
   onStepClick,
   className,
+  pdrStatus,
 }: StepperIndicatorProps) {
+  console.log('🎯 STEPPER CALLED! pdrStatus:', pdrStatus, 'currentStep:', currentStep);
+  
+  // Handle undefined/null currentStep with fallback
+  const safeCurrentStep = currentStep || 1;
+  
+  // Determine completion status based on PDR status
+  const midYearCompletedByStatus = pdrStatus && ['MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'COMPLETED'].includes(pdrStatus);
+  const reviewCompletedByStatus = pdrStatus && ['MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'COMPLETED'].includes(pdrStatus);
+  const allStepsCompletedByStatus = pdrStatus && ['COMPLETED'].includes(pdrStatus);
+  
+  console.log('🎯 STEPPER STATUS CHECK:', {
+    pdrStatus,
+    midYearCompletedByStatus,
+    reviewCompletedByStatus,
+    allStepsCompletedByStatus,
+    safeCurrentStep
+  });
+  
   // Calculate progress percentage based on the current step
-  const progressPercentage = Math.round((currentStep / totalSteps) * 100);
+  const progressPercentage = Math.round((safeCurrentStep / totalSteps) * 100);
   const normalizedProgress = progressPercentage;
 
   return (
@@ -43,28 +63,46 @@ export function StepperIndicator({
       {/* Steps Container */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8 lg:gap-0">
         {steps.map((step, index) => {
-          // Explicitly check special step conditions
-          const isMidYearStep = currentStep === 4;
-          const isEndYearStep = currentStep === 5;
+          // Explicitly check special step conditions using safe current step
+          const isMidYearStep = safeCurrentStep === 4;
+          const isEndYearStep = safeCurrentStep === 5;
+          const isPostEndYear = safeCurrentStep > 5; // If somehow beyond step 5
           
-          // Mark steps as completed with special cases:
+          // Mark steps as completed with enhanced logic:
           // 1. Normal rule: All previous steps are completed
-          // 2. When on Mid-Year (step 4), mark Review (step 3) as completed
-          // 3. When on End-Year (step 5), mark both Review (step 3) and Mid-Year (step 4) as completed
+          // 2. Status-based completion: Use PDR status to determine what's been completed
+          // 3. Step-based completion: Use current step position
           const isCompleted = 
-            step.number < currentStep ||  // Normal completion rule
-            (step.number === 3 && (isMidYearStep || isEndYearStep)) || // Mark Review as completed when on Mid-Year or End-Year
-            (step.number === 4 && isEndYearStep); // Mark Mid-Year as completed when on End-Year
+            step.number < safeCurrentStep ||  // Normal completion rule for all steps before current
+            (step.number <= 3 && allStepsCompletedByStatus) || // All initial steps completed if PDR is submitted/completed
+            (step.number === 3 && (isMidYearStep || isEndYearStep || isPostEndYear || reviewCompletedByStatus)) || // Mark Review as completed
+            (step.number === 4 && (isEndYearStep || isPostEndYear || midYearCompletedByStatus)) || // Mark Mid-Year as completed
+            (step.number <= 5 && allStepsCompletedByStatus); // All steps completed if PDR is fully submitted
             
-          const isActive = step.number === currentStep;
-          const isClickable = onStepClick && step.number <= currentStep;
+          const isActive = step.number === safeCurrentStep;
+          const isClickable = onStepClick && step.number <= safeCurrentStep;
+          
+          // Debug logging for each step
+          if (step.number === 4) {
+            console.log('🎯 MID-YEAR STEP 4 CHECK:', {
+              stepNumber: step.number,
+              stepTitle: step.title,
+              isCompleted,
+              isActive,
+              pdrStatus,
+              midYearCompletedByStatus,
+              safeCurrentStep,
+              'step.number < safeCurrentStep': step.number < safeCurrentStep,
+              'step.number === 4 && midYearCompletedByStatus': step.number === 4 && midYearCompletedByStatus
+            });
+          }
 
           return (
             <div key={step.number} className="flex items-center flex-1 group relative">
               {/* Mobile Vertical Connector */}
               {index > 0 && (
                 <div className="absolute top-[-24px] left-8 h-6 w-2 bg-gray-700 lg:hidden">
-                  {step.number <= currentStep && (
+                  {step.number <= safeCurrentStep && (
                     <div className="absolute inset-0 bg-emerald-400 rounded-full" />
                   )}
                 </div>
@@ -149,8 +187,8 @@ export function StepperIndicator({
                     className={cn(
                       'h-2 w-16 rounded-full transition-all duration-300',
                       {
-                        'bg-gradient-to-r from-emerald-500 to-emerald-400': step.number < currentStep,
-                        'bg-gray-700': step.number >= currentStep,
+                        'bg-gradient-to-r from-emerald-500 to-emerald-400': step.number < safeCurrentStep,
+                        'bg-gray-700': step.number >= safeCurrentStep,
                       }
                     )}
                   />

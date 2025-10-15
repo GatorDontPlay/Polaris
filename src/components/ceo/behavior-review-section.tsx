@@ -97,35 +97,7 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
     fetchOrganizedData();
   }, [fetchOrganizedData]);
 
-  // Load CEO behavior feedback from localStorage in demo mode
-  useEffect(() => {
-    const isDemoMode = typeof window !== 'undefined' && pdr.id.startsWith('demo-pdr-');
-    
-    if (isDemoMode) {
-      const storageKey = `ceo_behavior_feedback_${pdr.id}`;
-      const savedFeedback = localStorage.getItem(storageKey);
-      
-      if (savedFeedback) {
-        try {
-          const parsedFeedback = JSON.parse(savedFeedback);
-          const loadedFeedback: Record<string, { description?: string; comments?: string; }> = {};
-          
-          // Convert the saved format to the component's expected format
-          Object.keys(parsedFeedback).forEach(valueId => {
-            const saved = parsedFeedback[valueId];
-            loadedFeedback[valueId] = {
-              description: saved.description || '',
-              comments: saved.comments || '',
-            };
-          });
-          
-          setCeoFeedback(loadedFeedback);
-        } catch (error) {
-          // Silent error handling
-        }
-      }
-    }
-  }, [pdr.id]);
+  // CEO behavior feedback is loaded from the database via the organized data
 
   // Load additional CEO feedback from localStorage
   useEffect(() => {
@@ -152,7 +124,7 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        const employeeDataKey = `demo_development_${pdr.id}`;
+        const employeeDataKey = `development_draft_${pdr.id}`;
         const saved = localStorage.getItem(employeeDataKey);
         if (saved) {
           const parsedData = JSON.parse(saved);

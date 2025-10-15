@@ -41,7 +41,27 @@ export default function EmployeeDashboard() {
   
   // Get current user's PDRs using Supabase
   const { data: currentPDR, createPDR, isLoading: pdrLoading } = useSupabasePDRDashboard();
-  const { data: pdrHistory, isLoading: historyLoading } = useSupabasePDRHistory();
+  const { data: pdrHistory, isLoading: historyLoading, error: historyError } = useSupabasePDRHistory();
+  
+  // Debug logging for PDR data
+  useEffect(() => {
+    console.log('Dashboard - Current PDR data:', currentPDR);
+    if (currentPDR) {
+      console.log('Dashboard - PDR currentStep:', currentPDR.currentStep);
+      console.log('Dashboard - PDR status:', currentPDR.status);
+      console.log('Dashboard - PDR structure:', {
+        id: currentPDR.id,
+        currentStep: currentPDR.currentStep,
+        status: currentPDR.status,
+        fyLabel: currentPDR.fyLabel,
+        isLocked: currentPDR.isLocked
+      });
+    }
+    console.log('Dashboard - PDR History data:', pdrHistory);
+    console.log('Dashboard - History loading:', historyLoading);
+    console.log('Dashboard - History error:', historyError);
+    console.log('Dashboard - User:', { id: user?.id, email: user?.email });
+  }, [currentPDR, pdrHistory, historyLoading, historyError, user]);
   // User activity removed as requested
   const [isCreatingPDR, setIsCreatingPDR] = useState(false);
   const [showFYDialog, setShowFYDialog] = useState(false);
@@ -272,10 +292,9 @@ export default function EmployeeDashboard() {
                   <p className="text-2xl font-bold">
                     {!stats.pdrStatus ? '-' : 
                      stats.pdrStatus === 'Created' ? 'In Progress' :
-                     stats.pdrStatus === 'SUBMITTED' ? 'Submitted' :
-                     stats.pdrStatus === 'OPEN_FOR_REVIEW' || stats.pdrStatus === 'PLAN_LOCKED' || stats.pdrStatus === 'UNDER_REVIEW' ? 'Under Review' :
-                     stats.pdrStatus === 'MID_YEAR_CHECK' ? 'Mid-Year Review' :
-                     stats.pdrStatus === 'END_YEAR_REVIEW' ? 'End-Year Review' :
+                     stats.pdrStatus === 'SUBMITTED' || stats.pdrStatus === 'MID_YEAR_SUBMITTED' || stats.pdrStatus === 'END_YEAR_SUBMITTED' ? 'Under Review' :
+                     stats.pdrStatus === 'PLAN_LOCKED' ? 'Plan Approved' :
+                     stats.pdrStatus === 'MID_YEAR_APPROVED' ? 'Mid-Year Approved' :
                      stats.pdrStatus === 'COMPLETED' ? 'Completed' : '-'}
                   </p>
                   {stats.pdrStatus === 'SUBMITTED' && (
@@ -359,13 +378,15 @@ export default function EmployeeDashboard() {
               </CardTitle>
               <CardDescription>
                 {currentPDR.status === 'SUBMITTED' 
-                  ? 'Your PDR has been submitted and is awaiting CEO review'
-                  : currentPDR.status === 'OPEN_FOR_REVIEW'
-                  ? 'Your PDR is being reviewed by your manager. Mid-year check-in will be available once approved and plan is locked in.'
+                  ? 'Your initial PDR has been submitted and is awaiting CEO review'
+                  : currentPDR.status === 'MID_YEAR_SUBMITTED'
+                  ? 'Your mid-year review has been submitted and is awaiting CEO review'  
+                  : currentPDR.status === 'END_YEAR_SUBMITTED'
+                  ? 'Your final review has been submitted and is awaiting CEO review'
                   : currentPDR.status === 'PLAN_LOCKED'
-                  ? 'Your plan has been approved and locked in. You can now access the mid-year check-in.'
-                  : currentPDR.status === 'UNDER_REVIEW'
-                  ? 'Your PDR is currently under review by the CEO'
+                  ? 'Your plan has been approved! You can now proceed to mid-year review.'
+                  : currentPDR.status === 'MID_YEAR_APPROVED'
+                  ? 'Mid-year review approved! You can now proceed to end-year review.'
                   : currentPDR.status === 'COMPLETED'
                   ? 'Your PDR review process has been completed'
                   : 'Complete your performance development review for this cycle'
@@ -378,24 +399,35 @@ export default function EmployeeDashboard() {
                 {/* Status Badge - Positioned at top */}
                 <div className="flex flex-col items-center mb-4">
                   <Badge variant={
-                    currentPDR.status === 'SUBMITTED' ? 'secondary' : 
-                    currentPDR.status === 'COMPLETED' ? 'default' :
-                    'outline'
+                    currentPDR.status === 'SUBMITTED' || currentPDR.status === 'MID_YEAR_SUBMITTED' || currentPDR.status === 'END_YEAR_SUBMITTED' 
+                      ? 'secondary'  // Under review
+                      : currentPDR.status === 'COMPLETED' 
+                      ? 'default'     // Completed
+                      : 'outline'     // In progress
                   } className="mb-2 px-3 py-1">
                     {currentPDR.status === 'Created' && 'In Progress'}
                     {currentPDR.status === 'SUBMITTED' && 'Submitted'}
-                    {currentPDR.status === 'OPEN_FOR_REVIEW' && 'Under Review'}
-                    {currentPDR.status === 'PLAN_LOCKED' && 'Under Review'}
-                    {currentPDR.status === 'UNDER_REVIEW' && 'Under Review'}
-                    {currentPDR.status === 'MID_YEAR_CHECK' && 'Mid-Year Review'}
-                    {currentPDR.status === 'END_YEAR_REVIEW' && 'End-Year Review'}
+                    {currentPDR.status === 'PLAN_LOCKED' && 'Plan Approved'}
+                    {currentPDR.status === 'MID_YEAR_SUBMITTED' && 'Mid-Year Submitted'}
+                    {currentPDR.status === 'MID_YEAR_APPROVED' && 'Mid-Year Approved'}
+                    {currentPDR.status === 'END_YEAR_SUBMITTED' && 'End-Year Submitted'}
                     {currentPDR.status === 'COMPLETED' && 'Completed'}
                   </Badge>
                   
-                  {currentPDR.status === 'SUBMITTED' && (
+                  {(currentPDR.status === 'SUBMITTED' || currentPDR.status === 'MID_YEAR_SUBMITTED' || currentPDR.status === 'END_YEAR_SUBMITTED') && (
                     <p className="text-sm text-white text-center max-w-lg">
-                      Your manager will review your PDR proposal for the year and book a time to discuss with you. 
-                      There is nothing else to do until you agree on the plan with your manager.
+                      {currentPDR.status === 'SUBMITTED' 
+                        ? 'Your manager will review your PDR proposal and book a time to discuss with you.'
+                        : currentPDR.status === 'MID_YEAR_SUBMITTED'
+                        ? 'Your manager is reviewing your mid-year progress. You will be notified when approved.'
+                        : 'Your manager is reviewing your final year review. You will be notified when complete.'
+                      }
+                    </p>
+                  )}
+                  
+                  {currentPDR.status === 'COMPLETED' && (
+                    <p className="text-sm text-white text-center max-w-lg">
+                      This is your final review for this period. Take time to celebrate your achievements, reflect on your growth, and set intentions for the year ahead.
                     </p>
                   )}
                 </div>
@@ -492,28 +524,29 @@ if ((currentPDR.currentStep || currentPDR.current_step || 1) >= 3 && (e.key === 
                       <TooltipTrigger asChild>
                         <div 
                           className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-      (currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'PDR_BOOKED'].includes(currentPDR.status)
+                            // Mid-Year available after CEO approves initial plan (PLAN_LOCKED) or later stages
+                            ['PLAN_LOCKED', 'MID_YEAR_SUBMITTED', 'MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'COMPLETED'].includes(currentPDR.status)
                               ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20' 
-                              : currentPDR.status === 'OPEN_FOR_REVIEW'
-                              ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 opacity-70'
                               : currentPDR.status === 'SUBMITTED'
                               ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 opacity-70'
                               : 'bg-muted/50 text-muted-foreground border border-border/50'
                           }`}
-onClick={() => ((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'PDR_BOOKED'].includes(currentPDR.status)) && router.push(`/pdr/${currentPDR.id}/mid-year`)}
-role={((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'PDR_BOOKED'].includes(currentPDR.status)) ? "button" : undefined}
-tabIndex={((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'PDR_BOOKED'].includes(currentPDR.status)) ? 0 : undefined}
+                          onClick={() => {
+                            if (['PLAN_LOCKED', 'MID_YEAR_SUBMITTED', 'MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'COMPLETED'].includes(currentPDR.status)) {
+                              router.push(`/pdr/${currentPDR.id}/mid-year`);
+                            }
+                          }}
+                          role={['PLAN_LOCKED', 'MID_YEAR_SUBMITTED', 'MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'COMPLETED'].includes(currentPDR.status) ? "button" : undefined}
+                          tabIndex={['PLAN_LOCKED', 'MID_YEAR_SUBMITTED', 'MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'COMPLETED'].includes(currentPDR.status) ? 0 : undefined}
                           onKeyDown={(e) => {
-if (((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'PDR_BOOKED'].includes(currentPDR.status)) && (e.key === 'Enter' || e.key === ' ')) {
+                            if (['PLAN_LOCKED', 'MID_YEAR_SUBMITTED', 'MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'COMPLETED'].includes(currentPDR.status) && (e.key === 'Enter' || e.key === ' ')) {
                               e.preventDefault();
                               router.push(`/pdr/${currentPDR.id}/mid-year`);
                             }
                           }}
                         >
-{(currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'PDR_BOOKED'].includes(currentPDR.status) ? (
+                          {['PLAN_LOCKED', 'MID_YEAR_SUBMITTED', 'MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'COMPLETED'].includes(currentPDR.status) ? (
                             <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-                          ) : currentPDR.status === 'OPEN_FOR_REVIEW' ? (
-                            <Clock className="h-4 w-4 flex-shrink-0" />
                           ) : currentPDR.status === 'SUBMITTED' ? (
                             <Lock className="h-4 w-4 flex-shrink-0" />
                           ) : (
@@ -522,14 +555,12 @@ if (((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOC
                           <span>Mid-Year</span>
                         </div>
                       </TooltipTrigger>
-                                            <TooltipContent side="bottom" className="max-w-[250px]">
-                        {(currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOCKED', 'PDR_BOOKED'].includes(currentPDR.status) 
+                      <TooltipContent side="bottom" className="max-w-[250px]">
+                        {['PLAN_LOCKED', 'MID_YEAR_SUBMITTED', 'MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'COMPLETED'].includes(currentPDR.status)
                           ? "Click to access your Mid-Year Check-in"
-                          : currentPDR.status === 'OPEN_FOR_REVIEW'
-                          ? "Your PDR is under review. Mid-year will be available once your manager approves and locks in your plan."
                           : currentPDR.status === 'SUBMITTED'
-                          ? "Waiting for manager review before Mid-Year Check-in becomes available"
-                          : "Complete previous steps first"
+                          ? "Waiting for manager approval before Mid-Year becomes available"
+                          : "Complete and submit your initial PDR first"
                         }
                       </TooltipContent>
                     </Tooltip>
@@ -541,21 +572,26 @@ if (((currentPDR.currentStep || currentPDR.current_step || 1) >= 4 && ['PLAN_LOC
                   {/* End-Year */}
                   <div 
                     className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-(currentPDR.currentStep || currentPDR.current_step || 1) >= 5 
+                      // End-Year available after CEO approves mid-year (MID_YEAR_APPROVED) or later stages
+                      ['MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'COMPLETED'].includes(currentPDR.status)
                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20' 
                         : 'bg-muted/50 text-muted-foreground border border-border/50'
                     }`}
-onClick={() => (currentPDR.currentStep || currentPDR.current_step || 1) >= 5 && router.push(`/pdr/${currentPDR.id}/end-year`)}
-role={(currentPDR.currentStep || currentPDR.current_step || 1) >= 5 ? "button" : undefined}
-tabIndex={(currentPDR.currentStep || currentPDR.current_step || 1) >= 5 ? 0 : undefined}
+                    onClick={() => {
+                      if (['MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'COMPLETED'].includes(currentPDR.status)) {
+                        router.push(`/pdr/${currentPDR.id}/end-year`);
+                      }
+                    }}
+                    role={['MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'COMPLETED'].includes(currentPDR.status) ? "button" : undefined}
+                    tabIndex={['MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'COMPLETED'].includes(currentPDR.status) ? 0 : undefined}
                     onKeyDown={(e) => {
-if ((currentPDR.currentStep || currentPDR.current_step || 1) >= 5 && (e.key === 'Enter' || e.key === ' ')) {
+                      if (['MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'COMPLETED'].includes(currentPDR.status) && (e.key === 'Enter' || e.key === ' ')) {
                         e.preventDefault();
                         router.push(`/pdr/${currentPDR.id}/end-year`);
                       }
                     }}
                   >
-{(currentPDR.currentStep || currentPDR.current_step || 1) >= 5 ? (
+                    {['MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'COMPLETED'].includes(currentPDR.status) ? (
                       <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
                     ) : (
                       <FileText className="h-4 w-4 flex-shrink-0" />
@@ -570,10 +606,17 @@ if ((currentPDR.currentStep || currentPDR.current_step || 1) >= 5 && (e.key === 
                 <Button 
                   onClick={() => router.push(`/pdr/${currentPDR.id}/goals`)}
                   className="px-6 py-2"
-                  variant={currentPDR.status === 'Created' ? 'default' : 'outline'}
+                  variant={
+                    currentPDR.status === 'Created' || currentPDR.status === 'PLAN_LOCKED' || currentPDR.status === 'MID_YEAR_APPROVED'
+                      ? 'default'   // Can edit
+                      : 'outline'   // View only
+                  }
                   size="sm"
                 >
-                  {currentPDR.status === 'Created' ? 'Edit/Continue PDR' : 'View Current PDR'}
+                  {currentPDR.status === 'Created' || currentPDR.status === 'PLAN_LOCKED' || currentPDR.status === 'MID_YEAR_APPROVED'
+                    ? 'Continue PDR'
+                    : 'View PDR'
+                  }
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
@@ -673,15 +716,43 @@ if ((currentPDR.currentStep || currentPDR.current_step || 1) >= 5 && (e.key === 
                 ) : (
                   // Filter PDRs to ensure they have valid dates and required fields
                   (() => {
+                    console.log('PDR History - Processing history data:', pdrHistory);
                     
                     // Ensure we have a valid array
                     const safeHistory = Array.isArray(pdrHistory) ? pdrHistory : [];
-                    const validPdrs = safeHistory.filter(pdr => 
-                      // Check that it has a valid creation date that can be parsed
-                      !isNaN(new Date(pdr.created_at).getTime()) &&
-                      // Make sure required fields exist
-                      pdr.id && pdr.status
-                    );
+                    console.log('PDR History - Safe history array length:', safeHistory.length);
+                    console.log('PDR History - Sample PDR structure:', safeHistory[0]);
+                    
+                    // Sort PDRs from newest to oldest based on creation date
+                    const sortedHistory = safeHistory.sort((a, b) => {
+                      const dateA = new Date(a.createdAt || a.created_at || 0).getTime();
+                      const dateB = new Date(b.createdAt || b.created_at || 0).getTime();
+                      return dateB - dateA; // Descending order (newest first)
+                    });
+                    
+                    const validPdrs = sortedHistory.filter(pdr => {
+                      // Check both camelCase and snake_case field names for compatibility
+                      const createdAt = pdr.createdAt || pdr.created_at;
+                      const isValidDate = createdAt && !isNaN(new Date(createdAt).getTime());
+                      const hasRequiredFields = pdr.id && pdr.status;
+                      
+                      // Only show PDRs that aren't the current active one
+                      const isNotCurrentPDR = !currentPDR || pdr.id !== currentPDR.id;
+                      
+                      console.log('PDR validation:', {
+                        id: pdr.id,
+                        status: pdr.status,
+                        createdAt,
+                        isValidDate,
+                        hasRequiredFields,
+                        isNotCurrentPDR
+                      });
+                      
+                      return isValidDate && hasRequiredFields && isNotCurrentPDR;
+                    });
+                    
+                    console.log('PDR History - Valid PDRs count:', validPdrs.length);
+                    console.log('PDR History - Valid PDRs:', validPdrs.map(p => ({ id: p.id, status: p.status, fyLabel: p.fyLabel })));
                     
                     if (validPdrs.length === 0) {
                       return (
@@ -691,38 +762,47 @@ if ((currentPDR.currentStep || currentPDR.current_step || 1) >= 5 && (e.key === 
                       );
                     }
                     
-                    return validPdrs.map((pdr) => (
-                      <div key={pdr.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div>
-                          <h4 className="font-medium">
-                            {pdr.fyLabel ? getPDRDisplayName(pdr.fyLabel) : 'Annual Review'}
-                          </h4>
-                          <p className="text-sm text-muted-foreground">
-                            {pdr.status === 'COMPLETED' ? 'Completed' : 
-                             pdr.status === 'SUBMITTED' ? 'Submitted for review' :
-                             pdr.status === 'UNDER_REVIEW' ? 'Under review' :
-                             'In Progress'} • Started {!isNaN(new Date(pdr.created_at).getTime()) ? new Date(pdr.created_at).toLocaleDateString() : 'recently'}
-                          </p>
+                    return validPdrs.map((pdr) => {
+                      // Support both camelCase and snake_case field names
+                      const createdAt = pdr.createdAt || pdr.created_at;
+                      const fyLabel = pdr.fyLabel || pdr.fy_label;
+                      
+                      return (
+                        <div key={pdr.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div>
+                            <h4 className="font-medium">
+                              {fyLabel ? getPDRDisplayName(fyLabel) : 'Annual Review'}
+                            </h4>
+                            <p className="text-sm text-muted-foreground">
+                              {pdr.status === 'COMPLETED' ? 'Completed' : 
+                               pdr.status === 'SUBMITTED' ? 'Submitted for review' :
+                               pdr.status === 'PLAN_LOCKED' ? 'Under review' :
+                               pdr.status === 'Created' ? 'In Progress' :
+                               'In Progress'} • Started {createdAt && !isNaN(new Date(createdAt).getTime()) ? new Date(createdAt).toLocaleDateString() : 'recently'}
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant={
+                              pdr.status === 'SUBMITTED' ? 'secondary' : 
+                              pdr.status === 'COMPLETED' ? 'success' : 
+                              pdr.status === 'PLAN_LOCKED' ? 'secondary' :
+                              'default'
+                            }>
+                              {pdr.status === 'Created' && 'In Progress'}
+                              {pdr.status === 'SUBMITTED' && 'Submitted'}
+                              {pdr.status === 'PLAN_LOCKED' && 'Under Review'}
+                              {pdr.status === 'MID_YEAR_SUBMITTED' && 'Mid-Year Submitted'}
+                              {pdr.status === 'MID_YEAR_APPROVED' && 'Mid-Year Approved'}
+                              {pdr.status === 'END_YEAR_SUBMITTED' && 'End-Year Submitted'}
+                              {pdr.status === 'COMPLETED' && 'Completed'}
+                            </Badge>
+                            <Button size="sm" onClick={() => router.push(`/pdr/${pdr.id}`)}>
+                              {pdr.status === 'COMPLETED' || pdr.status === 'SUBMITTED' || pdr.status === 'PLAN_LOCKED' ? 'View' : 'Continue'}
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant={
-                            pdr.status === 'SUBMITTED' ? 'secondary' : 
-                            pdr.status === 'COMPLETED' ? 'success' : 
-                            'default'
-                          }>
-                            {pdr.status === 'Created' && 'In Progress'}
-                            {pdr.status === 'SUBMITTED' && 'Submitted'}
-                            {pdr.status === 'OPEN_FOR_REVIEW' && 'Under Review'}
-                            {pdr.status === 'PLAN_LOCKED' && 'Under Review'}
-                            {pdr.status === 'UNDER_REVIEW' && 'Under Review'}
-                            {pdr.status === 'COMPLETED' && 'Completed'}
-                          </Badge>
-                          <Button size="sm" onClick={() => router.push(`/pdr/${pdr.id}`)}>
-                            {pdr.status === 'COMPLETED' || pdr.status === 'SUBMITTED' || pdr.status === 'UNDER_REVIEW' ? 'View' : 'Continue'}
-                          </Button>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   })()
                 )}
               </div>

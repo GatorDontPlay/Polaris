@@ -121,3 +121,4 @@ When fetching data from Supabase:
 ## Status
 ✅ **FIXED** - Company values now display correctly on the behaviors page.
 
+

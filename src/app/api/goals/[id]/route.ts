@@ -10,6 +10,7 @@ import { goalUpdateSchema } from '@/lib/validations';
 import { createClient } from '@/lib/supabase/server';
 import { transformGoalFields } from '@/lib/case-transform';
 import { createAuditLog } from '@/lib/auth';
+import { PDRStatus, EMPLOYEE_EDITABLE_STATUSES } from '@/types/pdr-status';
 
 export async function PUT(
   request: NextRequest,
@@ -60,9 +61,14 @@ export async function PUT(
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
-    // For employees, only allow editing basic fields in Created/DRAFT/SUBMITTED/OPEN_FOR_REVIEW status
-    if (user.role !== 'CEO' && !['Created', 'DRAFT', 'SUBMITTED', 'OPEN_FOR_REVIEW'].includes(goal.pdr.status)) {
-      return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
+    // Define allowed statuses for employee editing
+    // For employees, check if PDR status allows editing
+    if (user.role !== 'CEO' && !EMPLOYEE_EDITABLE_STATUSES.includes(goal.pdr.status as PDRStatus)) {
+      return createApiError(
+        `PDR status '${goal.pdr.status}' does not allow editing`, 
+        400, 
+        'INVALID_STATUS'
+      );
     }
 
     // Prepare update data based on user role
@@ -176,9 +182,14 @@ export async function DELETE(
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
-    // Check if PDR allows editing (Created, DRAFT and SUBMITTED for employees)
-    if (user.role !== 'CEO' && !['Created', 'DRAFT', 'SUBMITTED'].includes(goal.pdr.status)) {
-      return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
+    // Define allowed statuses for employee editing
+    // For employees, check if PDR status allows editing
+    if (user.role !== 'CEO' && !EMPLOYEE_EDITABLE_STATUSES.includes(goal.pdr.status as PDRStatus)) {
+      return createApiError(
+        `PDR status '${goal.pdr.status}' does not allow editing`, 
+        400, 
+        'INVALID_STATUS'
+      );
     }
 
     // Delete the goal

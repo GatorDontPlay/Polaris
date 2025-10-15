@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabasePDR, useSupabasePDRGoals, useSupabasePDRUpdate } from '@/hooks/use-supabase-pdrs';
+import { usePDRPermissions } from '@/hooks/use-pdr-permissions';
 import { GoalForm } from '@/components/forms/goal-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,26 +25,26 @@ export default function GoalsPage({ params }: GoalsPageProps) {
   const { data: pdr, isLoading: pdrLoading } = useSupabasePDR(params.id);
   const { data: goals, isLoading: goalsLoading, createGoal, updateGoal, deleteGoal } = useSupabasePDRGoals(params.id);
   const { updatePDR } = useSupabasePDRUpdate(params.id);
+  const { permissions, isEditable } = usePDRPermissions({ pdr });
 
   const isLoading = pdrLoading || goalsLoading;
-  const isReadOnly = pdr?.isLocked || false;
-  const canEdit = pdr && !isReadOnly && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'OPEN_FOR_REVIEW' || pdr.status === 'Created');
+  const canEdit = isEditable;
 
-  // Update PDR step to 1 (Goals) when user reaches this page
+  // Update PDR step to 1 (Goals) when user reaches this page - only if PDR is editable
   useEffect(() => {
-    if (pdr && pdr.currentStep < 1) {
+    if (pdr && pdr.currentStep < 1 && isEditable) {
       console.log('🔧 Goals page - Updating PDR step from', pdr.currentStep, 'to 1');
       updatePDR({ currentStep: 1 }).catch(error => {
         console.error('Failed to update PDR step:', error);
       });
     }
-  }, [pdr, updatePDR]);
+  }, [pdr, updatePDR, isEditable]);
 
   console.log('Goals page debug:', {
     pdr: pdr,
     isLoading,
-    isReadOnly,
     canEdit,
+    isEditable,
     pdrStatus: pdr?.status,
     pdrLocked: pdr?.isLocked,
     goalsCount: goals?.length

@@ -10,6 +10,7 @@ import { transformPDRFields } from '@/lib/case-transform';
 import { 
   getPDRPermissions
 } from '@/lib/pdr-state-machine';
+import { PDRStatus } from '@/types/pdr-status';
 
 export async function GET(
   request: NextRequest,
@@ -26,19 +27,97 @@ export async function GET(
     const pdrId = params.id;
     const supabase = await createClient();
 
-    // Get PDR with all relations
+    // Parse query parameters for data selection
+    const url = new URL(request.url);
+    const includeGoals = url.searchParams.get('goals') !== 'false'; // default true
+    const includeBehaviors = url.searchParams.get('behaviors') !== 'false'; // default true
+    const includeReviews = url.searchParams.get('reviews') !== 'false'; // default true
+    const minimal = url.searchParams.get('minimal') === 'true'; // default false
+    
+    // Minimal mode: only core PDR fields, no nested data
+    if (minimal) {
+      const { data: pdr, error } = await supabase
+        .from('pdrs')
+        .select(`
+          id,
+          user_id,
+          status,
+          current_step,
+          fy_label,
+          fy_start_date,
+          fy_end_date,
+          is_locked,
+          locked_by,
+          locked_at,
+          meeting_booked,
+          created_at,
+          updated_at,
+          user:profiles!pdrs_user_id_fkey(id, first_name, last_name, email, role),
+          locked_by_user:profiles!pdrs_locked_by_fkey(id, first_name, last_name)
+        `)
+        .eq('id', pdrId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
+        }
+        throw error;
+      }
+
+      if (!pdr) {
+        return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
+      }
+
+      // Check permissions for field visibility
+      const isOwner = pdr.user_id === user.id;
+      const permissions = getPDRPermissions(pdr.status, user.role, isOwner);
+
+      const transformedPDR = transformPDRFields(pdr);
+      return createApiResponse(transformedPDR);
+    }
+
+    // Build dynamic select query based on parameters
+    let selectFields = `
+      id,
+      user_id,
+      status,
+      current_step,
+      fy_label,
+      fy_start_date,
+      fy_end_date,
+      is_locked,
+      locked_by,
+      locked_at,
+      meeting_booked,
+      created_at,
+      updated_at,
+      user:profiles!pdrs_user_id_fkey(id, first_name, last_name, email, role),
+      locked_by_user:profiles!pdrs_locked_by_fkey(id, first_name, last_name)
+    `;
+
+    if (includeGoals) {
+      selectFields += `,
+        goals(id, title, description, target_outcome, success_criteria, priority, weighting, goal_mapping, employee_progress, employee_rating, ceo_comments, ceo_rating)`;
+    }
+
+    if (includeBehaviors) {
+      // Optimize: fetch behaviors WITHOUT nested company_values to reduce size
+      // Company values are fetched separately via useCompanyValues hook
+      selectFields += `,
+        behaviors(id, value_id, description, examples, employee_self_assessment, employee_rating, ceo_comments, ceo_rating)`;
+    }
+
+    if (includeReviews) {
+      selectFields += `,
+        mid_year_review:mid_year_reviews(id, progress_summary, blockers_challenges, support_needed, employee_comments, ceo_feedback, created_at),
+        end_year_review:end_year_reviews(id, achievements_summary, learnings_growth, challenges_faced, next_year_goals, employee_overall_rating, ceo_overall_rating, ceo_final_comments, created_at)`;
+    }
+
+    // Get PDR with dynamic field selection
     const { data: pdr, error } = await supabase
       .from('pdrs')
-      .select(`
-        *,
-        user:profiles!pdrs_user_id_fkey(id, first_name, last_name, email, role),
-        period:pdr_periods(*),
-        locked_by_user:profiles!pdrs_locked_by_fkey(id, first_name, last_name),
-        goals(*),
-        behaviors(*, value:company_values(*)),
-        mid_year_review:mid_year_reviews(*),
-        end_year_review:end_year_reviews(*)
-      `)
+      .select(selectFields)
       .eq('id', pdrId)
       .single();
 
@@ -53,21 +132,17 @@ export async function GET(
       return createApiError('PDR not found', 404, 'PDR_NOT_FOUND');
     }
 
-    // Check permissions
+    // Check permissions for field visibility
+    // Note: RLS policies already enforce view access at database level
+    // If we got this far, user has permission to view the PDR
     const isOwner = pdr.user_id === user.id;
     const permissions = getPDRPermissions(pdr.status, user.role, isOwner);
-
-    if (!permissions.canView) {
-      return createApiError('Insufficient permissions to view this PDR', 403, 'INSUFFICIENT_PERMISSIONS');
-    }
 
     // Filter fields based on permissions
     const filteredPdr = {
       ...pdr,
-      employee_fields: permissions.canViewEmployeeFields ? pdr.employee_fields : undefined,
-      ceo_fields: permissions.canViewCeoFields ? pdr.ceo_fields : undefined,
-      goals: permissions.canViewEmployeeFields ? pdr.goals : [],
-      behaviors: permissions.canViewEmployeeFields ? pdr.behaviors : [],
+      goals: permissions.canViewEmployeeFields && includeGoals ? pdr.goals : [],
+      behaviors: permissions.canViewEmployeeFields && includeBehaviors ? pdr.behaviors : [],
     };
 
     // Transform PDR fields to camelCase
@@ -111,14 +186,19 @@ export async function PATCH(
     const supabase = await createClient();
     console.log('🔧 Supabase client created successfully');
 
-    // Get current PDR
+    // Get current PDR with minimal fields for permission check
     const { data: pdr, error: fetchError } = await supabase
       .from('pdrs')
       .select(`
-        *,
-        user:profiles!pdrs_user_id_fkey(*),
-        goals(*),
-        behaviors(*)
+        id,
+        user_id,
+        status,
+        current_step,
+        is_locked,
+        locked_by,
+        user:profiles!pdrs_user_id_fkey(id, role),
+        goals(id),
+        behaviors(id)
       `)
       .eq('id', pdrId)
       .single();
@@ -171,9 +251,9 @@ export async function PATCH(
       updateData.employee_fields = body.employeeFields;
     }
 
-    // Handle CEO field updates
-    if (permissions.canEditCeoFields && body.ceoFields) {
-      updateData.ceo_fields = body.ceoFields;
+    // Handle CEO field updates (support both ceoFields and ceo_fields)
+    if (permissions.canEditCeoFields && (body.ceoFields || body.ceo_fields)) {
+      updateData.ceo_fields = body.ceoFields || body.ceo_fields;
     }
 
     // Handle step progression
@@ -189,13 +269,23 @@ export async function PATCH(
       .update(updateData)
       .eq('id', pdrId)
       .select(`
-        *,
+        id,
+        user_id,
+        status,
+        current_step,
+        fy_label,
+        fy_start_date,
+        fy_end_date,
+        is_locked,
+        locked_by,
+        meeting_booked,
+        created_at,
+        updated_at,
         user:profiles!pdrs_user_id_fkey(id, first_name, last_name, email, role),
-        period:pdr_periods(*),
-        goals(*),
-        behaviors(*, value:company_values(*)),
-        mid_year_review:mid_year_reviews(*),
-        end_year_review:end_year_reviews(*)
+        goals(id, title, description, target_outcome, success_criteria, priority, weighting, goal_mapping, employee_progress, employee_rating, ceo_comments, ceo_rating),
+        behaviors(id, value_id, description, examples, employee_self_assessment, employee_rating, ceo_comments, ceo_rating),
+        mid_year_review:mid_year_reviews(id, progress_summary, blockers_challenges, support_needed),
+        end_year_review:end_year_reviews(id, achievements_summary, learnings_growth, challenges_faced, next_year_goals, employee_overall_rating, ceo_overall_rating, ceo_final_comments)
       `)
       .single();
 
@@ -244,14 +334,14 @@ export async function DELETE(
     const supabase = await createClient();
     console.log('🗑️ Supabase client created successfully');
 
-    // Get current PDR to check permissions
+    // Get current PDR to check permissions - minimal fields needed
     const { data: pdr, error: fetchError } = await supabase
       .from('pdrs')
       .select(`
-        *,
-        user:profiles!pdrs_user_id_fkey(id, first_name, last_name, email, role),
-        goals(id),
-        behaviors(id)
+        id,
+        user_id,
+        status,
+        user:profiles!pdrs_user_id_fkey(id, role)
       `)
       .eq('id', pdrId)
       .single();
@@ -284,19 +374,15 @@ export async function DELETE(
     });
 
     // Only allow deletion by:
-    // 1. The PDR owner (employee) if the PDR is in DRAFT status
-    // 2. The PDR owner (employee) if the PDR is in OPEN_FOR_REVIEW status AND not locked by CEO
-    // 3. CEO (can delete any PDR in DRAFT status)
-    const canDelete = (isOwner && pdr.status === 'DRAFT') || 
-                      (isOwner && pdr.status === 'OPEN_FOR_REVIEW' && !pdr.is_locked) ||
-                      (isCEO && pdr.status === 'DRAFT');
+    // 1. The PDR owner (employee) if the PDR is in Created status
+    // 2. CEO (can delete any PDR in Created status)
+    const canDelete = (isOwner && pdr.status === PDRStatus.CREATED) || 
+                      (isCEO && pdr.status === PDRStatus.CREATED);
 
     if (!canDelete) {
       let reason;
-      if (pdr.status === 'OPEN_FOR_REVIEW' && pdr.is_locked) {
-        reason = 'PDR is locked by CEO and cannot be deleted';
-      } else if (!['DRAFT', 'OPEN_FOR_REVIEW'].includes(pdr.status)) {
-        reason = 'PDR can only be deleted when in DRAFT or OPEN_FOR_REVIEW status';
+      if (pdr.status !== PDRStatus.CREATED) {
+        reason = 'PDR can only be deleted when in Created status';
       } else if (!isOwner && !isCEO) {
         reason = 'You do not have permission to delete this PDR';
       } else {

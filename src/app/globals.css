@@ -325,6 +325,10 @@
   }
   
   /* PDR Status badges */
+  .pdr-status-created {
+    @apply bg-pdr-draft/10 text-pdr-draft border-pdr-draft/20;
+  }
+  
   .pdr-status-draft {
     @apply bg-pdr-draft/10 text-pdr-draft border-pdr-draft/20;
   }

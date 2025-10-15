@@ -86,8 +86,10 @@ export async function GET(
         description: entry.description || '',
         examples: entry.examples,
         selfAssessment: entry.employee_self_assessment || entry.employeeSelfAssessment,
-        rating: entry.employee_rating,
-        comments: entry.ceo_comments,
+        rating: entry.employee_rating, // Employee rating
+        comments: entry.ceo_comments || entry.ceo_feedback, // CEO comments (actual column is ceo_comments)
+        ceoRating: entry.ceo_rating, // CEO rating
+        ceoComments: entry.ceo_comments || entry.ceo_feedback, // CEO comments (actual column is ceo_comments)
         employeeEntryId: null,
         createdAt: new Date(entry.created_at || new Date()),
         updatedAt: new Date(entry.updated_at || new Date()),

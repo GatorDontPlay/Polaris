@@ -1,9 +1,10 @@
 'use client'
 
-import React, { createContext, useContext, ReactNode } from 'react'
+import React, { createContext, useContext, ReactNode, useEffect } from 'react'
 import { useSupabaseAuth, type SupabaseUser } from '@/hooks/use-supabase-auth'
 import { type Session, type AuthError } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
+import { initStorageMonitoring } from '@/lib/storage-cleanup'
 
 interface SupabaseAuthContextType {
   user: SupabaseUser | null
@@ -27,6 +28,11 @@ interface SupabaseAuthProviderProps {
 
 export function SupabaseAuthProvider({ children }: SupabaseAuthProviderProps) {
   const auth = useSupabaseAuth()
+
+  // Initialize storage monitoring on app start
+  useEffect(() => {
+    initStorageMonitoring();
+  }, []);
 
   return (
     <SupabaseAuthContext.Provider value={auth}>

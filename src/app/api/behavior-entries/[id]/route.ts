@@ -9,6 +9,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createAuditLog } from '@/lib/auth';
 import { z } from 'zod';
+import { PDRStatus, EMPLOYEE_EDITABLE_STATUSES } from '@/types/pdr-status';
 
 // Validation schema for updating behavior entry
 const updateBehaviorEntrySchema = z.object({
@@ -95,27 +96,12 @@ export async function PATCH(
   try {
     const entryId = params.id;
     
-    // Check if this is demo mode
-    const isDemoMode = entryId.startsWith('demo-behavior-entry-');
-    
-    let user;
-    if (isDemoMode) {
-      // For demo mode, create a mock CEO user
-      user = {
-        id: 'demo-ceo-1',
-        email: 'ceo@demo.com',
-        firstName: 'CEO',
-        lastName: 'Demo',
-        role: 'CEO' as const,
-      };
-    } else {
-      // Authenticate user for production
-      const authResult = await authenticateRequest(request);
-      if (!authResult.success) {
-        return authResult.response;
-      }
-      user = authResult.user;
+    // Authenticate user for all requests
+    const authResult = await authenticateRequest(request);
+    if (!authResult.success) {
+      return authResult.response;
     }
+    const user = authResult.user;
 
     // Validate request body
     const validation = await validateRequestBody(request, updateBehaviorEntrySchema);
@@ -124,44 +110,6 @@ export async function PATCH(
     }
 
     const updateData = validation.data;
-
-    if (isDemoMode) {
-      // For demo mode, return a mock updated entry
-      const mockUpdatedEntry = {
-        id: entryId,
-        pdrId: 'demo-pdr-1755545351311',
-        valueId: 'value-1',
-        authorId: user.id,
-        authorType: 'CEO',
-        description: updateData.description || 'Updated description',
-        examples: updateData.examples || null,
-        selfAssessment: updateData.selfAssessment || null,
-        rating: updateData.rating || null,
-        comments: updateData.comments || 'Updated comments',
-        employeeEntryId: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        value: {
-          id: 'value-1',
-          name: 'Innovation',
-          description: 'Demo company value',
-          isActive: true,
-          sortOrder: 1,
-          createdAt: new Date(),
-        },
-        author: {
-          id: user.id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          role: user.role,
-        },
-        employeeEntry: null,
-        ceoEntries: [],
-      };
-
-      return createApiResponse(mockUpdatedEntry);
-    }
 
     const supabase = await createClient();
 
@@ -193,10 +141,16 @@ export async function PATCH(
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
+    // Define allowed statuses for employee editing
+
     // Check if PDR allows editing for employees
     if (behaviorEntry.author_type === 'EMPLOYEE' && 
-        !['Created', 'DRAFT', 'SUBMITTED', 'OPEN_FOR_REVIEW'].includes(behaviorEntry.pdr.status)) {
-      return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
+        !EMPLOYEE_EDITABLE_STATUSES.includes(behaviorEntry.pdr.status as PDRStatus)) {
+      return createApiError(
+        `PDR status '${behaviorEntry.pdr.status}' does not allow editing`, 
+        400, 
+        'INVALID_STATUS'
+      );
     }
 
     // Store old values for audit log
@@ -317,10 +271,16 @@ export async function DELETE(
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
+    // Define allowed statuses for employee editing
+
     // Check if PDR allows editing for employees
     if (behaviorEntry.author_type === 'EMPLOYEE' && 
-        !['Created', 'DRAFT', 'SUBMITTED', 'OPEN_FOR_REVIEW'].includes(behaviorEntry.pdr.status)) {
-      return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
+        !EMPLOYEE_EDITABLE_STATUSES.includes(behaviorEntry.pdr.status as PDRStatus)) {
+      return createApiError(
+        `PDR status '${behaviorEntry.pdr.status}' does not allow editing`, 
+        400, 
+        'INVALID_STATUS'
+      );
     }
 
     // If this is an employee entry with CEO entries linked to it, we can't delete it

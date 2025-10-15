@@ -8,18 +8,27 @@ export interface LoginFormData {
   password: string;
 }
 
-export type PDRStatus = 
-  | 'Created'
-  | 'OPEN_FOR_REVIEW'
-  | 'PLAN_LOCKED'
-  | 'PDR_BOOKED'
-  | 'DRAFT' 
-  | 'SUBMITTED' 
-  | 'UNDER_REVIEW' 
-  | 'MID_YEAR_CHECK' 
-  | 'END_YEAR_REVIEW' 
-  | 'COMPLETED' 
-  | 'LOCKED';
+// Export PDR Status enum and utilities
+export { 
+  PDRStatus,
+  EMPLOYEE_EDITABLE_STATUSES,
+  CEO_EDITABLE_STATUSES,
+  STATUS_DISPLAY_NAMES,
+  STATUS_DESCRIPTIONS,
+  canEmployeeEdit,
+  canCEOEdit,
+  getStatusDisplayName,
+  getStatusDescription,
+  isValidStatus,
+  isPDRStatus,
+  getAllStatuses,
+} from './pdr-status';
+
+// Import for type-level usage
+import { PDRStatus as PDRStatusEnum } from './pdr-status';
+
+// Type alias for compatibility with existing code
+export type PDRStatusValue = `${PDRStatusEnum}`;
 
 export type Priority = 'HIGH' | 'MEDIUM' | 'LOW'; // Legacy - use weighting instead
 
@@ -56,7 +65,7 @@ export interface PDR {
   fyLabel: string;
   fyStartDate: Date;
   fyEndDate: Date;
-  status: PDRStatus;
+  status: PDRStatusEnum;
   employeeFields?: Record<string, unknown>;
   ceoFields?: Record<string, unknown>;
   meetingBooked: boolean;
@@ -345,7 +354,7 @@ export type UserWithPDRs = User & {
 
 // Filter and search types
 export interface PDRFilters {
-  status?: PDRStatus[];
+  status?: PDRStatusEnum[];
   period?: string;
   userId?: string;
   search?: string;

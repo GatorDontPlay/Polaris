@@ -9,6 +9,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createAuditLog } from '@/lib/auth';
 import { z } from 'zod';
+import { PDRStatus, EMPLOYEE_EDITABLE_STATUSES } from '@/types/pdr-status';
 
 // Validation schema for behavior entry
 const behaviorEntrySchema = z.object({
@@ -39,32 +40,12 @@ export async function GET(
   try {
     const pdrId = params.id;
     
-    // Check if this is demo mode
-    const isDemoMode = pdrId.startsWith('demo-pdr-');
-    
-    let user;
-    if (isDemoMode) {
-      // For demo mode, create a mock CEO user
-      user = {
-        id: 'demo-ceo-1',
-        email: 'ceo@demo.com',
-        firstName: 'CEO',
-        lastName: 'Demo',
-        role: 'CEO' as const,
-      };
-    } else {
-      // Authenticate user for production
-      const authResult = await authenticateRequest(request);
-      if (!authResult.success) {
-        return authResult.response;
-      }
-      user = authResult.user;
+    // Authenticate user
+    const authResult = await authenticateRequest(request);
+    if (!authResult.success) {
+      return authResult.response;
     }
-
-    if (isDemoMode) {
-      // For demo mode, return empty behavior entries since we don't have real data yet
-      return createApiResponse([]);
-    }
+    const user = authResult.user;
 
     const supabase = await createClient();
 
@@ -131,27 +112,12 @@ export async function POST(
   try {
     const pdrId = params.id;
     
-    // Check if this is demo mode
-    const isDemoMode = pdrId.startsWith('demo-pdr-');
-    
-    let user;
-    if (isDemoMode) {
-      // For demo mode, create a mock CEO user
-      user = {
-        id: 'demo-ceo-1',
-        email: 'ceo@demo.com',
-        firstName: 'CEO',
-        lastName: 'Demo',
-        role: 'CEO' as const,
-      };
-    } else {
-      // Authenticate user for production
-      const authResult = await authenticateRequest(request);
-      if (!authResult.success) {
-        return authResult.response;
-      }
-      user = authResult.user;
+    // Authenticate user
+    const authResult = await authenticateRequest(request);
+    if (!authResult.success) {
+      return authResult.response;
     }
+    const user = authResult.user;
 
     // Validate request body
     const validation = await validateRequestBody(request, behaviorEntrySchema);
@@ -160,44 +126,6 @@ export async function POST(
     }
 
     const entryData = validation.data;
-
-    if (isDemoMode) {
-      // For demo mode, return a mock created entry
-      const mockEntry = {
-        id: `demo-behavior-entry-${Date.now()}`,
-        pdrId,
-        valueId: entryData.valueId,
-        authorId: user.id,
-        authorType: entryData.authorType,
-        description: entryData.description,
-        examples: entryData.examples || null,
-        selfAssessment: entryData.selfAssessment || null,
-        rating: entryData.rating || null,
-        comments: entryData.comments || null,
-        employeeEntryId: entryData.employeeEntryId || null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        value: {
-          id: entryData.valueId,
-          name: 'Demo Company Value',
-          description: 'Demo description',
-          isActive: true,
-          sortOrder: 1,
-          createdAt: new Date(),
-        },
-        author: {
-          id: user.id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          role: user.role,
-        },
-        employeeEntry: null,
-        ceoEntries: [],
-      };
-
-      return createApiResponse(mockEntry, 201);
-    }
 
     const supabase = await createClient();
 
@@ -225,9 +153,14 @@ export async function POST(
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
+    // Define allowed statuses for employee editing
     // Check if PDR allows editing for employees
-    if (entryData.authorType === 'EMPLOYEE' && !['Created', 'DRAFT', 'SUBMITTED'].includes(pdr.status)) {
-      return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
+    if (entryData.authorType === 'EMPLOYEE' && !EMPLOYEE_EDITABLE_STATUSES.includes(pdr.status as PDRStatus)) {
+      return createApiError(
+        `PDR status '${pdr.status}' does not allow editing`, 
+        400, 
+        'INVALID_STATUS'
+      );
     }
 
     // Verify the user can create this type of entry

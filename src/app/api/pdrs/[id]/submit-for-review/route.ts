@@ -58,11 +58,11 @@ export async function POST(
       return createApiError('You can only submit your own PDR', 403, 'INSUFFICIENT_PERMISSIONS');
     }
 
-    // Validate state transition
+    // Validate state transition - Updated for approval gate workflow
     const transitionValidation = validateStateTransition(
       pdr.status,
-      'OPEN_FOR_REVIEW',
-      'submitForReview',
+      'SUBMITTED',
+      'submitInitialPDR',
       user.role
     );
 
@@ -76,11 +76,19 @@ export async function POST(
 
     // Find the transition definition for validation requirements
     const transition = STATE_TRANSITIONS.find(
-      t => t.action === 'submitForReview'
+      t => t.action === 'submitInitialPDR'
     );
 
-    if (transition) {
-          // Debug: Log the PDR data being validated
+    if (!transition) {
+      console.error('❌ No transition found for submitInitialPDR action');
+      return createApiError(
+        'Invalid submission configuration. Please contact support.',
+        500,
+        'CONFIGURATION_ERROR'
+      );
+    }
+
+    // Debug: Log the PDR data being validated
     console.log('🔧 Submit validation - PDR data:', {
       pdrId: pdr.id,
       status: pdr.status,
@@ -105,20 +113,31 @@ export async function POST(
     });
     
     if (!requirementsValidation.isValid) {
+      console.error('❌ PDR submission validation failed:', {
+        pdrId: pdr.id,
+        userId: user.id,
+        errors: requirementsValidation.errors,
+        goalsCount: pdr.goals?.length || 0,
+        behaviorsCount: pdr.behaviors?.length || 0
+      });
+      
       return createApiError(
-        'Validation failed: ' + requirementsValidation.errors.join(', '),
+        'Your PDR cannot be submitted yet. Please complete all required fields.',
         400,
         'VALIDATION_FAILED',
-        requirementsValidation.errors
+        requirementsValidation.errors.map(err => ({ 
+          field: 'validation', 
+          message: err 
+        }))
       );
     }
-    }
 
-    // Update PDR status
+    // Update PDR status and currentStep atomically - Updated for approval gate workflow
     const { data: updatedPdr, error: updateError } = await supabase
       .from('pdrs')
       .update({
-        status: 'OPEN_FOR_REVIEW',
+        status: 'SUBMITTED',
+        current_step: 4, // Set to step 4 (submitted) atomically with status change
         submitted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })

@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useSupabasePDR, useSupabasePDRGoals, useSupabasePDRBehaviors } from '@/hooks/use-supabase-pdrs';
+import { useSupabasePDR, useSupabasePDRGoals, useSupabasePDRBehaviors, useSupabasePDRUpdate } from '@/hooks/use-supabase-pdrs';
 import { useEndYearReview, useEndYearReviewMutation } from '@/hooks/use-reviews';
+import { useCompanyValues } from '@/hooks/use-company-values';
+import { usePDRPermissions } from '@/hooks/use-pdr-permissions';
 import { endYearReviewSchema } from '@/lib/validations';
 import { EndYearFormData, Goal, Behavior, CompanyValue } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,23 +46,27 @@ export default function EndYearPage({ params }: EndYearPageProps) {
   const { data: pdr, isLoading: pdrLoading } = useSupabasePDR(params.id);
   const { data: goals, isLoading: goalsLoading } = useSupabasePDRGoals(params.id);
   const { data: behaviors, isLoading: behaviorsLoading } = useSupabasePDRBehaviors(params.id);
+  const { data: companyValues, isLoading: companyValuesLoading } = useCompanyValues();
   const { data: endYearReview, isLoading: reviewLoading } = useEndYearReview(params.id);
   const { create: createReview, update: updateReview } = useEndYearReviewMutation(params.id);
+  const { updatePDR } = useSupabasePDRUpdate(params.id);
+  const { permissions, isEditable } = usePDRPermissions({ pdr });
 
   // State for goal and behavior self-assessments
   const [goalSelfAssessments, setGoalSelfAssessments] = useState<Record<string, { rating: number; reflection: string }>>({});
   
   // State for step-by-step card wizard
   const [currentStep, setCurrentStep] = useState(0);
-  const [wizardSteps, setWizardSteps] = useState<Array<{ type: string; id?: string }>>([]);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   
   const [behaviorSelfAssessments, setBehaviorSelfAssessments] = useState<Record<string, { rating: number; reflection: string }>>({});
   const [ceoFeedback, setCeoFeedback] = useState('');
 
-  const isLoading = pdrLoading || reviewLoading || goalsLoading || behaviorsLoading;
+  const isLoading = pdrLoading || reviewLoading || goalsLoading || behaviorsLoading || companyValuesLoading;
   // Allow editing for all steps of the wizard until final submission
-  const canEdit = pdr && !pdr.isLocked;
-  const canUpdate = pdr && !pdr.isLocked && pdr.status !== 'COMPLETED';
+  // Use permission hook to check if PDR is editable (respects COMPLETED status)
+  const canEdit = isEditable;
+  const canUpdate = isEditable && pdr?.status !== 'COMPLETED';
 
   // Load saved self-assessments from localStorage
   useEffect(() => {
@@ -93,16 +99,8 @@ export default function EndYearPage({ params }: EndYearPageProps) {
     }
   }, [params.id]);
   
-  // Initialize wizard steps when data is loaded
-  useEffect(() => {
-    if (goals && companyValues) {
-      const steps = calculateWizardSteps();
-      setWizardSteps(steps);
-    }
-  }, [goals, companyValues]);
-  
-  // Calculate total steps after data is loaded
-  const calculateWizardSteps = () => {
+  // Calculate wizard steps using useMemo to prevent infinite loops
+  const wizardSteps = useMemo(() => {
     const steps = [];
     
     // Individual goal cards (if any)
@@ -128,7 +126,7 @@ export default function EndYearPage({ params }: EndYearPageProps) {
     steps.push({ type: 'reflection' });
     
     return steps;
-  };
+  }, [goals, companyValues]);
 
   // Function to get mid-year review comments
   const getMidYearComments = () => {
@@ -158,6 +156,51 @@ export default function EndYearPage({ params }: EndYearPageProps) {
     };
   };
 
+  // Function to get initial form values, checking localStorage first, then database, then defaults
+  const getInitialFormValues = useCallback(() => {
+    // First, try to load from localStorage draft
+    const savedDraft = localStorage.getItem(`end_year_review_draft_${params.id}`);
+    if (savedDraft) {
+      try {
+        const draftData = JSON.parse(savedDraft);
+        console.log('Loading form data from localStorage draft:', draftData);
+        console.log('Draft rating value:', draftData.employeeOverallRating, 'Type:', typeof draftData.employeeOverallRating);
+        return {
+          achievementsSummary: draftData.achievementsSummary || '',
+          learningsGrowth: draftData.learningsGrowth || '',
+          challengesFaced: draftData.challengesFaced || '',
+          nextYearGoals: draftData.nextYearGoals || '',
+          employeeOverallRating: Number(draftData.employeeOverallRating) || 0,
+        };
+      } catch (error) {
+        console.error('Error parsing draft data:', error);
+      }
+    }
+
+    // Second, try to load from database if available
+    if (endYearReview) {
+      console.log('Loading form data from database:', endYearReview);
+      console.log('Database rating value:', endYearReview.employeeOverallRating, 'Type:', typeof endYearReview.employeeOverallRating);
+      return {
+        achievementsSummary: endYearReview.achievementsSummary || '',
+        learningsGrowth: endYearReview.learningsGrowth || '',
+        challengesFaced: endYearReview.challengesFaced || '',
+        nextYearGoals: endYearReview.nextYearGoals || '',
+        employeeOverallRating: Number(endYearReview.employeeOverallRating) || 0,
+      };
+    }
+
+    // Finally, return empty defaults
+    console.log('Loading default empty form values');
+    return {
+      achievementsSummary: '',
+      learningsGrowth: '',
+      challengesFaced: '',
+      nextYearGoals: '',
+      employeeOverallRating: 0,
+    };
+  }, [params.id, endYearReview]);
+
   // Form setup
   const midYearComments = getMidYearComments();
   const ceoFeedbackData = getCeoFeedbackData();
@@ -168,24 +211,52 @@ export default function EndYearPage({ params }: EndYearPageProps) {
     formState: { errors, isDirty },
     watch,
     setValue,
+    reset,
   } = useForm<EndYearFormData>({
     resolver: zodResolver(endYearReviewSchema),
-    defaultValues: endYearReview ? Object.fromEntries([
-      ['achievementsSummary', endYearReview.achievementsSummary],
-      ['learningsGrowth', endYearReview.learningsGrowth || ''],
-      ['challengesFaced', endYearReview.challengesFaced || ''],
-      ['nextYearGoals', endYearReview.nextYearGoals || ''],
-      ['employeeOverallRating', endYearReview.employeeOverallRating || 0],
-    ]) : {
-      achievementsSummary: '',
-      learningsGrowth: '',
-      challengesFaced: '',
-      nextYearGoals: '',
-      employeeOverallRating: 0,
-    },
+    defaultValues: getInitialFormValues(),
   });
 
   const employeeOverallRating = watch('employeeOverallRating');
+
+  // Reset form when data becomes available or when returning to the page
+  useEffect(() => {
+    const initialValues = getInitialFormValues();
+    console.log('About to reset form with values:', initialValues);
+    console.log('Reset rating value:', initialValues.employeeOverallRating, 'Type:', typeof initialValues.employeeOverallRating);
+    reset(initialValues);
+    console.log('Form reset completed');
+    
+    // Also log what the form thinks the current value is after reset
+    setTimeout(() => {
+      const currentFormData = watch();
+      console.log('Form data after reset:', currentFormData);
+      console.log('Form rating after reset:', currentFormData.employeeOverallRating, 'Type:', typeof currentFormData.employeeOverallRating);
+    }, 100);
+  }, [getInitialFormValues, reset]);
+
+  // Auto-save form data to localStorage when user types
+  const formData = watch();
+  useEffect(() => {
+    // Only auto-save if user has interacted with the form
+    if (isDirty) {
+      setAutoSaveStatus('saving');
+      const timeoutId = setTimeout(() => {
+        console.log('Auto-saving form data to localStorage:', formData);
+        console.log('Auto-save rating value:', formData.employeeOverallRating, 'Type:', typeof formData.employeeOverallRating);
+        localStorage.setItem(`end_year_review_draft_${params.id}`, JSON.stringify({
+          ...formData,
+          lastSaved: new Date().toISOString(),
+        }));
+        setAutoSaveStatus('saved');
+        
+        // Reset to idle after showing "saved" for 2 seconds
+        setTimeout(() => setAutoSaveStatus('idle'), 2000);
+      }, 1000); // Debounce for 1 second
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formData, isDirty, params.id]);
 
   const handlePrevious = () => {
     if (currentStep === 0) {
@@ -200,7 +271,19 @@ export default function EndYearPage({ params }: EndYearPageProps) {
   };
 
   const handleRatingChange = (rating: number) => {
+    console.log('Rating changed to:', rating);
     setValue('employeeOverallRating', rating, { shouldDirty: true });
+    
+    // Immediately save the rating to localStorage to prevent loss
+    const currentFormData = watch();
+    const updatedFormData = { ...currentFormData, employeeOverallRating: rating };
+    localStorage.setItem(`end_year_review_draft_${params.id}`, JSON.stringify({
+      ...updatedFormData,
+      lastSaved: new Date().toISOString(),
+      ratingUpdate: true, // Flag to indicate rating was updated
+    }));
+    
+    console.log('Rating immediately saved to localStorage:', rating);
   };
 
   const getRatingLabel = (rating: number) => {
@@ -216,17 +299,18 @@ export default function EndYearPage({ params }: EndYearPageProps) {
 
   const handleSaveDraft = () => {
     // Get all form data as a draft
-    const formData = watch();
+    const currentFormData = watch();
     
-    // Store as draft
+    // Store as draft (manual save)
     localStorage.setItem(`end_year_review_draft_${params.id}`, JSON.stringify({
-      ...formData,
+      ...currentFormData,
       lastSaved: new Date().toISOString(),
+      manualSave: true, // Flag to indicate this was a manual save
     }));
     
     toast({
-      title: "Draft saved",
-      description: "Your end-year review has been saved as a draft.",
+      title: "Draft saved manually",
+      description: "Your end-year review progress has been saved. You can safely navigate away and return later.",
     });
   };
 
@@ -496,15 +580,45 @@ export default function EndYearPage({ params }: EndYearPageProps) {
         return (
           <div className="space-y-6">
             <div className="border-b border-border pb-2">
-              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-400">
-                  <MessageSquare className="h-4 w-4 text-emerald-400" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-400">
+                      <MessageSquare className="h-4 w-4 text-emerald-400" />
+                    </div>
+                    Overall Reflection
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Provide your overall thoughts on the year and feedback for your manager
+                  </p>
                 </div>
-                Overall Reflection
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Provide your overall thoughts on the year and feedback for your manager
-              </p>
+                <div className="flex items-center gap-3">
+                  {/* Auto-save status indicator */}
+                  {autoSaveStatus === 'saving' && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                      Saving...
+                    </div>
+                  )}
+                  {autoSaveStatus === 'saved' && (
+                    <div className="flex items-center gap-1 text-xs text-emerald-600">
+                      <CheckCircle className="w-4 h-4" />
+                      Saved
+                    </div>
+                  )}
+                  {/* Manual save button */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSaveDraft}
+                    className="text-xs"
+                  >
+                    <Save className="w-3 h-3 mr-1" />
+                    Save Draft
+                  </Button>
+                </div>
+              </div>
             </div>
             
             <div>
@@ -596,6 +710,9 @@ export default function EndYearPage({ params }: EndYearPageProps) {
 
   const onSubmit = async (data: EndYearFormData) => {
     setIsSubmitting(true);
+    console.log('Form submission data:', data);
+    console.log('Submitted rating value:', data.employeeOverallRating, 'Type:', typeof data.employeeOverallRating);
+    
     try {
       // Create enhanced end-year review data
       const enhancedData = {
@@ -604,41 +721,114 @@ export default function EndYearPage({ params }: EndYearPageProps) {
         behaviorSelfAssessments,
         ceoFeedback
       };
+      
+      console.log('Enhanced submission data:', enhancedData);
+      console.log('Enhanced rating value:', enhancedData.employeeOverallRating);
 
-      // Store review data directly in localStorage for demo purposes
-      // This bypasses the API calls that are failing with 401 errors
-      localStorage.setItem(`end_year_review_${params.id}`, JSON.stringify({
-        ...enhancedData,
-        id: `end-year-review-${Date.now()}`,
-        pdrId: params.id,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }));
-
-      // Update PDR status to ready for CEO final review and mark all steps as complete
-      if (pdr && updatePdr) {
-        const updatedPdr = {
-          ...pdr,
-          status: 'SUBMITTED_FOR_REVIEW',
-          submittedAt: new Date(),
-          currentStep: 5, // Mark all steps as complete (total 5 steps)
-          isCompleted: true // Indicate that all required steps are done
-        };
-
-        // Store updated PDR
-        localStorage.setItem(`demo_pdr_${pdr.id}`, JSON.stringify(updatedPdr));
-        localStorage.setItem('demo_current_pdr', JSON.stringify(updatedPdr));
-        
-        // Trigger update event
-        window.dispatchEvent(new CustomEvent('demo-pdr-changed'));
-        
-        // Update the store
-        updatePdr({
-          status: 'SUBMITTED_FOR_REVIEW',
-          currentStep: 5,
-          submittedAt: new Date(),
-          isCompleted: true
+      // Save review data to Supabase database
+      console.log('📡 Attempting to submit end-year review to database...');
+      
+      try {
+        const response = await fetch(`/api/pdrs/${params.id}/end-year`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(enhancedData),
         });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ End-year review submitted successfully to database:', result);
+        
+        // Now save individual goal and behavior ratings to database
+        console.log('📡 Saving individual goal and behavior ratings...');
+        
+        // Save goal self-assessments and ratings
+        if (goalSelfAssessments && Object.keys(goalSelfAssessments).length > 0) {
+          for (const [goalId, assessment] of Object.entries(goalSelfAssessments)) {
+            try {
+              const goalResponse = await fetch(`/api/goals/${goalId}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  employeeRating: assessment.rating,
+                  employeeProgress: assessment.reflection,
+                }),
+              });
+              
+              if (goalResponse.ok) {
+                console.log(`✅ Goal ${goalId} rating saved:`, assessment.rating);
+              } else {
+                console.error(`❌ Failed to save goal ${goalId} rating`);
+              }
+            } catch (error) {
+              console.error(`❌ Error saving goal ${goalId} rating:`, error);
+            }
+          }
+        }
+        
+        // Save behavior self-assessments and ratings
+        if (behaviorSelfAssessments && Object.keys(behaviorSelfAssessments).length > 0) {
+          for (const [behaviorId, assessment] of Object.entries(behaviorSelfAssessments)) {
+            try {
+              const behaviorResponse = await fetch(`/api/behavior-entries/${behaviorId}`, {
+                method: 'PATCH',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  rating: assessment.rating,
+                  selfAssessment: assessment.reflection,
+                }),
+              });
+              
+              if (behaviorResponse.ok) {
+                console.log(`✅ Behavior ${behaviorId} rating saved:`, assessment.rating);
+              } else {
+                console.error(`❌ Failed to save behavior ${behaviorId} rating`);
+              }
+            } catch (error) {
+              console.error(`❌ Error saving behavior ${behaviorId} rating:`, error);
+            }
+          }
+        }
+        
+        // Also keep localStorage backup for reference
+        localStorage.setItem(`end_year_review_${params.id}`, JSON.stringify({
+          ...enhancedData,
+          id: result.data?.id || `end-year-review-${Date.now()}`,
+          pdrId: params.id,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }));
+
+        console.log('📋 PDR should now be marked as COMPLETED and visible to CEO');
+        
+      } catch (error) {
+        console.error('❌ Failed to submit end-year review to database:', error);
+        
+        // Fallback: Store in localStorage only if database fails
+        console.log('💾 Falling back to localStorage storage...');
+        localStorage.setItem(`end_year_review_${params.id}`, JSON.stringify({
+          ...enhancedData,
+          id: `end-year-review-${Date.now()}`,
+          pdrId: params.id,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }));
+
+        // Note: Status update is handled by the POST /api/pdrs/[id]/end-year endpoint
+        // No need to call updatePDR separately as it would cause RLS errors
+        
+        // Re-throw error to show user the issue
+        throw error;
       }
 
       // Store all form data in localStorage for future reference

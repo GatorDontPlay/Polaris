@@ -6,6 +6,7 @@ import {
   authenticateRequest,
 } from '@/lib/api-helpers';
 import { createClient } from '@/lib/supabase/server';
+import { PDRStatus } from '@/types/pdr-status';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -35,8 +36,8 @@ export async function GET(request: NextRequest) {
     // Fetch all statistics in parallel
     const [
       { count: totalEmployees },
-      { data: allPDRs },
-      { data: recentActivity },
+      { data: allPDRs, error: pdrsError },
+      { data: recentActivity, error: activityError },
     ] = await Promise.all([
       // Total employees count
       supabase
@@ -72,30 +73,49 @@ export async function GET(request: NextRequest) {
         .limit(50),
     ]);
 
-    // Calculate statistics
-    const pendingReviews = allPDRs?.filter(pdr => 
-      ['SUBMITTED', 'UNDER_REVIEW'].includes(pdr.status) ||
-      (pdr.status === 'OPEN_FOR_REVIEW' && !pdr.is_locked)
-    ).length || 0;
+    // Handle any database errors
+    if (pdrsError) {
+      console.error('Error fetching PDRs:', pdrsError);
+      return createApiError('Failed to fetch PDR data', 500, 'DATABASE_ERROR', pdrsError.message);
+    }
 
-    const completedPDRs = allPDRs?.filter(pdr => 
-      pdr.status === 'COMPLETED'
-    ).length || 0;
+    if (activityError) {
+      console.error('Error fetching activity logs:', activityError);
+      // Continue with empty activity array - don't fail the entire request
+    }
 
-    const overduePDRs = allPDRs?.filter(pdr => {
-      if (!activePeriod || pdr.status === 'COMPLETED') return false;
+    // Filter out null/undefined PDRs and ensure they have required fields
+    const validPDRs = (allPDRs || []).filter(pdr => 
+      pdr && 
+      typeof pdr === 'object' && 
+      pdr.status && 
+      pdr.id
+    );
+    
+    // Calculate statistics - Updated for approval gate workflow
+    const pendingReviews = validPDRs.filter(pdr => 
+      // Include all PDRs that need CEO action at any stage
+      ['SUBMITTED', 'MID_YEAR_SUBMITTED', 'END_YEAR_SUBMITTED'].includes(pdr.status)
+    ).length;
+
+    const completedPDRs = validPDRs.filter(pdr => 
+      pdr.status === PDRStatus.COMPLETED
+    ).length;
+
+    const overduePDRs = validPDRs.filter(pdr => {
+      if (!activePeriod || pdr.status === PDRStatus.COMPLETED) return false;
       
       // Calculate if PDR is overdue based on period end date
       const daysSinceEnd = Math.floor(
         (Date.now() - new Date(activePeriod.end_date).getTime()) / (1000 * 60 * 60 * 24)
       );
       return daysSinceEnd > 30; // Overdue if more than 30 days past period end
-    }).length || 0;
+    }).length;
 
     // Calculate average ratings
-    const completedPDRsWithRatings = allPDRs?.filter(pdr => 
-      pdr.status === 'COMPLETED' && pdr.end_year_review?.ceo_overall_rating
-    ) || [];
+    const completedPDRsWithRatings = validPDRs.filter(pdr => 
+      pdr.status === PDRStatus.COMPLETED && pdr.end_year_review?.ceo_overall_rating
+    );
     
     const averageRating = completedPDRsWithRatings.length > 0
       ? completedPDRsWithRatings.reduce((sum, pdr) => 
@@ -104,194 +124,205 @@ export async function GET(request: NextRequest) {
       : 0;
 
     // Calculate average goal ratings
-    const allGoalRatings = allPDRs?.flatMap(pdr => 
-      pdr.goals?.filter(g => g.ceo_rating).map(g => g.ceo_rating!) || []
-    ) || [];
+    const allGoalRatings = validPDRs.flatMap(pdr => 
+      pdr.goals?.filter(g => g && g.ceo_rating).map(g => g.ceo_rating!) || []
+    );
     const averageGoalRating = allGoalRatings.length > 0
       ? allGoalRatings.reduce((sum, rating) => sum + rating, 0) / allGoalRatings.length
       : 0;
 
     // Calculate average behavior ratings
-    const allBehaviorRatings = allPDRs?.flatMap(pdr => 
-      pdr.behaviors?.filter(b => b.ceo_rating).map(b => b.ceo_rating!) || []
-    ) || [];
+    const allBehaviorRatings = validPDRs.flatMap(pdr => 
+      pdr.behaviors?.filter(b => b && b.ceo_rating).map(b => b.ceo_rating!) || []
+    );
     const averageBehaviorRating = allBehaviorRatings.length > 0
       ? allBehaviorRatings.reduce((sum, rating) => sum + rating, 0) / allBehaviorRatings.length
       : 0;
 
     // Status distribution
-    const statusCounts = allPDRs?.reduce((acc, pdr) => {
-      acc[pdr.status] = (acc[pdr.status] || 0) + 1;
+    const statusCounts = validPDRs.reduce((acc, pdr) => {
+      if (pdr && pdr.status) {
+        acc[pdr.status] = (acc[pdr.status] || 0) + 1;
+      }
       return acc;
-    }, {} as Record<string, number>) || {};
+    }, {} as Record<string, number>);
 
     const statusDistribution = Object.entries(statusCounts).map(([status, count]) => ({
       status,
       count,
-      percentage: allPDRs?.length ? Math.round((count / allPDRs.length) * 100) : 0,
+      percentage: validPDRs.length > 0 ? Math.round((count / validPDRs.length) * 100) : 0,
     }));
 
     // Process recent activity - Global view for CEO showing ALL employee activities
-    const processedActivity = recentActivity?.map(log => {
-      let type: string = 'general';
-      let message = '';
-      let priority: 'low' | 'medium' | 'high' = 'low';
+    const processedActivity = recentActivity
+      ?.filter(log => log && log.table_name && log.action) // Filter out null/invalid logs first
+      ?.map(log => {
+        let type: string = 'general';
+        let message = '';
+        let priority: 'low' | 'medium' | 'high' = 'low';
 
-      const userName = log.user ? `${log.user.first_name} ${log.user.last_name}` : 'Unknown User';
+        const userName = log.user ? `${log.user.first_name} ${log.user.last_name}` : 'Unknown User';
 
-      switch (log.table_name) {
-        case 'pdrs':
-          if (log.action === 'INSERT') {
-            type = 'pdr_created';
-            message = `started their PDR for the current period`;
-            priority = 'low';
-          } else if (log.action === 'UPDATE') {
-            const oldValues = log.oldValues as any;
-            const newValues = log.newValues as any;
-            
-            if (newValues.status === 'SUBMITTED') {
-              type = 'pdr_submitted';
-              message = `submitted their PDR for CEO review`;
-              priority = 'high';
-            } else if (newValues.status === 'UNDER_REVIEW') {
-              type = 'under_review';
-              message = `PDR is now under CEO review`;
-              priority = 'medium';
-            } else if (newValues.status === 'COMPLETED') {
-              type = 'review_completed';
-              message = `PDR review completed by CEO`;
+        switch (log.table_name) {
+          case 'pdrs':
+            if (log.action === 'INSERT') {
+              type = 'pdr_created';
+              message = `started their PDR for the current period`;
               priority = 'low';
-            } else if (newValues.status === 'PLAN_LOCKED') {
-              type = 'plan_locked';
-              message = `PDR plan locked by CEO`;
-              priority = 'medium';
-            } else if (newValues.current_step && oldValues.current_step !== newValues.current_step) {
-              type = 'progress_update';
-              message = `progressed to step ${newValues.current_step} of their PDR`;
-              priority = 'low';
-            }
-          }
-          break;
-          
-        case 'goals':
-          if (log.action === 'INSERT') {
-            type = 'goal_added';
-            message = `added a new goal to their PDR`;
-            priority = 'low';
-          } else if (log.action === 'UPDATE') {
-            const newValues = log.new_values as any;
-            if (newValues.employee_rating) {
-              type = 'goal_self_rated';
-              message = `completed self-rating for a goal`;
-              priority = 'low';
-            } else if (newValues.ceo_rating) {
-              type = 'goal_ceo_rated';
-              message = `goal rated by CEO`;
-              priority = 'low';
-            }
-          }
-          break;
-          
-        case 'behaviors':
-          if (log.action === 'INSERT') {
-            type = 'behavior_assessed';
-            message = `completed a behavior assessment`;
-            priority = 'low';
-          } else if (log.action === 'UPDATE') {
-            const newValues = log.new_values as any;
-            if (newValues.employee_rating) {
-              type = 'behavior_self_rated';
-              message = `completed self-rating for behaviors`;
-              priority = 'low';
-            } else if (newValues.ceo_rating) {
-              type = 'behavior_ceo_rated';
-              message = `behaviors rated by CEO`;
-              priority = 'low';
-            }
-          }
-          break;
-          
-        case 'mid_year_reviews':
-          if (log.action === 'INSERT') {
-            type = 'mid_year_started';
-            message = `started their mid-year review`;
-            priority = 'low';
-          } else if (log.action === 'UPDATE') {
-            type = 'mid_year_updated';
-            message = `updated their mid-year review`;
-            priority = 'low';
-          }
-          break;
-          
-        case 'end_year_reviews':
-          if (log.action === 'INSERT') {
-            type = 'end_year_started';
-            message = `started their end-year review`;
-            priority = 'medium';
-          } else if (log.action === 'UPDATE') {
-            const newValues = log.new_values as any;
-            if (newValues.employee_overall_rating) {
-              type = 'end_year_self_completed';
-              message = `completed their end-year self-assessment`;
-              priority = 'medium';
-            } else if (newValues.ceo_overall_rating) {
-              type = 'end_year_ceo_completed';
-              message = `end-year review completed by CEO`;
-              priority = 'low';
-            }
-          }
-          break;
-          
-        case 'profiles':
-          if (log.action === 'INSERT') {
-            const newValues = log.new_values as any;
-            if (newValues.role === 'EMPLOYEE') {
-              type = 'employee_created';
-              message = `new employee account created`;
-              priority = 'medium';
-            }
-          } else if (log.action === 'UPDATE') {
-            const oldValues = log.old_values as any;
-            const newValues = log.new_values as any;
-            if (oldValues.is_active !== newValues.is_active) {
-              if (newValues.is_active) {
-                type = 'employee_activated';
-                message = `employee account activated`;
-                priority = 'low';
-              } else {
-                type = 'employee_deactivated';
-                message = `employee account deactivated`;
+            } else if (log.action === 'UPDATE') {
+              const oldValues = log.oldValues as any;
+              const newValues = log.newValues as any;
+              
+              if (newValues && newValues.status === PDRStatus.SUBMITTED) {
+                type = 'pdr_submitted';
+                message = `submitted their PDR for CEO review`;
+                priority = 'high';
+              } else if (newValues && newValues.status === PDRStatus.PLAN_LOCKED) {
+                type = 'plan_approved';
+                message = `PDR plan has been approved`;
                 priority = 'medium';
+              } else if (newValues && newValues.status === PDRStatus.COMPLETED) {
+                type = 'review_completed';
+                message = `PDR review completed by CEO`;
+                priority = 'low';
+              } else if (newValues && newValues.current_step && oldValues && oldValues.current_step !== newValues.current_step) {
+                type = 'progress_update';
+                message = `progressed to step ${newValues.current_step} of their PDR`;
+                priority = 'low';
               }
             }
-          }
-          break;
-      }
+            break;
+            
+          case 'goals':
+            if (log.action === 'INSERT') {
+              type = 'goal_added';
+              message = `added a new goal to their PDR`;
+              priority = 'low';
+            } else if (log.action === 'UPDATE') {
+              const newValues = log.new_values as any;
+              if (newValues && newValues.employee_rating) {
+                type = 'goal_self_rated';
+                message = `completed self-rating for a goal`;
+                priority = 'low';
+              } else if (newValues && newValues.ceo_rating) {
+                type = 'goal_ceo_rated';
+                message = `goal rated by CEO`;
+                priority = 'low';
+              }
+            }
+            break;
+            
+          case 'behaviors':
+            if (log.action === 'INSERT') {
+              type = 'behavior_assessed';
+              message = `completed a behavior assessment`;
+              priority = 'low';
+            } else if (log.action === 'UPDATE') {
+              const newValues = log.new_values as any;
+              if (newValues && newValues.employee_rating) {
+                type = 'behavior_self_rated';
+                message = `completed self-rating for behaviors`;
+                priority = 'low';
+              } else if (newValues && newValues.ceo_rating) {
+                type = 'behavior_ceo_rated';
+                message = `behaviors rated by CEO`;
+                priority = 'low';
+              }
+            }
+            break;
+            
+          case 'mid_year_reviews':
+            if (log.action === 'INSERT') {
+              type = 'mid_year_started';
+              message = `started their mid-year review`;
+              priority = 'low';
+            } else if (log.action === 'UPDATE') {
+              type = 'mid_year_updated';
+              message = `updated their mid-year review`;
+              priority = 'low';
+            }
+            break;
+            
+          case 'end_year_reviews':
+            if (log.action === 'INSERT') {
+              type = 'end_year_started';
+              message = `started their end-year review`;
+              priority = 'medium';
+            } else if (log.action === 'UPDATE') {
+              const newValues = log.new_values as any;
+              if (newValues && newValues.employee_overall_rating) {
+                type = 'end_year_self_completed';
+                message = `completed their end-year self-assessment`;
+                priority = 'medium';
+              } else if (newValues && newValues.ceo_overall_rating) {
+                type = 'end_year_ceo_completed';
+                message = `end-year review completed by CEO`;
+                priority = 'low';
+              }
+            }
+            break;
+            
+          case 'profiles':
+            if (log.action === 'INSERT') {
+              const newValues = log.new_values as any;
+              if (newValues && newValues.role === 'EMPLOYEE') {
+                type = 'employee_created';
+                message = `new employee account created`;
+                priority = 'medium';
+              }
+            } else if (log.action === 'UPDATE') {
+              const oldValues = log.old_values as any;
+              const newValues = log.new_values as any;
+              if (oldValues && newValues && oldValues.is_active !== newValues.is_active) {
+                if (newValues.is_active) {
+                  type = 'employee_activated';
+                  message = `employee account activated`;
+                  priority = 'low';
+                } else {
+                  type = 'employee_deactivated';
+                  message = `employee account deactivated`;
+                  priority = 'medium';
+                }
+              }
+            }
+            break;
+        }
 
-      return {
-        id: log.id,
-        type,
-        user: log.user || { id: '', first_name: 'Unknown', last_name: 'User', email: '' },
-        message,
-        timestamp: log.changed_at,
-        priority,
-      };
-    }).filter(activity => activity.message) || []; // Only include activities with messages
+        return {
+          id: log.id,
+          type,
+          user: log.user || { id: '', first_name: 'Unknown', last_name: 'User', email: '' },
+          message,
+          timestamp: log.changed_at,
+          priority,
+        };
+      })
+      ?.filter(activity => activity && activity.message) || []; // Only include activities with messages
 
-    // Get pending reviews for quick access - Global view of ALL employees needing CEO attention
-    const pendingReviewPDRs = allPDRs
-      ?.filter(pdr => {
-        // Include any PDR that needs CEO attention across the entire organization
-        return ['SUBMITTED', 'UNDER_REVIEW', 'PLAN_LOCKED'].includes(pdr.status) ||
-               (pdr.status === 'OPEN_FOR_REVIEW' && !pdr.is_locked);
+    // Get all PDRs for CEO dashboard - Includes all statuses for filtering
+    // Separated into calibration (needs modeling) and closed (already calibrated)
+    const allReviewPDRs = validPDRs
+      .filter(pdr => {
+        // Include all PDRs with valid status
+        return pdr && pdr.status;
       })
       .sort((a, b) => {
-        // Sort by urgency: oldest submissions first, then by status priority
-        const aDate = new Date(a.submitted_at || a.updated_at).getTime();
-        const bDate = new Date(b.submitted_at || b.updated_at).getTime();
-        return aDate - bDate; // Oldest first for urgency
+        // Sort by most recently updated first
+        const aDate = new Date(a.updated_at || a.created_at).getTime();
+        const bDate = new Date(b.updated_at || b.created_at).getTime();
+        return bDate - aDate; // Most recent first
       })
-      .slice(0, 15) || []; // Show more pending reviews for comprehensive CEO view
+      .slice(0, 100); // Increased limit to show more PDRs including completed ones
+    
+    // Count uncalibrated completed PDRs (for Calibration tab)
+    const uncalibratedCount = validPDRs.filter(pdr => 
+      pdr.status === PDRStatus.COMPLETED && !pdr.calibrated_at
+    ).length;
+    
+    // Count calibrated completed PDRs (for Closed tab)
+    const calibratedCount = validPDRs.filter(pdr => 
+      pdr.status === PDRStatus.COMPLETED && pdr.calibrated_at
+    ).length;
 
     const dashboardData = {
       stats: {
@@ -299,12 +330,14 @@ export async function GET(request: NextRequest) {
         pendingReviews,
         completedPDRs,
         overduePDRs,
+        uncalibratedCount, // For Calibration tab
+        calibratedCount, // For Closed tab
         averageRating: Math.round(averageRating * 10) / 10,
         averageGoalRating: Math.round(averageGoalRating * 10) / 10,
         averageBehaviorRating: Math.round(averageBehaviorRating * 10) / 10,
       },
       recentActivity: processedActivity.slice(0, 10),
-      pendingReviews: pendingReviewPDRs,
+      pendingReviews: allReviewPDRs, // Now includes ALL PDRs, not just pending ones
       statusDistribution,
     };
 

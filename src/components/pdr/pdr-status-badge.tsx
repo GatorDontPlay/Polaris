@@ -57,7 +57,9 @@ function getLegacyStatusConfig(status?: PDRStatus, meetingBooked?: boolean) {
         description: 'PDR is being created',
       };
 
-    case 'OPEN_FOR_REVIEW':
+    case 'SUBMITTED':
+    case 'MID_YEAR_SUBMITTED':
+    case 'END_YEAR_SUBMITTED':
       return {
         text: 'Under Review',
         variant: 'warning' as const,
@@ -66,53 +68,16 @@ function getLegacyStatusConfig(status?: PDRStatus, meetingBooked?: boolean) {
 
     case 'PLAN_LOCKED':
       return {
-        text: 'Locked',
-        variant: 'destructive' as const,
-        description: 'Locked by CEO pending meeting',
-      };
-
-    case 'PDR_Booked':
-      return {
-        text: meetingBooked ? 'Meeting Booked' : 'Ready for Booking',
+        text: 'Approved',
         variant: 'success' as const,
-        description: meetingBooked 
-          ? 'Meeting has been scheduled'
-          : 'Ready for meeting booking',
+        description: 'Initial plan approved - Mid-year available',
       };
 
-    case 'DRAFT':
+    case 'MID_YEAR_APPROVED':
       return {
-        text: 'Draft',
-        variant: 'outline' as const,
-        description: 'PDR is in draft state',
-      };
-
-    case 'SUBMITTED':
-      return {
-        text: 'Submitted',
-        variant: 'secondary' as const,
-        description: 'PDR has been submitted',
-      };
-
-    case 'UNDER_REVIEW':
-      return {
-        text: 'Under Review',
-        variant: 'warning' as const,
-        description: 'PDR is being reviewed',
-      };
-
-    case 'MID_YEAR_CHECK':
-      return {
-        text: 'Mid-Year',
-        variant: 'secondary' as const,
-        description: 'Mid-year review phase',
-      };
-
-    case 'END_YEAR_REVIEW':
-      return {
-        text: 'End-Year',
-        variant: 'secondary' as const,
-        description: 'End-year review phase',
+        text: 'Mid-Year Approved',
+        variant: 'success' as const,
+        description: 'Mid-year approved - End-year available',
       };
 
     case 'COMPLETED':
@@ -120,20 +85,6 @@ function getLegacyStatusConfig(status?: PDRStatus, meetingBooked?: boolean) {
         text: 'Completed',
         variant: 'success' as const,
         description: 'PDR process completed',
-      };
-
-    case 'LOCKED':
-      return {
-        text: 'Locked',
-        variant: 'destructive' as const,
-        description: 'PDR is locked',
-      };
-
-    case 'SUBMITTED_FOR_REVIEW':
-      return {
-        text: 'Pending Final Review',
-        variant: 'warning' as const,
-        description: 'Complete - awaiting final review meeting',
       };
 
     default:

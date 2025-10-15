@@ -4,6 +4,7 @@ import { useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/providers/supabase-auth-provider';
 import { computeAustralianFY } from '@/lib/financial-year';
+import { emergencyCleanup } from '@/lib/storage-cleanup';
 import type { PDR, Goal, Behavior, BehaviorFormData, GoalFormData } from '@/types';
 
 // Types for API responses
@@ -71,9 +72,18 @@ export function useSupabasePDRDashboard() {
         currentStep: p.currentStep || p.current_step
       })));
       
-      // Find active PDR (any non-closed PDR, regardless of FY)
-      // This allows users to work on future FY PDRs or complete past FY PDRs
-      const activePDR = pdrs.find((pdr: any) => pdr.status !== 'CLOSED');
+      // Find active PDR - includes both editable and submitted PDRs
+      // Editable statuses: Created, PLAN_LOCKED, MID_YEAR_APPROVED (employee can edit)
+      // Submitted statuses: SUBMITTED, MID_YEAR_SUBMITTED, END_YEAR_SUBMITTED (read-only, under CEO review)
+      // Excluded: COMPLETED (goes to history only)
+      const activePDR = pdrs.find((pdr: any) => 
+        pdr.status === 'Created' || 
+        pdr.status === 'PLAN_LOCKED' || 
+        pdr.status === 'MID_YEAR_APPROVED' ||
+        pdr.status === 'SUBMITTED' ||
+        pdr.status === 'MID_YEAR_SUBMITTED' ||
+        pdr.status === 'END_YEAR_SUBMITTED'
+      );
       
       // Also log current FY for debugging
       const currentFY = computeAustralianFY();
@@ -208,27 +218,130 @@ export function useSupabasePDRDashboard() {
   };
 }
 
+// Hook options for data selection
+export interface UseSupabasePDROptions {
+  includeGoals?: boolean;
+  includeBehaviors?: boolean;
+  includeReviews?: boolean;
+  minimal?: boolean; // Fetch only core fields, no nested data
+}
+
 // Hook for fetching single PDR
-export function useSupabasePDR(pdrId: string) {
+export function useSupabasePDR(
+  pdrId: string, 
+  options: UseSupabasePDROptions = {}
+) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  // Default options: include everything (backward compatible)
+  const {
+    includeGoals = true,
+    includeBehaviors = true,
+    includeReviews = true,
+    minimal = false,
+  } = options;
   
   const { data: pdr, isLoading, error } = useQuery({
-    queryKey: ['pdr', pdrId],
+    queryKey: ['pdr', pdrId, { includeGoals, includeBehaviors, includeReviews, minimal }],
     queryFn: async (): Promise<PDR> => {
-      const response = await fetch(`/api/pdrs/${pdrId}`, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      console.log('🔍 Fetching PDR:', { 
+        pdrId, 
+        userId: user?.id, 
+        userRole: user?.role,
+        options: { includeGoals, includeBehaviors, includeReviews, minimal }
       });
-      if (!response.ok) {
-        throw new Error('Failed to fetch PDR');
+      
+      try {
+        // Build query parameters
+        const params = new URLSearchParams();
+        if (!includeGoals) params.set('goals', 'false');
+        if (!includeBehaviors) params.set('behaviors', 'false');
+        if (!includeReviews) params.set('reviews', 'false');
+        if (minimal) params.set('minimal', 'true');
+        
+        const queryString = params.toString();
+        const url = `/api/pdrs/${pdrId}${queryString ? `?${queryString}` : ''}`;
+        
+        console.log('🔍 PDR fetch URL:', url);
+        
+        const response = await fetch(url, {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          // Enhanced error logging for diagnostics
+          const errorBody = await response.json().catch(() => ({}));
+          console.error('❌ PDR Fetch Error:', {
+            status: response.status,
+            statusText: response.statusText,
+            pdrId,
+            userId: user?.id,
+            userRole: user?.role,
+            errorBody,
+            timestamp: new Date().toISOString()
+          });
+          
+          // Provide more specific error messages
+          if (response.status === 403) {
+            throw new Error('Access denied. You do not have permission to view this PDR.');
+          } else if (response.status === 404) {
+            throw new Error('PDR not found. It may have been deleted or you may not have access to it.');
+          } else {
+            throw new Error(errorBody.error || `Failed to fetch PDR (${response.status})`);
+          }
+        }
+        
+        const result: ApiResponse<PDR> = await response.json();
+        console.log('✅ PDR Fetched Successfully:', { 
+          pdrId: result.data.id, 
+          status: result.data.status,
+          userId: result.data.userId || result.data.user_id,
+          dataSize: JSON.stringify(result.data).length
+        });
+        
+        return result.data;
+      } catch (error) {
+        // Check for storage quota errors
+        if (error instanceof Error && 
+            (error.message.includes('quota') || 
+             error.message.includes('QuotaExceeded') ||
+             error.message.includes('kQuotaBytes'))) {
+          console.warn('🚨 Storage quota exceeded during PDR fetch - performing emergency cleanup');
+          emergencyCleanup();
+          
+          // Retry once after cleanup with minimal data
+          console.log('🔄 Retrying PDR fetch with minimal mode after cleanup...');
+          const retryParams = new URLSearchParams({ minimal: 'true' });
+          const retryResponse = await fetch(`/api/pdrs/${pdrId}?${retryParams}`, {
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (retryResponse.ok) {
+            const result: ApiResponse<PDR> = await retryResponse.json();
+            console.log('✅ PDR fetch successful after cleanup retry (minimal mode)');
+            return result.data;
+          } else {
+            const errorBody = await retryResponse.json().catch(() => ({}));
+            throw new Error(errorBody.error || `Failed to fetch PDR after cleanup (${retryResponse.status})`);
+          }
+        }
+        
+        // Re-throw non-quota errors
+        throw error;
       }
-      const result: ApiResponse<PDR> = await response.json();
-      return result.data;
     },
     enabled: !!pdrId,
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 0, // Always refetch to prevent stale cache buildup
+    retry: false, // Don't retry - we handle it manually for quota errors
+    // ULTRA-SHORT cache time to prevent storage quota issues
+    gcTime: minimal ? 30 * 1000 : 60 * 1000, // 30 seconds minimal, 1 min full
   });
 
   // Delete PDR mutation
@@ -301,6 +414,8 @@ export function useSupabasePDRGoals(pdrId: string) {
   // Create goal mutation
   const createGoalMutation = useMutation({
     mutationFn: async (goalData: GoalFormData): Promise<Goal> => {
+      console.log('🎯 Creating goal with data:', goalData);
+      
       const response = await fetch(`/api/pdrs/${pdrId}/goals`, {
         method: 'POST',
         credentials: 'include',
@@ -311,10 +426,18 @@ export function useSupabasePDRGoals(pdrId: string) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create goal');
+        // Log the actual error response for debugging
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Goal creation failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+        });
+        throw new Error(errorData.error || 'Failed to create goal');
       }
 
       const result: ApiResponse<Goal> = await response.json();
+      console.log('✅ Goal created successfully:', result.data);
       return result.data;
     },
     onSuccess: () => {
@@ -494,10 +617,21 @@ export function useSupabasePDRHistory() {
       
       // Fix: Handle nested data structure - API returns {data: {data: Array, pagination: {}}}
       const pdrs = Array.isArray(result.data) ? result.data : (result.data as any)?.data || [];
-      console.log('PDR History - Extracted PDRs:', pdrs?.length, pdrs?.map((p: any) => ({ id: p.id, status: p.status })));
+      console.log('PDR History - Extracted PDRs:', pdrs?.length, pdrs?.map((p: any) => ({ 
+        id: p.id, 
+        status: p.status, 
+        fyLabel: p.fyLabel || p.fy_label,
+        createdAt: p.createdAt || p.created_at
+      })));
       
-      // Ensure we always return an array
-      return pdrs;
+      // Ensure we always return an array, sorted by creation date (newest first)
+      const sortedPdrs = pdrs.sort((a: any, b: any) => {
+        const dateA = new Date(a.createdAt || a.created_at || 0).getTime();
+        const dateB = new Date(b.createdAt || b.created_at || 0).getTime();
+        return dateB - dateA; // Descending order (newest first)
+      });
+      
+      return sortedPdrs;
     },
     enabled: !!user?.id, // Only run if user is loaded
     staleTime: 2 * 60 * 1000, // 2 minutes
@@ -518,7 +652,7 @@ export function useSupabaseAdminDashboard() {
   const { data: dashboardData, isLoading, error } = useQuery({
     queryKey: ['admin-dashboard'],
     queryFn: async () => {
-      // Call the proper admin dashboard API endpoint
+      // Call the admin dashboard API endpoint
       const response = await fetch('/api/admin/dashboard', {
         credentials: 'include',
         headers: {

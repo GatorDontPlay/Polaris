@@ -10,6 +10,7 @@ import { goalSchema } from '@/lib/validations';
 import { createClient } from '@/lib/supabase/server';
 import { transformGoalFields } from '@/lib/case-transform';
 import { createAuditLog } from '@/lib/auth';
+import { PDRStatus, EMPLOYEE_EDITABLE_STATUSES } from '@/types/pdr-status';
 
 export async function GET(
   request: NextRequest,
@@ -82,10 +83,12 @@ export async function POST(
     // Validate request body
     const validation = await validateRequestBody(request, goalSchema);
     if (!validation.success) {
+      console.error('❌ Goal validation failed:', validation.response);
       return validation.response;
     }
 
     const goalData = validation.data;
+    console.log('✅ Goal validation passed:', goalData);
     const supabase = await createClient();
 
     // Get PDR and verify access
@@ -112,9 +115,13 @@ export async function POST(
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
-    // Check if PDR allows editing (Created, DRAFT, SUBMITTED and OPEN_FOR_REVIEW)
-    if (!['Created', 'DRAFT', 'SUBMITTED', 'OPEN_FOR_REVIEW'].includes(pdr.status)) {
-      return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
+    // For employees, check if PDR status allows editing
+    if (user.role !== 'CEO' && !EMPLOYEE_EDITABLE_STATUSES.includes(pdr.status as PDRStatus)) {
+      return createApiError(
+        `PDR status '${pdr.status}' does not allow editing`, 
+        400, 
+        'INVALID_STATUS'
+      );
     }
 
     // Create the goal (including targetOutcome, weighting, and goalMapping)

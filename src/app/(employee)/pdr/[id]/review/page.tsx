@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabasePDR, useSupabasePDRGoals, useSupabasePDRBehaviors, useSupabasePDRUpdate } from '@/hooks/use-supabase-pdrs';
+import { usePDRPermissions } from '@/hooks/use-pdr-permissions';
 import { useCompanyValues } from '@/hooks/use-company-values';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,8 @@ import {
   Target,
   Heart,
   FileText,
-  Calendar
+  Calendar,
+  Award
 } from 'lucide-react';
 import { formatFYForDisplay } from '@/lib/financial-year';
 import toast, { Toaster } from 'react-hot-toast';
@@ -33,7 +35,7 @@ const getDevelopmentData = (pdrId: string) => {
   if (typeof window === 'undefined') return null;
   
   try {
-    const data = localStorage.getItem(`demo_development_${pdrId}`);
+    const data = localStorage.getItem(`development_draft_${pdrId}`);
     return data ? JSON.parse(data) : null;
   } catch (error) {
     console.error('Error retrieving development data:', error);
@@ -42,6 +44,90 @@ const getDevelopmentData = (pdrId: string) => {
 };
 
 // Priority colors are no longer needed - using weighting instead
+
+/**
+ * Determines which navigation actions should be visible based on PDR status
+ */
+const getNavigationState = (
+  pdrStatus: PDRStatus,
+  canSubmit: boolean,
+  isComplete: boolean
+): {
+  showSubmitButton: boolean;
+  showMidYearNavigation: boolean;
+  showEndYearNavigation: boolean;
+  showUnderReviewMessage: boolean;
+  underReviewMessage?: string;
+} => {
+  switch (pdrStatus) {
+    case 'Created':
+      return {
+        showSubmitButton: canSubmit && isComplete,
+        showMidYearNavigation: false,
+        showEndYearNavigation: false,
+        showUnderReviewMessage: false,
+      };
+      
+    case 'SUBMITTED':
+      return {
+        showSubmitButton: false,
+        showMidYearNavigation: false,
+        showEndYearNavigation: false,
+        showUnderReviewMessage: true,
+        underReviewMessage: 'Your initial PDR is under review by your manager',
+      };
+      
+    case 'PLAN_LOCKED':
+      return {
+        showSubmitButton: false,
+        showMidYearNavigation: true,
+        showEndYearNavigation: false,
+        showUnderReviewMessage: false,
+      };
+      
+    case 'MID_YEAR_SUBMITTED':
+      return {
+        showSubmitButton: false,
+        showMidYearNavigation: false,
+        showEndYearNavigation: false,
+        showUnderReviewMessage: true,
+        underReviewMessage: 'Your mid-year review is under review by your manager',
+      };
+      
+    case 'MID_YEAR_APPROVED':
+      return {
+        showSubmitButton: false,
+        showMidYearNavigation: false,
+        showEndYearNavigation: true,
+        showUnderReviewMessage: false,
+      };
+      
+    case 'END_YEAR_SUBMITTED':
+      return {
+        showSubmitButton: false,
+        showMidYearNavigation: false,
+        showEndYearNavigation: false,
+        showUnderReviewMessage: true,
+        underReviewMessage: 'Your end-year review is under review by your manager',
+      };
+      
+    case 'COMPLETED':
+      return {
+        showSubmitButton: false,
+        showMidYearNavigation: false,
+        showEndYearNavigation: false,
+        showUnderReviewMessage: false,
+      };
+      
+    default:
+      return {
+        showSubmitButton: false,
+        showMidYearNavigation: false,
+        showEndYearNavigation: false,
+        showUnderReviewMessage: false,
+      };
+  }
+};
 
 export default function ReviewPage({ params }: ReviewPageProps) {
   const router = useRouter();
@@ -54,14 +140,15 @@ export default function ReviewPage({ params }: ReviewPageProps) {
   const { data: behaviors, isLoading: behaviorsLoading } = useSupabasePDRBehaviors(params.id);
   const { data: companyValues, isLoading: companyValuesLoading } = useCompanyValues();
   const { updatePDR } = useSupabasePDRUpdate(params.id);
+  const { permissions, isEditable } = usePDRPermissions({ pdr: pdr || null });
 
   const isLoading = pdrLoading || goalsLoading || behaviorsLoading || companyValuesLoading;
-  const canSubmit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'Created' || pdr.status === 'OPEN_FOR_REVIEW');
-  const canEdit = pdr && !pdr.isLocked && (pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' || pdr.status === 'OPEN_FOR_REVIEW' || pdr.status === 'Created');
+  const canSubmit = permissions.canSubmitForReview;
+  const canEdit = isEditable;
   // Check if employee can access Mid-Year Check-in: needs to be past step 3
   // Allow Mid-Year access when currentStep >= 4 regardless of status
   const canAccessMidYear = pdr && ((pdr.currentStep >= 4) || 
-                          (pdr.currentStep >= 3 && (pdr.status === 'UNDER_REVIEW' || pdr.status === 'OPEN_FOR_REVIEW' || pdr.status === 'PLAN_LOCKED' || pdr.status === 'SUBMITTED')));
+                          (pdr.currentStep >= 3 && (pdr.status === 'PLAN_LOCKED' || pdr.status === 'SUBMITTED' || pdr.status === 'MID_YEAR_APPROVED')));
 
   // Load development data
   useEffect(() => {
@@ -80,23 +167,24 @@ export default function ReviewPage({ params }: ReviewPageProps) {
     });
   }, [params.id]); // Remove behaviors dependency to prevent infinite re-renders
   
-  // Update PDR step to 3 (Review) when user reaches this page
+  // Update PDR step to 3 (Review) when user reaches this page - only if PDR is editable
   useEffect(() => {
     console.log('🔧 Review page - PDR step check:', {
       pdrId: pdr?.id,
       currentStep: pdr?.currentStep,
       status: pdr?.status,
-      needsUpdate: pdr && pdr.currentStep < 3,
+      isEditable,
+      needsUpdate: pdr && pdr.currentStep < 3 && isEditable,
       updatePDRFunction: typeof updatePDR
     });
     
-    if (pdr && pdr.currentStep < 3) {
+    if (pdr && pdr.currentStep < 3 && isEditable) {
       console.log('🔧 Review page - Updating PDR step from', pdr.currentStep, 'to 3');
       updatePDR({ currentStep: 3 }).catch(error => {
         console.error('Failed to update PDR step:', error);
       });
     }
-  }, [pdr, updatePDR]);
+  }, [pdr, updatePDR, isEditable]);
 
   // Helper function to get company value name
   const getValueName = (valueId: string) => {
@@ -127,6 +215,12 @@ export default function ReviewPage({ params }: ReviewPageProps) {
 
   // For completion, require at least 1 goal and some behaviors (not necessarily all 6)
   const isComplete = stats.totalGoals > 0 && stats.actualBehaviorsCount > 0;
+
+  // Calculate navigation state based on PDR status
+  const navigationState = useMemo(() => 
+    getNavigationState(pdr?.status || 'Created', canSubmit, isComplete),
+    [pdr?.status, canSubmit, isComplete]
+  );
 
   // Debug logging after all variables are declared
   console.log('Review page debug:', {
@@ -173,19 +267,29 @@ export default function ReviewPage({ params }: ReviewPageProps) {
 
       if (!response.ok) {
         const errorData = await response.json();
+        
+        // Handle validation errors with detailed feedback
+        if (errorData.code === 'VALIDATION_FAILED' && errorData.details) {
+          const errorMessages = errorData.details.map((d: any) => d.message).join('\n• ');
+          throw new Error(`Please complete the following:\n\n• ${errorMessages}`);
+        }
+        
+        // Handle other errors
         throw new Error(errorData.error || 'Failed to submit PDR for review');
       }
 
       const result = await response.json();
       console.log('✅ PDR submitted successfully:', result);
 
-      // Update PDR step to 4 (submitted for review)
-      await updatePDR({ currentStep: 4 });
+      // NOTE: Do NOT try to update currentStep after submission!
+      // The submit-for-review endpoint already changed the status to SUBMITTED,
+      // which means the PDR is now under CEO review and locked for editing.
+      // Any attempt to update will fail with 403 Forbidden.
 
       // Trigger cache invalidation for dashboard
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('pdr-updated', { 
-          detail: { pdrId: pdr.id, step: 4, status: 'OPEN_FOR_REVIEW' } 
+          detail: { pdrId: pdr.id, status: 'SUBMITTED' } 
         }));
       }
 
@@ -251,35 +355,50 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                 Back to Behaviors
               </Button>
               
-              {/* Always show Next button when on Review page */}
-              <Button 
-                onClick={() => router.push(`/pdr/${params.id}/mid-year`)}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <ArrowRight className="h-4 w-4 mr-2" />
-                Next: Mid-Year Check-in
-              </Button>
+              {/* Conditionally show navigation based on status */}
+              {navigationState.showMidYearNavigation && (
+                <Button 
+                  onClick={() => router.push(`/pdr/${params.id}/mid-year`)}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <ArrowRight className="h-4 w-4 mr-2" />
+                  Next: Mid-Year Check-in
+                </Button>
+              )}
               
-              {pdr && pdr.currentStep >= 5 && (
+              {navigationState.showEndYearNavigation && (
                 <Button 
                   onClick={() => router.push(`/pdr/${params.id}/end-year`)}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   <FileText className="h-4 w-4 mr-2" />
-                  Go to End Year Review
+                  Next: End-Year Review
                 </Button>
               )}
             </div>
-            <PDRStatusBadge status={pdr?.status || 'DRAFT'} />
-            {canSubmit && isComplete && (
+            
+            <PDRStatusBadge status={pdr?.status || 'Created'} />
+            
+            {/* Submit button - only show when status is Created */}
+            {navigationState.showSubmitButton && (
               <Button 
                 onClick={() => setShowSubmitConfirm(true)}
                 disabled={isSubmitting}
                 className="bg-status-success hover:bg-status-success/90 text-status-success-foreground"
               >
                 <Send className="h-4 w-4 mr-2" />
-                {pdr?.status === 'OPEN_FOR_REVIEW' ? 'Update Submission' : 'Submit for Review'}
+                Submit for Review
               </Button>
+            )}
+            
+            {/* Under review message */}
+            {navigationState.showUnderReviewMessage && (
+              <div className="flex items-center space-x-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
+                <span className="text-sm text-blue-400 font-medium">
+                  {navigationState.underReviewMessage}
+                </span>
+              </div>
             )}
           </div>
         </div>
@@ -525,17 +644,60 @@ export default function ReviewPage({ params }: ReviewPageProps) {
         </CardContent>
       </Card>
 
-      {/* Bottom Navigation */}
-      <div className="mt-12 mb-8 flex justify-center">
-        <Button 
-          onClick={() => router.push(`/pdr/${params.id}/mid-year`)}
-          className="bg-green-600 hover:bg-green-700 text-white px-10 py-8 text-xl shadow-lg animate-pulse"
-          size="lg"
-        >
-          <ArrowRight className="h-6 w-6 mr-3" />
-          Continue to Mid-Year Check-in
-        </Button>
-      </div>
+      {/* Bottom Navigation - Only show when navigation is available */}
+      {(navigationState.showMidYearNavigation || navigationState.showEndYearNavigation) && (
+        <div className="mt-12 mb-8 flex justify-center">
+          {navigationState.showMidYearNavigation && (
+            <Button 
+              onClick={() => router.push(`/pdr/${params.id}/mid-year`)}
+              className="bg-green-600 hover:bg-green-700 text-white px-10 py-8 text-xl shadow-lg"
+              size="lg"
+            >
+              <ArrowRight className="h-6 w-6 mr-3" />
+              Continue to Mid-Year Check-in
+            </Button>
+          )}
+          
+          {navigationState.showEndYearNavigation && (
+            <Button 
+              onClick={() => router.push(`/pdr/${params.id}/end-year`)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-10 py-8 text-xl shadow-lg"
+              size="lg"
+            >
+              <Award className="h-6 w-6 mr-3" />
+              Continue to End-Year Review
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Under Review - Show prominent message when waiting for CEO */}
+      {navigationState.showUnderReviewMessage && (
+        <div className="mt-12 mb-8 flex justify-center">
+          <Card className="border-blue-500/30 bg-blue-500/5 max-w-2xl">
+            <CardContent className="py-6">
+              <div className="flex items-center justify-center space-x-4">
+                <div className="flex-shrink-0">
+                  <div className="h-12 w-12 rounded-full bg-blue-500/20 flex items-center justify-center">
+                    <div className="h-6 w-6 rounded-full bg-blue-500 animate-pulse"></div>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-blue-400 mb-1">
+                    Under Review
+                  </h3>
+                  <p className="text-sm text-blue-400/80">
+                    {navigationState.underReviewMessage}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    You'll be notified when the review is complete
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Submit Confirmation Modal */}
       {showSubmitConfirm && (
@@ -543,15 +705,12 @@ export default function ReviewPage({ params }: ReviewPageProps) {
           <Card className="w-full max-w-md">
             <CardHeader>
               <CardTitle className="text-status-success">
-                {pdr?.status === 'OPEN_FOR_REVIEW' ? 'Update PDR Submission' : 'Submit PDR for Review'}
+                Submit PDR for Review
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground mb-4">
-                {pdr?.status === 'OPEN_FOR_REVIEW' 
-                  ? 'You are about to update your submission with the latest changes'
-                  : 'You are about to submit your plan for review'
-                }
+                You are about to submit your plan for review
               </p>
               <div className="bg-status-info/10 border border-status-info/20 p-3 rounded-lg mb-4">
                 <h4 className="font-medium text-status-info mb-1">What happens next:</h4>
@@ -576,7 +735,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
                   className="bg-status-success hover:bg-status-success/90 text-status-success-foreground"
                 >
                   <Send className="h-4 w-4 mr-2" />
-                  {isSubmitting ? 'Submitting...' : (pdr?.status === 'OPEN_FOR_REVIEW' ? 'Update PDR' : 'Submit PDR')}
+                  {isSubmitting ? 'Submitting...' : 'Submit PDR'}
                 </Button>
               </div>
             </CardContent>

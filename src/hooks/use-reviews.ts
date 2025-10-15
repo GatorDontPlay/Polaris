@@ -11,7 +11,9 @@ async function fetchMidYearReview(pdrId: string): Promise<MidYearReview | null> 
 
   if (!response.ok) {
     if (response.status === 404) {
-      return null; // Review doesn't exist yet
+      // Review doesn't exist yet - this is expected on first load
+      // The 404 console log is normal and can be ignored
+      return null;
     }
     throw new Error('Failed to fetch mid-year review');
   }
@@ -138,22 +140,26 @@ async function updateEndYearReview(pdrId: string, reviewData: Partial<EndYearFor
 }
 
 // Hook for fetching mid-year review
-export function useMidYearReview(pdrId: string | null) {
+export function useMidYearReview(pdrId: string | null, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['mid-year-review', pdrId],
     queryFn: () => fetchMidYearReview(pdrId!),
-    enabled: !!pdrId,
-    staleTime: 1 * 60 * 1000, // 1 minute
+    enabled: options?.enabled ?? !!pdrId, // Default to !!pdrId for backward compat
+    staleTime: 0, // Always refetch to prevent stale cache
+    gcTime: 30 * 1000, // 30 seconds
+    retry: false, // Don't retry 404s - review might not exist yet
   });
 }
 
 // Hook for fetching end-year review
-export function useEndYearReview(pdrId: string | null) {
+export function useEndYearReview(pdrId: string | null, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['end-year-review', pdrId],
     queryFn: () => fetchEndYearReview(pdrId!),
-    enabled: !!pdrId,
-    staleTime: 1 * 60 * 1000, // 1 minute
+    enabled: options?.enabled ?? !!pdrId, // Default to !!pdrId for backward compat
+    staleTime: 0, // Always refetch to prevent stale cache
+    gcTime: 30 * 1000, // 30 seconds
+    retry: false, // Don't retry 404s - review might not exist yet
   });
 }
 

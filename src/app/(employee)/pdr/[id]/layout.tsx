@@ -87,6 +87,9 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
   }
 
   // Handle error or not found
+  // Note: RLS policies enforce access control at the database level
+  // If the PDR exists but user doesn't have access, RLS returns no rows
+  // So we only need to check for error or missing PDR
   if (error || !pdr) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -97,28 +100,6 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
           <CardContent className="text-center">
             <p className="text-muted-foreground mb-4">
               The PDR you're looking for doesn't exist or you don't have access to it.
-            </p>
-            <Button onClick={() => router.push('/dashboard')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Check if user can access this PDR
-  if (user?.role !== 'CEO' && pdr.userId !== user?.id) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center text-status-error">Access Denied</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center">
-            <p className="text-muted-foreground mb-4">
-              You don't have permission to access this PDR.
             </p>
             <Button onClick={() => router.push('/dashboard')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -225,10 +206,17 @@ export default function PDRLayout({ children, params }: PDRLayoutProps) {
       {/* Stepper */}
       <div className="bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {console.log('🚀 PDR Layout - About to render stepper with:', {
+            currentStep: getEffectiveCurrentStep(pdr.currentStep),
+            actualCurrentStep: pdr.currentStep,
+            pdrStatus: pdr.status,
+            pathname
+          })}
           <StepperIndicator
             currentStep={getEffectiveCurrentStep(pdr.currentStep)}
             totalSteps={PDR_STEPS.length}
             steps={PDR_STEPS}
+            pdrStatus={pdr.status}
             {...(!pdr.isLocked && { onStepClick: handleStepClick })}
           />
         </div>

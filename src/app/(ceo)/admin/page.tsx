@@ -133,32 +133,53 @@ export default function CEODashboard() {
   const allPendingReviews = dashboardData?.pendingReviews || [];
   const recentActivity = dashboardData?.recentActivity || [];
   
-  // Calculate counts for each filter category
+  // Calculate counts for each filter category - Updated for approval gate workflow
+  // This handles both current database statuses AND new workflow statuses
   const goalSettingCount = allPendingReviews.filter((review: any) => 
-    review.status === 'SUBMITTED' || review.status === 'UNDER_REVIEW' || 
-    (review.status === 'OPEN_FOR_REVIEW' && !review.is_locked)
+    // Goal Setting: Initial PDR submission and review
+    review.status === 'SUBMITTED'
   ).length;
 
-  const midYearCount = allPendingReviews.filter((review: any) => review.status === 'PLAN_LOCKED' || review.status === 'LOCKED' || review.status === 'MID_YEAR_CHECK').length;
-  const yearEndCount = allPendingReviews.filter((review: any) => review.status === 'FINAL_REVIEW' || review.status === 'END_YEAR_REVIEW').length;
-  const calibrationCount = allPendingReviews.filter((review: any) => review.status === 'COMPLETED').length;
-  const closedCount = allPendingReviews.filter((review: any) => review.status === 'COMPLETED').length;
+  const midYearCount = allPendingReviews.filter((review: any) => 
+    // Mid Year: Employee submitted mid-year
+    review.status === 'MID_YEAR_SUBMITTED'
+  ).length;
   
-  // Filter pending reviews based on selected filter
+  const yearEndCount = allPendingReviews.filter((review: any) => 
+    // Year End: Employee submitted final
+    review.status === 'END_YEAR_SUBMITTED'
+  ).length;
+  
+  const calibrationCount = allPendingReviews.filter((review: any) => 
+    // Calibration: Completed PDRs that haven't been calibrated yet
+    review.status === 'COMPLETED' && !review.calibrated_at && !review.calibratedAt
+  ).length;
+  
+  const closedCount = allPendingReviews.filter((review: any) => 
+    // Closed: Completed PDRs that have been calibrated
+    review.status === 'COMPLETED' && (review.calibrated_at || review.calibratedAt)
+  ).length;
+  
+  // Filter pending reviews based on selected filter - Updated for approval gate workflow
   const pendingReviews = allPendingReviews.filter((review: any) => {
     switch (pendingReviewsFilter) {
       case 'goal-setting':
-        return review.status === 'SUBMITTED' || review.status === 'UNDER_REVIEW' || 
-               (review.status === 'OPEN_FOR_REVIEW' && !review.is_locked);
+        // Show PDRs that need CEO initial review
+        return review.status === 'SUBMITTED';
       case 'mid-year':
-        return review.status === 'PLAN_LOCKED';
+        // Show PDRs that need CEO mid-year review
+        return review.status === 'MID_YEAR_SUBMITTED';
       case 'year-end':
-        return review.status === 'FINAL_REVIEW';
+        // Show PDRs that need CEO final review
+        return review.status === 'END_YEAR_SUBMITTED';
       case 'calibration':
-        return review.status === 'COMPLETED';
+        // Show completed PDRs that need calibration (not yet calibrated)
+        return review.status === 'COMPLETED' && !review.calibrated_at && !review.calibratedAt;
       case 'closed':
-        return review.status === 'COMPLETED';
+        // Show completed PDRs that have been calibrated
+        return review.status === 'COMPLETED' && (review.calibrated_at || review.calibratedAt);
       default:
+        // Show all PDRs when no filter selected
         return true;
     }
   });
@@ -240,14 +261,17 @@ export default function CEODashboard() {
                         <div key={activity.id} className="flex items-start space-x-3 p-3 rounded border bg-card/50 hover:bg-accent/30 transition-colors">
                           <Avatar className="h-7 w-7 flex-shrink-0 mt-0.5">
                             <AvatarFallback className="text-xs">
-                              {activity.user?.firstName?.[0]}{activity.user?.lastName?.[0]}
+                              {activity.user?.firstName?.[0] || activity.user?.first_name?.[0] || 'U'}{activity.user?.lastName?.[0] || activity.user?.last_name?.[0] || 'N'}
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                               <div className="flex flex-col">
                                 <span className="text-xs font-medium">
-                                  {`${activity.user?.firstName || 'Unknown'} ${activity.user?.lastName || 'User'}`}
+                                  {activity.user 
+                                    ? `${activity.user.firstName || activity.user.first_name || 'Unknown'} ${activity.user.lastName || activity.user.last_name || 'User'}`
+                                    : 'Unknown User'
+                                  }
                                 </span>
                                 <div className="text-xs text-muted-foreground mt-0.5 break-words">
                                   {activity.message}
@@ -399,14 +423,17 @@ export default function CEODashboard() {
                             <div key={review.id} className="flex items-center gap-3 p-3 rounded border bg-card/50 hover:bg-accent/30 transition-colors min-h-[3.5rem]">
                               <Avatar className="h-8 w-8 flex-shrink-0">
                                 <AvatarFallback className="text-xs">
-                                  {review.user?.first_name?.[0] || 'U'}{review.user?.last_name?.[0] || 'N'}
+                                  {review.user?.first_name?.[0] || review.user?.firstName?.[0] || 'U'}{review.user?.last_name?.[0] || review.user?.lastName?.[0] || 'N'}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="min-w-0 flex-1 flex items-center justify-between">
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2 mb-1">
                                     <span className="text-sm font-medium truncate">
-                                      {review.user ? `${review.user.first_name} ${review.user.last_name}` : 'Unknown Employee'}
+                                      {review.user 
+                                        ? `${review.user.first_name || review.user.firstName || 'Unknown'} ${review.user.last_name || review.user.lastName || 'User'}`
+                                        : 'Unknown Employee'
+                                      }
                                     </span>
                                     <Badge 
                                       variant={
@@ -423,11 +450,41 @@ export default function CEODashboard() {
                                     {review.status.replace('_', ' ')} • {daysSince === 0 ? 'Today' : `${daysSince}d ago`}
                                   </div>
                                 </div>
-                                <Button variant="outline" size="sm" asChild className="h-8 px-3 text-xs flex-shrink-0 ml-3">
-                                  <Link href={`/admin/reviews/${review.id}`}>
-                                    Review
-                                  </Link>
-                                </Button>
+                                <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                                  {pendingReviewsFilter === 'calibration' && (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700 text-white border-green-600"
+                                      onClick={async () => {
+                                        try {
+                                          const response = await fetch(`/api/pdrs/${review.id}/close-calibration`, {
+                                            method: 'POST',
+                                            credentials: 'include',
+                                          });
+                                          
+                                          if (response.ok) {
+                                            // Refresh dashboard data
+                                            refreshDashboard();
+                                          } else {
+                                            const error = await response.json();
+                                            alert(`Error: ${error.error || 'Failed to close calibration'}`);
+                                          }
+                                        } catch (error) {
+                                          console.error('Failed to close calibration:', error);
+                                          alert('Failed to close calibration');
+                                        }
+                                      }}
+                                    >
+                                      Close Calibration
+                                    </Button>
+                                  )}
+                                  <Button variant="outline" size="sm" asChild className="h-8 px-3 text-xs">
+                                    <Link href={`/admin/reviews/${review.id}`}>
+                                      {pendingReviewsFilter === 'closed' ? 'View' : 'Review'}
+                                    </Link>
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           );

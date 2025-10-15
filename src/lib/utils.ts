@@ -77,17 +77,13 @@ export function getRelativeTime(date: Date | string): string {
  */
 export function getPDRStatusLabel(status: PDRStatus): string {
   const labels: Record<PDRStatus, string> = {
-    Created: 'Created',
-    OPEN_FOR_REVIEW: 'Open for Review',
-    PLAN_LOCKED: 'Plan Locked',
-    PDR_BOOKED: 'PDR Booked',
-    DRAFT: 'Draft',
-    SUBMITTED: 'Submitted',
-    UNDER_REVIEW: 'Under Review',
-    MID_YEAR_CHECK: 'Mid-Year Check',
-    END_YEAR_REVIEW: 'End-Year Review',
+    Created: 'Draft',
+    SUBMITTED: 'Under Review',
+    PLAN_LOCKED: 'Plan Approved',
+    MID_YEAR_SUBMITTED: 'Mid-Year Submitted',
+    MID_YEAR_APPROVED: 'Mid-Year Approved',
+    END_YEAR_SUBMITTED: 'End-Year Submitted',
     COMPLETED: 'Completed',
-    LOCKED: 'Locked',
   };
   return labels[status];
 }
@@ -97,17 +93,13 @@ export function getPDRStatusLabel(status: PDRStatus): string {
  */
 export function getPDRStatusColor(status: PDRStatus): string {
   const colors: Record<PDRStatus, string> = {
-    Created: 'pdr-status-draft',
-    OPEN_FOR_REVIEW: 'pdr-status-review',
-    PLAN_LOCKED: 'pdr-status-locked',
-    PDR_BOOKED: 'pdr-status-completed',
-    DRAFT: 'pdr-status-draft',
-    SUBMITTED: 'pdr-status-submitted',
-    UNDER_REVIEW: 'pdr-status-review',
-    MID_YEAR_CHECK: 'pdr-status-midyear',
-    END_YEAR_REVIEW: 'pdr-status-endyear',
+    Created: 'pdr-status-created',
+    SUBMITTED: 'pdr-status-review',
+    PLAN_LOCKED: 'pdr-status-approved',
+    MID_YEAR_SUBMITTED: 'pdr-status-review',
+    MID_YEAR_APPROVED: 'pdr-status-approved',
+    END_YEAR_SUBMITTED: 'pdr-status-review',
     COMPLETED: 'pdr-status-completed',
-    LOCKED: 'pdr-status-locked',
   };
   return colors[status];
 }

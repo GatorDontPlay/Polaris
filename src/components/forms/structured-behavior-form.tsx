@@ -94,7 +94,7 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
     try {
       // This should match the behaviors page's PDR ID pattern
       const pdrId = window.location.pathname.split('/')[2]; // Extract PDR ID from URL
-      const data = localStorage.getItem(`demo_development_${pdrId}`);
+      const data = localStorage.getItem(`development_draft_${pdrId}`);
       const parsed = data ? JSON.parse(data) : null;
       return {
         selfReflection: parsed?.selfReflection || '',

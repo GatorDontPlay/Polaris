@@ -64,14 +64,24 @@ export async function GET(request: NextRequest) {
                     message = 'completed PDR';
                     priority = 'low';
                     break;
-                  case 'MID_YEAR_CHECK':
+                  case 'MID_YEAR_SUBMITTED':
                     type = 'review_completed';
-                    message = 'started mid-year review';
+                    message = 'submitted mid-year review';
                     priority = 'medium';
                     break;
-                  case 'END_YEAR_REVIEW':
+                  case 'MID_YEAR_APPROVED':
                     type = 'review_completed';
-                    message = 'started end-year review';
+                    message = 'mid-year review approved';
+                    priority = 'medium';
+                    break;
+                  case 'END_YEAR_SUBMITTED':
+                    type = 'review_completed';
+                    message = 'submitted end-year review';
+                    priority = 'medium';
+                    break;
+                  case 'PLAN_LOCKED':
+                    type = 'review_completed';
+                    message = 'PDR plan approved';
                     priority = 'medium';
                     break;
                   default:

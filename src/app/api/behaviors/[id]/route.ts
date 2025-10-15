@@ -9,6 +9,7 @@ import {
 import { behaviorUpdateSchema } from '@/lib/validations';
 import { createClient } from '@/lib/supabase/server';
 import { createAuditLog } from '@/lib/auth';
+import { PDRStatus, EMPLOYEE_EDITABLE_STATUSES } from '@/types/pdr-status';
 import { transformBehaviorFields } from '@/lib/case-transform';
 
 export async function PATCH(
@@ -86,9 +87,14 @@ export async function PATCH(
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
-    // For employees, allow editing in more statuses to support the workflow
-    if (user.role !== 'CEO' && !['Created', 'DRAFT', 'SUBMITTED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW', 'MID_YEAR_CHECK', 'END_YEAR_REVIEW'].includes(behavior.pdr.status)) {
-      return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
+    // Define allowed statuses for employee editing
+    // For employees, check if PDR status allows editing
+    if (user.role !== 'CEO' && !EMPLOYEE_EDITABLE_STATUSES.includes(behavior.pdr.status as PDRStatus)) {
+      return createApiError(
+        `PDR status '${behavior.pdr.status}' does not allow editing`, 
+        400, 
+        'INVALID_STATUS'
+      );
     }
 
     // If valueId is being changed, verify the new company value
@@ -223,9 +229,14 @@ export async function DELETE(
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
-    // Check if PDR allows editing - allow more statuses for employees to support workflow
-    if (user.role !== 'CEO' && !['Created', 'DRAFT', 'SUBMITTED', 'OPEN_FOR_REVIEW', 'UNDER_REVIEW', 'MID_YEAR_CHECK', 'END_YEAR_REVIEW'].includes(behavior.pdr.status)) {
-      return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
+    // Define allowed statuses for employee editing
+    // For employees, check if PDR status allows editing
+    if (user.role !== 'CEO' && !EMPLOYEE_EDITABLE_STATUSES.includes(behavior.pdr.status as PDRStatus)) {
+      return createApiError(
+        `PDR status '${behavior.pdr.status}' does not allow editing`, 
+        400, 
+        'INVALID_STATUS'
+      );
     }
 
     // Delete the behavior

@@ -69,86 +69,24 @@ export function PDRManagementDashboard() {
   const getStatusFilter = () => {
     switch (activeTab) {
       case 'pending':
-        return ['OPEN_FOR_REVIEW']; // PDRs submitted for CEO review
+        return ['Created']; // Not yet submitted
       case 'review':
-        return ['PLAN_LOCKED']; // PDRs reviewed by CEO
+        return ['SUBMITTED', 'MID_YEAR_SUBMITTED', 'END_YEAR_SUBMITTED']; // Needs CEO action
       case 'locked':
-        return ['PDR_BOOKED']; // PDRs with meetings booked
+        return ['PLAN_LOCKED', 'MID_YEAR_APPROVED']; // Waiting for employee
       case 'booked':
-        return ['COMPLETED']; // Completed PDRs
+        return ['COMPLETED']; // All done
       default:
         return undefined;
     }
   };
 
-  // Use demo data instead of real API
-  const getAllPDRsFromStorage = () => {
-    const pdrs = [];
-    const pdrMap = new Map(); // Use Map to handle duplicates properly
-    
-    if (typeof window === 'undefined') return pdrs;
-    
-    console.log('🔍 getAllPDRsFromStorage: Scanning localStorage...');
-    
-    // Collect all PDR data first
-    const allPDRData = [];
-    
-    // Get current PDR
-    const currentPDR = localStorage.getItem('demo_current_pdr');
-    if (currentPDR) {
-      try {
-        const parsed = JSON.parse(currentPDR);
-        allPDRData.push({ source: 'demo_current_pdr', data: parsed });
-        console.log('📄 Found demo_current_pdr:', { id: parsed.id, status: parsed.status });
-      } catch (error) {
-        console.error('Error parsing current PDR:', error);
-      }
-    }
-    
-    // Get all demo_pdr_ entries
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('demo_pdr_') && key !== 'demo_current_pdr') {
-        try {
-          const pdrData = localStorage.getItem(key);
-          if (pdrData) {
-            const parsed = JSON.parse(pdrData);
-            allPDRData.push({ source: key, data: parsed });
-            console.log(`📄 Found ${key}:`, { id: parsed.id, status: parsed.status });
-          }
-        } catch (error) {
-          console.error(`Error parsing PDR from ${key}:`, error);
-        }
-      }
-    }
-    
-    // Process PDRs and keep the most recent version of each ID
-    allPDRData.forEach(({ source, data }) => {
-      const existing = pdrMap.get(data.id);
-      if (!existing || new Date(data.updatedAt) > new Date(existing.updatedAt)) {
-        console.log(`🔄 Using PDR ${data.id} from ${source} (status: ${data.status})`);
-        pdrMap.set(data.id, {
-          ...data,
-          createdAt: new Date(data.createdAt),
-          updatedAt: new Date(data.updatedAt),
-          ...(data.submittedAt && { submittedAt: new Date(data.submittedAt) }),
-          user: { firstName: 'Employee', lastName: 'Demo', email: 'employee@demo.com' }
-        });
-      } else {
-        console.log(`⏭️  Skipping older PDR ${data.id} from ${source} (status: ${data.status})`);
-      }
-    });
-    
-    const finalPDRs = Array.from(pdrMap.values());
-    console.log('✅ Final PDRs for CEO dashboard:', finalPDRs.map(p => ({ id: p.id, status: p.status })));
-    
-    return finalPDRs;
-  };
-
-  const pdrsData = { data: getAllPDRsFromStorage() };
-  const isLoading = false;
-  const error = null;
-  const refetch = () => {};
+  // Use the real API data from useAllPDRs hook
+  const { data: pdrsData, isLoading, error, refetch } = useAllPDRs({
+    limit: 100, // Get all PDRs for management dashboard
+    sortBy: 'updated_at',
+    sortOrder: 'desc'
+  });
 
   const submitCEOReview = useSubmitCEOReview();
   const markAsBooked = useMarkPDRAsBooked();
@@ -156,8 +94,15 @@ export function PDRManagementDashboard() {
   // Safely extract PDRs with proper type checking
   const pdrs = React.useMemo(() => {
     if (!pdrsData?.data) return [];
-    if (!Array.isArray(pdrsData.data)) return [];
-    return pdrsData.data;
+    // Handle nested pagination structure
+    if (pdrsData.success && pdrsData.data && Array.isArray(pdrsData.data)) {
+      return pdrsData.data;
+    }
+    // Handle direct array
+    if (Array.isArray(pdrsData.data)) {
+      return pdrsData.data;
+    }
+    return [];
   }, [pdrsData]);
 
   const handleSearch = (value: string) => {
@@ -229,10 +174,17 @@ export function PDRManagementDashboard() {
     console.log('getTabCounts - PDR statuses:', pdrs.map(p => ({ id: p.id, status: p.status })));
     
     const counts = {
-      pending: pdrs.filter(p => p.status === 'Created' || p.status === 'DRAFT').length,
-      review: pdrs.filter(p => p.status === 'OPEN_FOR_REVIEW' || p.status === 'SUBMITTED').length,
-      locked: pdrs.filter(p => p.status === 'PLAN_LOCKED').length,
-      booked: pdrs.filter(p => p.status === 'PDR_BOOKED' || p.status === 'PDR_Booked' || p.status === 'COMPLETED').length,
+      pending: pdrs.filter(p => p.status === 'Created').length,
+      review: pdrs.filter(p => 
+        p.status === 'SUBMITTED' || 
+        p.status === 'MID_YEAR_SUBMITTED' ||
+        p.status === 'END_YEAR_SUBMITTED'
+      ).length,
+      locked: pdrs.filter(p => 
+        p.status === 'PLAN_LOCKED' ||
+        p.status === 'MID_YEAR_APPROVED'
+      ).length,
+      booked: pdrs.filter(p => p.status === 'COMPLETED').length,
     };
     
     console.log('getTabCounts - Calculated counts:', counts);
@@ -345,7 +297,9 @@ export function PDRManagementDashboard() {
             title="Upcoming PDRs"
             description="PDRs that have been created but not yet submitted for review"
             pdrs={(() => {
-              const filteredPdrs = pdrs.filter(p => p.status === 'Created' || p.status === 'DRAFT');
+              const filteredPdrs = pdrs.filter(p => 
+                p.status === 'Created'
+              );
               console.log('📅 Upcoming Tab - Found PDRs:', filteredPdrs.length);
               console.log('📅 Upcoming Tab - PDR Details:', filteredPdrs.map(p => ({ 
                 id: p.id, 
@@ -366,7 +320,11 @@ export function PDRManagementDashboard() {
             title="PDRs for Review"
             description="PDRs submitted by employees waiting for your review"
             pdrs={(() => {
-              const filteredPdrs = pdrs.filter(p => p.status === 'OPEN_FOR_REVIEW' || p.status === 'SUBMITTED');
+              const filteredPdrs = pdrs.filter(p => 
+                p.status === 'SUBMITTED' || 
+                p.status === 'MID_YEAR_SUBMITTED' ||
+                p.status === 'END_YEAR_SUBMITTED'
+              );
               console.log('📋 For Review Tab - Found PDRs:', filteredPdrs.length);
               console.log('📋 For Review Tab - PDR Details:', filteredPdrs.map(p => ({ 
                 id: p.id, 
@@ -387,7 +345,10 @@ export function PDRManagementDashboard() {
           <PDRListCard
             title="Locked PDRs"
             description="PDRs locked by you, ready for meeting booking"
-            pdrs={pdrs.filter(p => p.status === 'PLAN_LOCKED')}
+            pdrs={pdrs.filter(p => 
+              p.status === 'PLAN_LOCKED' ||
+              p.status === 'MID_YEAR_APPROVED'
+            )}
             isLoading={isLoading}
             showActions={true}
             actionType="booking"
@@ -401,7 +362,7 @@ export function PDRManagementDashboard() {
           <PDRListCard
             title="Meetings Booked"
             description="PDRs with meetings scheduled"
-            pdrs={pdrs.filter(p => p.status === 'PDR_BOOKED' || p.status === 'PDR_Booked')}
+            pdrs={pdrs.filter(p => p.status === 'COMPLETED')}
             isLoading={isLoading}
             showActions={false}
             emptyMessage="No meetings booked yet. Book meetings from the 'Locked' tab."
@@ -525,12 +486,12 @@ interface PDRRowProps {
 }
 
 function PDRRow({ pdr, showActions, actionType, onMarkAsBooked }: PDRRowProps) {
-  const { canSubmitCEOReview } = usePDRActions(pdr);
+  const { canSubmitCEOReview } = usePDRPermissions(pdr);
   const isBookingRow = actionType === 'booking';
-  const isBooked = pdr.status === 'PDR_BOOKED' || pdr.status === 'PDR_Booked' || pdr.meetingBooked;
+  const isBooked = pdr.meetingBooked;
   
-  // Allow booking for PLAN_LOCKED PDRs (regardless of what usePDRActions says)
-  const canBookMeeting = pdr.status === 'PLAN_LOCKED' && !isBooked;
+  // Allow booking for PLAN_LOCKED and MID_YEAR_APPROVED PDRs (regardless of what usePDRPermissions says)
+  const canBookMeeting = (pdr.status === 'PLAN_LOCKED' || pdr.status === 'MID_YEAR_APPROVED') && !isBooked;
 
   return (
     <TableRow className={isBooked ? 'opacity-60' : ''}>

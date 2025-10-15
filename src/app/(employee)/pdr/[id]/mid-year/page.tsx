@@ -4,7 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryClient } from '@/lib/query-client';
 import { useSupabasePDR, useSupabasePDRGoals } from '@/hooks/use-supabase-pdrs';
+import { useMidYearReview, useMidYearReviewMutation } from '@/hooks/use-reviews';
+import { usePDRPermissions } from '@/hooks/use-pdr-permissions';
 import { midYearReviewSchema } from '@/lib/validations';
 import { MidYearFormData } from '@/types';
 import { toast } from '@/hooks/use-toast';
@@ -14,6 +18,8 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { StatusBlockingModal } from '@/components/ui/status-blocking-modal';
+import { cleanupPDRStorage, checkAndCleanupStorage, performComprehensiveCleanup, emergencyCleanup } from '@/lib/storage-cleanup';
+import { StorageErrorBoundary } from '@/components/storage-error-boundary';
 import { 
   ArrowLeft, 
   Save, 
@@ -36,17 +42,38 @@ interface MidYearPageProps {
   params: { id: string };
 }
 
-export default function MidYearPage({ params }: MidYearPageProps) {
+// Clear cache once when module loads, not on every render
+if (typeof window !== 'undefined') {
+  console.log('🧹 Mid-Year Module: One-time cache clear on load');
+  queryClient.clear();
+}
+
+function MidYearPageContent({ params }: MidYearPageProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   
-  // Add global helper for debugging localStorage
+  // Update debug function when data changes
   useEffect(() => {
-    (window as any).checkMidYearData = () => {
-      const data = localStorage.getItem(`demo_midyear_${params.id}`);
-      console.log('📋 Mid-year data check:', data ? JSON.parse(data) : 'No data found');
-      return data ? JSON.parse(data) : null;
+    (window as any).debugMidYear = () => {
+      console.log('🔍 existingMidYearReview from hook:', existingMidYearReview);
+      console.log('🔍 Current form values:', watch());
+      const localData = localStorage.getItem(`demo_midyear_${params.id}`);
+      console.log('🔍 LocalStorage data:', localData ? JSON.parse(localData) : 'No local data');
+      const result = {
+        fromAPI: existingMidYearReview,
+        fromForm: watch(),
+        fromLocalStorage: localData ? JSON.parse(localData) : null
+      };
+      console.table(result);
+      return result;
     };
-  }, [params.id]);
+  });
+  
+  // Initial setup
+  useEffect(() => {
+    console.log('🔧 Debug function debugMidYear() is now available in console');
+    console.log('🔧 You can also check the detailed console logs that appear automatically');
+  }, []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
   const [expandedBehaviors, setExpandedBehaviors] = useState<Set<string>>(new Set());
@@ -55,8 +82,26 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   const [showAccessDeniedView, setShowAccessDeniedView] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   
-  const { data: pdr, isLoading: pdrLoading } = useSupabasePDR(params.id);
+  const { data: pdr, isLoading: pdrLoading } = useSupabasePDR(params.id, {
+    minimal: true, // Only need core PDR fields for status checks
+  });
   const { data: goals, isLoading: goalsLoading } = useSupabasePDRGoals(params.id);
+  
+  // Only fetch mid-year review if PDR status indicates it might exist
+  const shouldFetchReview = pdr?.status && [
+    'MID_YEAR_SUBMITTED', 
+    'MID_YEAR_APPROVED',
+    'MID_YEAR_CHECK', // In case it exists and status is still at this phase
+    'END_YEAR_REVIEW',
+    'END_YEAR_SUBMITTED',
+    'COMPLETED'
+  ].includes(pdr.status);
+  
+  const { data: existingMidYearReview, isLoading: midYearLoading } = useMidYearReview(
+    params.id, 
+    { enabled: !!pdr && shouldFetchReview }
+  );
+  const { permissions, isEditable } = usePDRPermissions({ pdr });
   
   // Initialize form
   const { 
@@ -69,19 +114,48 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   } = useForm<MidYearFormData>({
     resolver: zodResolver(midYearReviewSchema),
     defaultValues: {
-      progressSummary: existingReviewData?.progressSummary || '',
-      blockersChallenges: existingReviewData?.blockersChallenges || '',
-      supportNeeded: existingReviewData?.supportNeeded || '',
-      employeeComments: existingReviewData?.employeeComments || '',
+      progressSummary: '',
+      blockersChallenges: '',
+      supportNeeded: '',
+      employeeComments: '',
     }
   });
 
-  const isLoading = pdrLoading || goalsLoading;
+  const isLoading = pdrLoading || goalsLoading || midYearLoading;
 
-  // Load draft data on component mount
+  // Clean up old localStorage data and load draft on component mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // Check for existing draft
+      // AGGRESSIVE cleanup before page loads to prevent quota errors
+      console.log('🧹 Mid-Year: Starting aggressive storage cleanup...');
+      
+      // Run comprehensive cleanup first
+      const cleanupResult = performComprehensiveCleanup();
+      console.log('🧹 Mid-Year: Cleanup result:', cleanupResult);
+      
+      // Then check if we need emergency cleanup
+      if (checkAndCleanupStorage()) {
+        console.log('⚠️ Mid-Year: Emergency storage cleanup performed');
+      }
+      
+      // Clean up old demo and temporary keys for this PDR
+      const keysToClean = [
+        `demo_midyear_${params.id}`,
+        `mid_year_review_${params.id}`,
+        `ceo_goal_feedback_${params.id}`,
+        `ceo_behavior_feedback_${params.id}`,
+        `demo_behaviors_${params.id}`,
+        `development_draft_${params.id}`,
+      ];
+      
+      keysToClean.forEach(key => {
+        if (localStorage.getItem(key)) {
+          console.log(`🧹 Cleaning up old storage key: ${key}`);
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // Check for existing draft (after cleanup)
       const draftData = localStorage.getItem(`mid_year_draft_${params.id}`);
       
       if (draftData) {
@@ -102,25 +176,49 @@ export default function MidYearPage({ params }: MidYearPageProps) {
           });
         } catch (error) {
           console.error('Failed to load draft data:', error);
-        }
-      }
-      
-      // Check for existing submitted review
-      const existingReview = localStorage.getItem(`demo_midyear_${params.id}`);
-      if (existingReview) {
-        try {
-          const parsed = JSON.parse(existingReview);
-          if (parsed.status === 'SUBMITTED' || parsed.status === 'OPEN_FOR_REVIEW') {
-            // Clear the old submitted data to allow new submission
-            localStorage.removeItem(`demo_midyear_${params.id}`);
-            localStorage.removeItem(`mid_year_review_${params.id}`);
-          }
-        } catch (error) {
-          console.error('Failed to load existing review data:', error);
+          // If draft is corrupted, remove it
+          localStorage.removeItem(`mid_year_draft_${params.id}`);
         }
       }
     }
-  }, [params.id, reset]);
+  }, [params.id, reset, toast]);
+
+  // Load existing mid-year review data when available
+  useEffect(() => {
+    if (existingMidYearReview) {
+      console.log('📋 Loading existing mid-year review data:', existingMidYearReview);
+      console.log('📋 Data fields available:', Object.keys(existingMidYearReview));
+      
+      // Check if existingMidYearReview is an array (common API pattern)
+      const reviewData = Array.isArray(existingMidYearReview) 
+        ? existingMidYearReview[0] 
+        : existingMidYearReview;
+      
+      console.log('📋 Actual review data to use:', reviewData);
+      
+      if (reviewData) {
+        // Map database field names to form field names
+        const formData = {
+          progressSummary: reviewData.progress_summary || reviewData.progressSummary || '',
+          blockersChallenges: reviewData.blockers_challenges || reviewData.blockersChallenges || '',
+          supportNeeded: reviewData.support_needed || reviewData.supportNeeded || '',
+          employeeComments: reviewData.employee_comments || reviewData.employeeComments || '',
+        };
+        
+        console.log('📋 Form data being set:', formData);
+        
+        // Populate form with existing review data
+        reset(formData);
+        
+        // Show user feedback that existing data was loaded
+        toast({
+          title: "📋 Review Data Loaded",
+          description: `Loaded: ${formData.progressSummary ? 'Progress Summary' : ''} ${formData.blockersChallenges ? 'Challenges' : ''} ${formData.supportNeeded ? 'Support Needed' : ''}`.trim() || 'Review data loaded.',
+          variant: "default",
+        });
+      }
+    }
+  }, [existingMidYearReview, reset]);
 
 
 
@@ -184,9 +282,30 @@ export default function MidYearPage({ params }: MidYearPageProps) {
   const onSubmit = async (data: MidYearFormData) => {
     setIsSubmitting(true);
     try {
+      // ULTRA-AGGRESSIVE cleanup before submission to prevent quota errors
+      console.log('🧹 Pre-submission: Emergency storage cleanup...');
+      
+      // Clear ALL React Query cache before submission
+      queryClient.clear();
+      
+      // Emergency cleanup
+      emergencyCleanup();
+      
+      // Wait a moment for cleanup to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      console.log('✅ Pre-submission cleanup complete');
+      
+      // Pre-flight check: Clean up any stale data before submission
+      localStorage.removeItem(`mid_year_draft_${params.id}`);
+      
+      // Determine if we're creating or updating based on existing data
+      const method = existingMidYearReview ? 'PUT' : 'POST';
+      console.log(`📤 ${method} request - ${method === 'PUT' ? 'Updating existing' : 'Creating new'} mid-year review`);
+      
       // Call the actual Supabase API
       const response = await fetch(`/api/pdrs/${params.id}/mid-year`, {
-        method: 'POST',
+        method: method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -220,28 +339,46 @@ export default function MidYearPage({ params }: MidYearPageProps) {
           detail: { pdrId: params.id, step: 5, status: 'MID_YEAR_CHECK' } 
         }));
       }
-
-      // Clear any draft data
-      localStorage.removeItem(`mid_year_draft_${params.id}`);
       
       // Show success message
+      const wasUpdate = method === 'PUT';
       toast({
-        title: "✅ Mid-Year Review Submitted",
-        description: "Your mid-year check-in has been saved successfully! Moving to the end-year review phase.",
+        title: `✅ Mid-Year Review ${wasUpdate ? 'Updated' : 'Submitted'}`,
+        description: `Your mid-year check-in has been ${wasUpdate ? 'updated' : 'saved'} successfully! Moving to the end-year review phase.`,
         variant: "default",
       });
       
-      // Navigate to end-year review
+      // Navigate to end-year review after any successful submission
       router.push(`/pdr/${params.id}/end-year`);
     } catch (error) {
       console.error('❌ Failed to submit mid-year review:', error);
       
-      // Show error message
-      toast({
-        title: "❌ Submission Failed",
-        description: error instanceof Error ? error.message : "There was an error submitting your mid-year review. Please try again.",
-        variant: "destructive",
-      });
+      // Enhanced error handling for storage quota issues
+      if (error instanceof Error && 
+          (error.message.includes('quota') || error.message.includes('QuotaExceeded'))) {
+        toast({
+          title: '💾 Storage Full',
+          description: 'Your browser storage is full. Clearing cache and retrying...',
+          variant: 'destructive',
+        });
+        
+        // Emergency cleanup and reload
+        emergencyCleanup();
+        queryClient.clear();
+        
+        // Give it a moment then reload
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+        return;
+      } else {
+        // Show error message
+        toast({
+          title: "❌ Submission Failed",
+          description: error instanceof Error ? error.message : "There was an error submitting your mid-year review. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -282,9 +419,10 @@ export default function MidYearPage({ params }: MidYearPageProps) {
     router.push(`/pdr/${params.id}/review`);
   };
 
-  // Mid-year should be editable once initial PDR is submitted (OPEN_FOR_REVIEW or later stages)
-  const canEdit = pdr && !pdr.isLocked && pdr.status !== 'Created' && pdr.status !== 'DRAFT';
-  const canUpdate = pdr && !pdr.isLocked;
+  // Mid-year should be editable once initial PDR is approved (PLAN_LOCKED or later stages)
+  // Use permission hook to check if PDR is editable (respects COMPLETED status)
+  const canEdit = isEditable && pdr?.status !== 'Created';
+  const canUpdate = isEditable;
 
   if (isLoading) {
     return (
@@ -546,3 +684,12 @@ export default function MidYearPage({ params }: MidYearPageProps) {
     </div>
   );
 }
+
+export default function MidYearPage(props: MidYearPageProps) {
+  return (
+    <StorageErrorBoundary>
+      <MidYearPageContent {...props} />
+    </StorageErrorBoundary>
+  );
+}
+

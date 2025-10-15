@@ -230,6 +230,7 @@ export type Database = {
           ceo_final_comments: string | null
           submitted_at: string
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
@@ -243,6 +244,7 @@ export type Database = {
           ceo_final_comments?: string | null
           submitted_at?: string
           created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
@@ -256,6 +258,7 @@ export type Database = {
           ceo_final_comments?: string | null
           submitted_at?: string
           created_at?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -340,6 +343,7 @@ export type Database = {
           ceo_feedback: string | null
           submitted_at: string
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
@@ -351,6 +355,7 @@ export type Database = {
           ceo_feedback?: string | null
           submitted_at?: string
           created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
@@ -362,6 +367,7 @@ export type Database = {
           ceo_feedback?: string | null
           submitted_at?: string
           created_at?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -456,7 +462,7 @@ export type Database = {
           fy_label: string
           fy_start_date: string
           fy_end_date: string
-          status: 'Created' | 'OPEN_FOR_REVIEW' | 'PLAN_LOCKED' | 'PDR_BOOKED' | 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'MID_YEAR_CHECK' | 'END_YEAR_REVIEW' | 'COMPLETED' | 'LOCKED'
+          status: 'Created' | 'SUBMITTED' | 'PLAN_LOCKED' | 'MID_YEAR_SUBMITTED' | 'MID_YEAR_APPROVED' | 'END_YEAR_SUBMITTED' | 'COMPLETED'
           employee_fields: Json | null
           ceo_fields: Json | null
           meeting_booked: boolean
@@ -465,6 +471,8 @@ export type Database = {
           locked_by: string | null
           is_locked: boolean
           current_step: number
+          calibrated_at: string | null
+          calibrated_by: string | null
           submitted_at: string | null
           created_at: string
           updated_at: string
@@ -476,7 +484,7 @@ export type Database = {
           fy_label: string
           fy_start_date: string
           fy_end_date: string
-          status?: 'Created' | 'OPEN_FOR_REVIEW' | 'PLAN_LOCKED' | 'PDR_BOOKED' | 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'MID_YEAR_CHECK' | 'END_YEAR_REVIEW' | 'COMPLETED' | 'LOCKED'
+          status?: 'Created' | 'SUBMITTED' | 'PLAN_LOCKED' | 'MID_YEAR_SUBMITTED' | 'MID_YEAR_APPROVED' | 'END_YEAR_SUBMITTED' | 'COMPLETED'
           employee_fields?: Json | null
           ceo_fields?: Json | null
           meeting_booked?: boolean
@@ -485,6 +493,8 @@ export type Database = {
           locked_by?: string | null
           is_locked?: boolean
           current_step?: number
+          calibrated_at?: string | null
+          calibrated_by?: string | null
           submitted_at?: string | null
           created_at?: string
           updated_at?: string
@@ -496,7 +506,7 @@ export type Database = {
           fy_label?: string
           fy_start_date?: string
           fy_end_date?: string
-          status?: 'Created' | 'OPEN_FOR_REVIEW' | 'PLAN_LOCKED' | 'PDR_BOOKED' | 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'MID_YEAR_CHECK' | 'END_YEAR_REVIEW' | 'COMPLETED' | 'LOCKED'
+          status?: 'Created' | 'SUBMITTED' | 'PLAN_LOCKED' | 'MID_YEAR_SUBMITTED' | 'MID_YEAR_APPROVED' | 'END_YEAR_SUBMITTED' | 'COMPLETED'
           employee_fields?: Json | null
           ceo_fields?: Json | null
           meeting_booked?: boolean
@@ -505,6 +515,8 @@ export type Database = {
           locked_by?: string | null
           is_locked?: boolean
           current_step?: number
+          calibrated_at?: string | null
+          calibrated_by?: string | null
           submitted_at?: string | null
           created_at?: string
           updated_at?: string
@@ -580,7 +592,7 @@ export type Database = {
       audit_action: 'INSERT' | 'UPDATE' | 'DELETE'
       behavior_author_type: 'EMPLOYEE' | 'CEO'
       notification_type: 'PDR_LOCKED' | 'PDR_SUBMITTED' | 'PDR_REMINDER'
-      pdr_status: 'Created' | 'OPEN_FOR_REVIEW' | 'PLAN_LOCKED' | 'PDR_BOOKED' | 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'MID_YEAR_CHECK' | 'END_YEAR_REVIEW' | 'COMPLETED' | 'LOCKED'
+      pdr_status: 'Created' | 'SUBMITTED' | 'PLAN_LOCKED' | 'MID_YEAR_SUBMITTED' | 'MID_YEAR_APPROVED' | 'END_YEAR_SUBMITTED' | 'COMPLETED'
       priority: 'HIGH' | 'MEDIUM' | 'LOW'
       user_role: 'EMPLOYEE' | 'CEO'
     }

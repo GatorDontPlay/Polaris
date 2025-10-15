@@ -9,6 +9,7 @@ import {
 import { behaviorSchema } from '@/lib/validations';
 import { createClient } from '@/lib/supabase/server';
 import { createAuditLog } from '@/lib/auth';
+import { PDRStatus, EMPLOYEE_EDITABLE_STATUSES } from '@/types/pdr-status';
 import { transformBehaviorFields } from '@/lib/case-transform';
 
 export async function GET(
@@ -123,9 +124,14 @@ export async function POST(
       return createApiError('PDR is locked and cannot be modified', 400, 'PDR_LOCKED');
     }
 
-    // Check if PDR allows editing (Created, DRAFT and SUBMITTED)
-    if (!['Created', 'DRAFT', 'SUBMITTED'].includes(pdr.status)) {
-      return createApiError('PDR status does not allow editing', 400, 'INVALID_STATUS');
+    // Define allowed statuses for employee editing
+    // For employees, check if PDR status allows editing
+    if (user.role !== 'CEO' && !EMPLOYEE_EDITABLE_STATUSES.includes(pdr.status as PDRStatus)) {
+      return createApiError(
+        `PDR status '${pdr.status}' does not allow editing`, 
+        400, 
+        'INVALID_STATUS'
+      );
     }
 
     // Verify the company value exists and is active

@@ -53,3 +53,4 @@ If still broken, see `FIX_RLS_COMPANY_VALUES.md` for detailed troubleshooting.
 - Created SQL migration to fix RLS policy
 - Added helpful warnings when data is missing
 
+

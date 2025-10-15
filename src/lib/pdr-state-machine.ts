@@ -34,60 +34,77 @@ export interface ValidationResult {
   errors: string[];
 }
 
-// Define all valid state transitions
+// Define all valid state transitions for the simplified approval gate workflow
 export const STATE_TRANSITIONS: StateTransition[] = [
+  // Phase 1: Initial PDR Creation & CEO Approval
   {
-    from: 'Created',
-    to: 'OPEN_FOR_REVIEW',
-    action: 'submitForReview',
+    from: PDRStatus.CREATED,
+    to: PDRStatus.SUBMITTED,
+    action: 'submitInitialPDR',
     allowedRoles: ['EMPLOYEE'],
     requiresValidation: true,
     validationFields: ['goals', 'behaviors'],
   },
   {
-    from: 'DRAFT',
-    to: 'OPEN_FOR_REVIEW',
-    action: 'submitForReview',
-    allowedRoles: ['EMPLOYEE'],
-    requiresValidation: true,
-    validationFields: ['goals', 'behaviors'],
-  },
-  {
-    from: 'OPEN_FOR_REVIEW',
-    to: 'OPEN_FOR_REVIEW',
-    action: 'submitForReview',
-    allowedRoles: ['EMPLOYEE'],
-    requiresValidation: true,
-    validationFields: ['goals', 'behaviors'],
-  },
-  {
-    from: 'OPEN_FOR_REVIEW',
-    to: 'PLAN_LOCKED',
-    action: 'submitCeoReview',
+    from: PDRStatus.SUBMITTED,
+    to: PDRStatus.PLAN_LOCKED,
+    action: 'approvePlan',
     allowedRoles: ['CEO'],
     requiresValidation: true,
     validationFields: ['ceoFields'],
   },
+  
+  // Phase 2: Mid-Year Review
   {
-    from: 'PLAN_LOCKED',
-    to: 'PDR_BOOKED',
-    action: 'markBooked',
+    from: PDRStatus.PLAN_LOCKED,
+    to: PDRStatus.MID_YEAR_SUBMITTED,
+    action: 'submitMidYear',
+    allowedRoles: ['EMPLOYEE'],
+    requiresValidation: true,
+    validationFields: ['midYearReview'],
+  },
+  {
+    from: PDRStatus.MID_YEAR_SUBMITTED,
+    to: PDRStatus.MID_YEAR_APPROVED,
+    action: 'approveMidYear',
+    allowedRoles: ['CEO'],
+    requiresValidation: true,
+    validationFields: ['ceoMidYearFeedback'],
+  },
+  // Allow CEO to approve mid-year directly from PLAN_LOCKED (skip employee mid-year submission)
+  {
+    from: PDRStatus.PLAN_LOCKED,
+    to: PDRStatus.MID_YEAR_APPROVED,
+    action: 'approveMidYearDirect',
     allowedRoles: ['CEO'],
     requiresValidation: false,
   },
+  
+  // Phase 3: Final Year Review
   {
-    from: 'MID_YEAR_CHECK',
-    to: 'END_YEAR_REVIEW',
-    action: 'startEndYearReview',
+    from: PDRStatus.MID_YEAR_APPROVED,
+    to: PDRStatus.END_YEAR_SUBMITTED,
+    action: 'submitFinalYear',
     allowedRoles: ['EMPLOYEE'],
-    requiresValidation: false,
+    requiresValidation: true,
+    validationFields: ['endYearReview'],
+  },
+  // Allow direct transition from PLAN_LOCKED to END_YEAR_SUBMITTED (skip mid-year)
+  {
+    from: PDRStatus.PLAN_LOCKED,
+    to: PDRStatus.END_YEAR_SUBMITTED,
+    action: 'submitFinalYear',
+    allowedRoles: ['EMPLOYEE'],
+    requiresValidation: true,
+    validationFields: ['endYearReview'],
   },
   {
-    from: 'END_YEAR_REVIEW',
-    to: 'COMPLETED',
+    from: PDRStatus.END_YEAR_SUBMITTED,
+    to: PDRStatus.COMPLETED,
     action: 'completeFinalReview',
     allowedRoles: ['CEO'],
-    requiresValidation: false,
+    requiresValidation: true,
+    validationFields: ['ceoFinalFeedback'],
   },
 ];
 
@@ -171,8 +188,7 @@ export function getPDRPermissions(
   // Employee permissions
   if (userRole === 'EMPLOYEE' && isOwner) {
     switch (pdrStatus) {
-      case 'Created':
-      case 'DRAFT':
+      case PDRStatus.CREATED:
         return {
           ...basePermissions,
           canView: true,
@@ -182,71 +198,37 @@ export function getPDRPermissions(
           canSubmitForReview: true,
         };
 
-      case 'OPEN_FOR_REVIEW':
+      case PDRStatus.SUBMITTED:
+      case PDRStatus.MID_YEAR_SUBMITTED:
+      case PDRStatus.END_YEAR_SUBMITTED:
+        return {
+          ...basePermissions,
+          canView: true,
+          canEdit: false,               // LOCKED after submission
+          canViewEmployeeFields: true,  // Can see their own data
+          canViewCeoFields: false,      // CANNOT see CEO feedback yet
+          canEditEmployeeFields: false,
+          readOnlyReason: 'PDR is under CEO review',
+        };
+
+      case PDRStatus.PLAN_LOCKED:
+      case PDRStatus.MID_YEAR_APPROVED:
         return {
           ...basePermissions,
           canView: true,
           canEdit: true,
           canViewEmployeeFields: true,
+          canViewCeoFields: true,       // CAN now see CEO feedback
           canEditEmployeeFields: true,
-          // Note: CEO fields are not visible to employee per requirements
+          canSubmitForReview: true,     // Can submit next phase
         };
 
-      case 'PLAN_LOCKED':
+      case PDRStatus.COMPLETED:
         return {
           ...basePermissions,
           canView: true,
           canViewEmployeeFields: true,
-          readOnlyReason: 'PDR has been locked by CEO pending meeting',
-        };
-
-      case 'PDR_BOOKED':
-        return {
-          ...basePermissions,
-          canView: true,
-          canViewEmployeeFields: true,
-          readOnlyReason: 'PDR meeting has been booked',
-        };
-
-      case 'SUBMITTED':
-        return {
-          ...basePermissions,
-          canView: true,
-          canViewEmployeeFields: true,
-          readOnlyReason: 'PDR has been submitted for review',
-        };
-
-      case 'UNDER_REVIEW':
-        return {
-          ...basePermissions,
-          canView: true,
-          canViewEmployeeFields: true,
-          readOnlyReason: 'PDR is under review by CEO',
-        };
-
-      case 'MID_YEAR_CHECK':
-        return {
-          ...basePermissions,
-          canView: true,
-          canViewEmployeeFields: true,
-          canEdit: true,
-          canEditEmployeeFields: true,
-        };
-
-      case 'END_YEAR_REVIEW':
-        return {
-          ...basePermissions,
-          canView: true,
-          canViewEmployeeFields: true,
-          canEdit: true,
-          canEditEmployeeFields: true,
-        };
-
-      case 'COMPLETED':
-        return {
-          ...basePermissions,
-          canView: true,
-          canViewEmployeeFields: true,
+          canViewCeoFields: true,       // Can see all CEO feedback
           readOnlyReason: 'PDR process has been completed',
         };
 
@@ -258,15 +240,16 @@ export function getPDRPermissions(
   // CEO permissions
   if (userRole === 'CEO') {
     switch (pdrStatus) {
-      case 'Created':
-      case 'DRAFT':
+      case PDRStatus.CREATED:
         return {
           ...basePermissions,
-          canView: true, // Can list but cannot open/edit per requirements
+          canView: true, // Can list but cannot open/edit until submitted
           readOnlyReason: 'PDR not yet submitted for review',
         };
 
-      case 'OPEN_FOR_REVIEW':
+      case PDRStatus.SUBMITTED:
+      case PDRStatus.MID_YEAR_SUBMITTED:
+      case PDRStatus.END_YEAR_SUBMITTED:
         return {
           ...basePermissions,
           canView: true,
@@ -277,28 +260,8 @@ export function getPDRPermissions(
           canSubmitCeoReview: true,
         };
 
-      case 'PLAN_LOCKED':
-        return {
-          ...basePermissions,
-          canView: true,
-          canEdit: true,
-          canViewEmployeeFields: true,
-          canViewCeoFields: true,
-          canEditCeoFields: true,
-          canMarkBooked: true,
-          readOnlyReason: 'PDR is locked, only booking action available',
-        };
-
-      case 'PDR_BOOKED':
-        return {
-          ...basePermissions,
-          canView: true,
-          canViewEmployeeFields: true,
-          canViewCeoFields: true,
-          readOnlyReason: 'PDR meeting has been booked',
-        };
-
-      case 'SUBMITTED':
+      case PDRStatus.PLAN_LOCKED:
+      case PDRStatus.MID_YEAR_APPROVED:
         return {
           ...basePermissions,
           canView: true,
@@ -308,42 +271,13 @@ export function getPDRPermissions(
           canEditCeoFields: true,
         };
 
-      case 'UNDER_REVIEW':
-        return {
-          ...basePermissions,
-          canView: true,
-          canEdit: true,
-          canViewEmployeeFields: true,
-          canViewCeoFields: true,
-          canEditCeoFields: true,
-        };
-
-      case 'MID_YEAR_CHECK':
-        return {
-          ...basePermissions,
-          canView: true,
-          canEdit: true,
-          canViewEmployeeFields: true,
-          canViewCeoFields: true,
-          canEditCeoFields: true,
-        };
-
-      case 'END_YEAR_REVIEW':
-        return {
-          ...basePermissions,
-          canView: true,
-          canEdit: true,
-          canViewEmployeeFields: true,
-          canViewCeoFields: true,
-          canEditCeoFields: true,
-        };
-
-      case 'COMPLETED':
+      case PDRStatus.COMPLETED:
         return {
           ...basePermissions,
           canView: true,
           canViewEmployeeFields: true,
           canViewCeoFields: true,
+          canEditCeoFields: true, // CEO can always revoke and edit
           readOnlyReason: 'PDR process has been completed',
         };
 
@@ -375,31 +309,32 @@ export function validateTransitionRequirements(
     switch (field) {
       case 'goals':
         if (!pdrData.goals || pdrData.goals.length === 0) {
-          errors.push('At least one goal is required before submitting for review');
+          errors.push('Please add at least one goal before submitting for review');
         } else {
           // Validate each goal has required fields
-          for (const goal of pdrData.goals) {
-            if (!goal.title?.trim()) {
-              errors.push('All goals must have a title');
-            }
-            if (!goal.description?.trim()) {
-              errors.push('All goals must have a description');
-            }
+          const goalsWithoutTitle = pdrData.goals.filter(g => !g.title?.trim());
+          const goalsWithoutDescription = pdrData.goals.filter(g => !g.description?.trim());
+          
+          if (goalsWithoutTitle.length > 0) {
+            errors.push(`${goalsWithoutTitle.length} goal(s) are missing a title. Please add titles to all goals.`);
+          }
+          if (goalsWithoutDescription.length > 0) {
+            errors.push(`${goalsWithoutDescription.length} goal(s) are missing a description. Please add descriptions to all goals.`);
           }
         }
         break;
 
       case 'behaviors':
         if (!pdrData.behaviors || pdrData.behaviors.length === 0) {
-          errors.push('At least one behavior assessment is required before submitting for review');
+          errors.push('Please complete at least one company value assessment before submitting');
         } else {
           // Validate each behavior has required fields
-          for (const behavior of pdrData.behaviors) {
-            if (!behavior.description?.trim()) {
-              errors.push('All behavior assessments must have a description');
-            }
-            // Note: Self-assessment validation removed as it's not currently required in the form
+          const behaviorsWithoutDescription = pdrData.behaviors.filter(b => !b.description?.trim());
+          
+          if (behaviorsWithoutDescription.length > 0) {
+            errors.push(`${behaviorsWithoutDescription.length} company value assessment(s) are missing a description. Please complete all assessments.`);
           }
+          // Note: Self-assessment validation removed as it's not currently required in the form
         }
         break;
 

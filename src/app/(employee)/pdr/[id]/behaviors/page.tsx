@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { queryClient } from '@/lib/query-client';
 import { useSupabasePDR, useSupabasePDRBehaviors, useSupabasePDRUpdate } from '@/hooks/use-supabase-pdrs';
 import { usePDRPermissions } from '@/hooks/use-pdr-permissions';
 import { useCompanyValues } from '@/hooks/use-company-values';
@@ -10,9 +11,42 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Heart } from 'lucide-react';
 import { BehaviorFormData } from '@/types';
 import toast, { Toaster } from 'react-hot-toast';
+import { performComprehensiveCleanup, checkAndCleanupStorage } from '@/lib/storage-cleanup';
 
 interface BehaviorsPageProps {
   params: { id: string };
+}
+
+// AGGRESSIVE storage cleanup on module load to prevent quota errors
+if (typeof window !== 'undefined') {
+  console.log('🧹 Behaviors Module: Aggressive cache and storage cleanup on load');
+  
+  // Clear React Query cache completely
+  queryClient.clear();
+  
+  // Clear all React Query localStorage entries
+  try {
+    const reactQueryKeys = Object.keys(localStorage).filter(key => 
+      key.startsWith('REACT_QUERY') || 
+      key.startsWith('react-query') ||
+      key.includes('pdr-') ||
+      key.includes('behavior-') ||
+      key.includes('goal-')
+    );
+    reactQueryKeys.forEach(key => {
+      try {
+        localStorage.removeItem(key);
+      } catch (e) {
+        console.warn('Failed to remove key:', key);
+      }
+    });
+    console.log('✅ Removed', reactQueryKeys.length, 'React Query cache keys');
+  } catch (error) {
+    console.error('❌ Storage cleanup failed:', error);
+  }
+  
+  // Also run comprehensive cleanup from storage-cleanup utility
+  performComprehensiveCleanup();
 }
 
 export default function BehaviorsPage({ params }: BehaviorsPageProps) {
@@ -21,6 +55,42 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
   const [hasCleanedDuplicates, setHasCleanedDuplicates] = useState(false);
   const [formCompletedCount, setFormCompletedCount] = useState(0);
   const [formTotalCount, setFormTotalCount] = useState(6); // 4 core behaviors + 2 development fields
+  
+  // Periodic aggressive cleanup during component lifecycle to prevent quota errors
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      console.log('🧹 Behaviors: Periodic storage cleanup');
+      try {
+        // Clear React Query cache
+        queryClient.clear();
+        
+        // Clear localStorage cache keys
+        const cacheKeys = Object.keys(localStorage).filter(key => 
+          key.startsWith('REACT_QUERY') || 
+          key.startsWith('react-query') ||
+          key.includes('pdr-') ||
+          key.includes('behavior-') ||
+          key.includes('goal-')
+        );
+        
+        // Only clean if we have excessive keys (>30)
+        if (cacheKeys.length > 30) {
+          cacheKeys.forEach(key => {
+            try {
+              localStorage.removeItem(key);
+            } catch (e) {
+              // Ignore individual errors
+            }
+          });
+          console.log('✅ Periodic cleanup removed', cacheKeys.length, 'cache keys');
+        }
+      } catch (error) {
+        console.error('❌ Periodic cleanup failed:', error);
+      }
+    }, 15000); // Every 15 seconds
+    
+    return () => clearInterval(cleanupInterval);
+  }, []);
   
   // Remove localStorage clearing to preserve existing data
   // useEffect(() => {
@@ -58,6 +128,18 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
     companyValuesIsArray: Array.isArray(companyValues)
   });
 
+  // AGGRESSIVE storage cleanup on mount to prevent quota errors
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      console.log('🧹 Behaviors: Starting aggressive storage cleanup...');
+      const cleanupResult = performComprehensiveCleanup();
+      console.log('🧹 Behaviors: Cleanup result:', cleanupResult);
+      
+      if (checkAndCleanupStorage()) {
+        console.log('⚠️ Behaviors: Emergency storage cleanup performed');
+      }
+    }
+  }, [params.id]);
 
   // Update PDR step to 2 (Behaviors) when user reaches this page - only if PDR is editable
   useEffect(() => {
@@ -122,15 +204,15 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
       
       console.log('✅ All behaviors saved to database successfully');
       
-      // Save development data to localStorage (since there's no API endpoint for this yet)
+      // Save development data as draft
       if (data.selfReflection || data.deepDiveDevelopment) {
         const developmentData = {
           selfReflection: data.selfReflection || '',
           deepDiveDevelopment: data.deepDiveDevelopment || '',
           updatedAt: new Date().toISOString()
         };
-        localStorage.setItem(`demo_development_${params.id}`, JSON.stringify(developmentData));
-        console.log('✅ Development data saved to localStorage:', developmentData);
+        localStorage.setItem(`development_draft_${params.id}`, JSON.stringify(developmentData));
+        console.log('✅ Development data saved as draft');
       }
       
       toast.success('Behaviors saved successfully!');
@@ -166,14 +248,18 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
           const existingBehavior = behaviors?.find(b => b.valueId === behaviorData.valueId);
           
           if (existingBehavior) {
-            // Update existing behavior
-            await updateBehavior({
-              behaviorId: existingBehavior.id,
-              updates: {
-                description: behaviorData.description,
-              }
-            });
-            console.log('🔧 Updated existing behavior for:', behaviorData.valueName);
+            // Only update if description has actually changed
+            if (existingBehavior.description !== behaviorData.description) {
+              await updateBehavior({
+                behaviorId: existingBehavior.id,
+                updates: {
+                  description: behaviorData.description,
+                }
+              });
+              console.log('🔧 Updated existing behavior for:', behaviorData.valueName);
+            } else {
+              console.log('🔧 Skipping update - no changes for:', behaviorData.valueName);
+            }
           } else {
             // Create new behavior
             const behaviorFormData: BehaviorFormData = {
@@ -191,15 +277,15 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
         console.log('✅ Auto-save completed successfully');
       }
       
-      // Auto-save development data to localStorage (since there's no API endpoint for this yet)
+      // Auto-save development data as draft
       if (data.selfReflection || data.deepDiveDevelopment) {
         const developmentData = {
           selfReflection: data.selfReflection || '',
           deepDiveDevelopment: data.deepDiveDevelopment || '',
           updatedAt: new Date().toISOString()
         };
-        localStorage.setItem(`demo_development_${params.id}`, JSON.stringify(developmentData));
-        console.log('✅ Development data auto-saved');
+        localStorage.setItem(`development_draft_${params.id}`, JSON.stringify(developmentData));
+        console.log('✅ Development data auto-saved as draft');
       }
     } catch (error) {
       console.error('❌ Auto-save failed:', error);

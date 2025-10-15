@@ -116,7 +116,7 @@ export function PDRHistoryTable({
                     {formatDate(pdr.updatedAt)}
                   </td>
                   <td className="py-3 px-4 text-right">
-                    {pdr.status === 'DRAFT' || pdr.status === 'SUBMITTED' ? (
+                    {pdr.status === 'Created' || pdr.status === 'SUBMITTED' ? (
                       <Button 
                         variant="outline" 
                         size="sm"

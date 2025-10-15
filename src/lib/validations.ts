@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PDRStatus } from '@/types/pdr-status';
 
 // Authentication schemas
 export const loginSchema = z.object({
@@ -133,19 +134,7 @@ export const behaviorUpdateSchema = behaviorSchema.extend({
 
 // PDR schemas
 export const pdrUpdateSchema = z.object({
-  status: z.enum([
-    'Created',
-    'OPEN_FOR_REVIEW',
-    'PLAN_LOCKED',
-    'PDR_BOOKED',
-    'DRAFT',
-    'SUBMITTED',
-    'UNDER_REVIEW',
-    'MID_YEAR_CHECK',
-    'END_YEAR_REVIEW',
-    'COMPLETED',
-    'LOCKED',
-  ]),
+  status: z.nativeEnum(PDRStatus),
   currentStep: z
     .number()
     .int()
@@ -247,19 +236,7 @@ export const pdrPeriodSchema = z.object({
 
 // Filter schemas
 export const pdrFiltersSchema = z.object({
-  status: z.array(z.enum([
-    'Created',
-    'OPEN_FOR_REVIEW',
-    'PLAN_LOCKED',
-    'PDR_BOOKED',
-    'DRAFT',
-    'SUBMITTED',
-    'UNDER_REVIEW',
-    'MID_YEAR_CHECK',
-    'END_YEAR_REVIEW',
-    'COMPLETED',
-    'LOCKED',
-  ])).optional(),
+  status: z.array(z.nativeEnum(PDRStatus)).optional(),
   period: z.string().uuid().optional(),
   userId: z.string().uuid().optional(),
   search: z.string().max(255).optional(),

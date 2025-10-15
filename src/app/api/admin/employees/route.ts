@@ -8,6 +8,7 @@ import {
   createPaginatedResponse,
 } from '@/lib/api-helpers';
 import { createClient } from '@/lib/supabase/server';
+import { PDRStatus } from '@/types/pdr-status';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -75,12 +76,12 @@ export async function GET(request: NextRequest) {
     const processedEmployees = employees.map(employee => {
       const pdrs = employee.pdrs;
       const totalPDRs = pdrs.length;
-      const completedPDRs = pdrs.filter(pdr => pdr.status === 'COMPLETED').length;
+      const completedPDRs = pdrs.filter(pdr => pdr.status === PDRStatus.COMPLETED).length;
       const latestPDR = pdrs[0] || null;
 
       // Calculate average rating from completed PDRs
       const completedWithRatings = pdrs.filter(pdr => 
-        pdr.status === 'COMPLETED' && pdr.end_year_review?.ceo_overall_rating
+        pdr.status === PDRStatus.COMPLETED && pdr.end_year_review?.ceo_overall_rating
       );
       const averageRating = completedWithRatings.length > 0
         ? completedWithRatings.reduce((sum, pdr) => 

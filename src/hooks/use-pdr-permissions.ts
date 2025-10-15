@@ -80,9 +80,29 @@ export function usePDRPermissions({
     const readOnlyReason = getPDRReadOnlyReason(pdr.status, effectiveUserRole, effectiveIsOwner);
     const validNextStates = getValidNextStates(pdr.status, effectiveUserRole);
 
-    // Determine specific action capabilities
-    const canSubmitForReview = validNextStates.some(state => state.action === 'submitForReview');
-    const canSubmitCEOReview = validNextStates.some(state => state.action === 'submitCeoReview');
+    // Determine specific action capabilities based on current PDR status
+    // This ensures we check for the correct action name for each phase
+    const canSubmitForReview = (() => {
+      switch (pdr.status) {
+        case 'Created':
+          // Initial PDR submission
+          return validNextStates.some(state => state.action === 'submitInitialPDR');
+        case 'PLAN_LOCKED':
+          // Mid-year review submission
+          return validNextStates.some(state => state.action === 'submitMidYear');
+        case 'MID_YEAR_APPROVED':
+          // End-year review submission
+          return validNextStates.some(state => state.action === 'submitFinalYear');
+        default:
+          return false;
+      }
+    })();
+    
+    const canSubmitCEOReview = validNextStates.some(state => 
+      state.action === 'approvePlan' || 
+      state.action === 'approveMidYear' || 
+      state.action === 'completeFinalReview'
+    );
     const canMarkAsBooked = validNextStates.some(state => state.action === 'markBooked');
 
     // Show booking checkbox for CEOs on locked PDRs
@@ -122,7 +142,9 @@ function getStatusDisplay(status: PDRStatus, meetingBooked?: boolean): {
         description: 'PDR is being created and can be edited',
       };
 
-    case 'OPEN_FOR_REVIEW':
+    case 'SUBMITTED':
+    case 'MID_YEAR_SUBMITTED':
+    case 'END_YEAR_SUBMITTED':
       return {
         text: 'Under Review',
         variant: 'warning',
@@ -131,40 +153,16 @@ function getStatusDisplay(status: PDRStatus, meetingBooked?: boolean): {
 
     case 'PLAN_LOCKED':
       return {
-        text: 'Locked',
-        variant: 'destructive',
-        description: 'PDR locked by CEO pending meeting',
-      };
-
-    case 'PDR_Booked':
-      return {
-        text: meetingBooked ? 'Meeting Booked' : 'Ready for Booking',
+        text: 'Plan Approved',
         variant: 'success',
-        description: meetingBooked 
-          ? 'PDR meeting has been scheduled'
-          : 'PDR ready for meeting booking',
+        description: 'Initial plan approved - Mid-year review available',
       };
 
-    // Legacy statuses
-    case 'DRAFT':
+    case 'MID_YEAR_APPROVED':
       return {
-        text: 'Draft',
-        variant: 'outline',
-        description: 'PDR is in draft state',
-      };
-
-    case 'SUBMITTED':
-      return {
-        text: 'Submitted',
-        variant: 'secondary',
-        description: 'PDR has been submitted',
-      };
-
-    case 'UNDER_REVIEW':
-      return {
-        text: 'Under Review',
-        variant: 'warning',
-        description: 'PDR is being reviewed',
+        text: 'Mid-Year Approved',
+        variant: 'success',
+        description: 'Mid-year approved - End-year review available',
       };
 
     case 'COMPLETED':
@@ -174,19 +172,6 @@ function getStatusDisplay(status: PDRStatus, meetingBooked?: boolean): {
         description: 'PDR process completed',
       };
 
-    case 'LOCKED':
-      return {
-        text: 'Locked',
-        variant: 'destructive',
-        description: 'PDR is locked',
-      };
-
-    case 'SUBMITTED_FOR_REVIEW':
-      return {
-        text: 'Pending Final Review',
-        variant: 'warning',
-        description: 'Complete - awaiting final review meeting',
-      };
 
     default:
       return {
