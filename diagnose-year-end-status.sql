@@ -58,3 +58,4 @@ WHERE p.status = 'MID_YEAR_APPROVED'
     AND eyr.achievements_summary IS NOT NULL
   );
 
+

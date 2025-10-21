@@ -238,3 +238,4 @@ If issues persist after following this guide:
 - `verify-year-end-rls.sql` - RLS policy verification and fix
 - `fix-year-end-status.sql` - Manual data fix script
 
+

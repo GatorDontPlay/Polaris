@@ -105,3 +105,4 @@ WHERE tablename = 'pdrs'
   AND cmd = 'UPDATE'
   AND policyname IN ('Users can update their own PDRs', 'CEO can update any PDR');
 
+

@@ -56,3 +56,4 @@ If the script reports any issues or if the problem persists after running it, ch
 2. That you're running it in the correct Supabase project
 3. That the user has submitted an end-year review (check the `end_year_reviews` table)
 
+

@@ -35,6 +35,10 @@ export interface StructuredBehaviorFormHandle {
 interface StructuredBehaviorFormProps {
   companyValues: CompanyValue[];
   existingBehaviors?: Behavior[];
+  existingDevelopmentFields?: {
+    selfReflection?: string;
+    deepDiveDevelopment?: string;
+  };
   onSubmit: (data: StructuredBehaviorFormData) => Promise<void>;
   onAutoSave?: (data: StructuredBehaviorFormData) => Promise<void>;
   onCancel?: () => void;
@@ -47,6 +51,7 @@ interface StructuredBehaviorFormProps {
 export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, StructuredBehaviorFormProps>(({
   companyValues,
   existingBehaviors = [],
+  existingDevelopmentFields = { selfReflection: '', deepDiveDevelopment: '' },
   onSubmit,
   onAutoSave,
   onCancel,
@@ -61,52 +66,23 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
   const [showCelebration, setShowCelebration] = useState(false);
   const [isGrantInfoOpen, setIsGrantInfoOpen] = useState(false);
 
-  // Debug: Log received props
-  console.log('🔍 [FORM] StructuredBehaviorForm received props:', {
-    companyValuesCount: companyValues?.length,
-    companyValuesType: typeof companyValues,
-    companyValuesIsArray: Array.isArray(companyValues),
-    companyValuesData: companyValues,
-    existingBehaviorsCount: existingBehaviors?.length
-  });
+  // Debug: Log received props (development only)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 [FORM] received:', {
+      companyValuesCount: companyValues?.length,
+      existingBehaviorsCount: existingBehaviors?.length
+    });
+  }
 
   // Initialize form with all company values
   const defaultValues = companyValues.map(value => {
     const existingBehavior = existingBehaviors.find(b => b.valueId === value.id);
-    console.log(`🔍 [FORM] Mapping value ${value.name}:`, {
-      valueId: value.id,
-      existingBehavior: existingBehavior ? 'found' : 'not found',
-      description: existingBehavior?.description || 'empty'
-    });
     return {
       valueId: value.id,
       valueName: value.name,
       description: existingBehavior?.description || '',
     };
   });
-
-  console.log('🔍 [FORM] Default values for form:', defaultValues);
-
-  // Load existing development data
-  const getExistingDevelopmentData = () => {
-    if (typeof window === 'undefined') return { selfReflection: '', deepDiveDevelopment: '' };
-    
-    try {
-      // This should match the behaviors page's PDR ID pattern
-      const pdrId = window.location.pathname.split('/')[2]; // Extract PDR ID from URL
-      const data = localStorage.getItem(`development_draft_${pdrId}`);
-      const parsed = data ? JSON.parse(data) : null;
-      return {
-        selfReflection: parsed?.selfReflection || '',
-        deepDiveDevelopment: parsed?.deepDiveDevelopment || ''
-      };
-    } catch (error) {
-      console.error('Error loading existing development data:', error);
-      return { selfReflection: '', deepDiveDevelopment: '' };
-    }
-  };
-
-  const existingDevData = getExistingDevelopmentData();
 
   const {
     register,
@@ -120,8 +96,8 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
     resolver: zodResolver(structuredBehaviorSchema),
     defaultValues: {
       behaviors: defaultValues,
-      selfReflection: existingDevData.selfReflection,
-      deepDiveDevelopment: existingDevData.deepDiveDevelopment,
+      selfReflection: existingDevelopmentFields.selfReflection || '',
+      deepDiveDevelopment: existingDevelopmentFields.deepDiveDevelopment || '',
     },
     mode: 'onChange',
   });
@@ -133,11 +109,12 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
 
   // Ensure field array is synced with all company values and loads existing data
   useEffect(() => {
-    console.log('🔧 Sync Check - Fields:', fields.length, 'CompanyValues:', companyValues.length, 'ExistingBehaviors:', existingBehaviors.length);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 Sync Check - Fields:', fields.length, 'CompanyValues:', companyValues.length);
+    }
     
               // Don't sync during save operations to prevent field clearing
           if (isCurrentlySaving) {
-            console.log('🔧 SKIPPING sync - currently saving');
             return;
           }
           
@@ -148,7 +125,6 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
           });
           
           if (allFieldsHaveContent) {
-            console.log('🔧 SKIPPING sync - all fields already have content');
             return;
           }
     
@@ -160,7 +136,6 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
           );
           
           if (isUserTyping) {
-            console.log('🔧 SKIPPING sync - user is actively typing');
             return;
           }
     
@@ -184,19 +159,13 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
           });
           
           if (hasConflictingContent) {
-            console.log('🔧 SKIPPING sync - user has conflicting content that would be lost');
             return;
           }
     
     // Always sync if we have company values, regardless of field count
     if (companyValues.length > 0) {
-      console.log('🔧 SYNCING field array - Current fields:', fields.length, 'Expected:', companyValues.length);
-      console.log('🔧 Full Existing behaviors data:', JSON.stringify(existingBehaviors, null, 2));
-      
       const syncedValues = companyValues.map(value => {
         const existingBehavior = existingBehaviors.find(b => b.valueId === value.id);
-        console.log(`🔧 Value ${value.name} (${value.id}): found behavior =`, existingBehavior);
-        console.log(`🔧 Setting description to: "${existingBehavior?.description || 'EMPTY'}"`);
         return {
           valueId: value.id,
           valueName: value.name,
@@ -204,38 +173,21 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
         };
       });
       
-      console.log('🔧 Final synced values:', syncedValues);
       replace(syncedValues);
-    } else {
-      console.log('🔧 No company values yet');
     }
   }, [companyValues, existingBehaviors, replace, isCurrentlySaving]); // Prevent sync during saves
 
   const watchedBehaviors = watch('behaviors');
 
-  // Debug: Log the watched behaviors to verify all 4 are tracked
-  useEffect(() => {
-    console.log('🔍 Form Debug - Watched Behaviors:', JSON.stringify({
-      fieldsLength: fields.length,
-      watchedBehaviorsLength: watchedBehaviors.length,
-      companyValuesLength: companyValues.length,
-      watchedBehaviors: watchedBehaviors.map(b => ({
-        valueId: b.valueId,
-        valueName: b.valueName,
-        hasDescription: !!b.description,
-        descriptionLength: b.description?.length || 0,
-        actualDescription: b.description || 'EMPTY'
-      }))
-    }, null, 2));
-
-    // DEBUG: Also check individual field values directly
-    console.log('🔍 Direct field check:', {
-      behavior0: watch('behaviors.0.description') || 'EMPTY',
-      behavior1: watch('behaviors.1.description') || 'EMPTY', 
-      behavior2: watch('behaviors.2.description') || 'EMPTY',
-      behavior3: watch('behaviors.3.description') || 'EMPTY'
-    });
-  }, [fields.length, watchedBehaviors, companyValues.length, watch]);
+  // Debug: Log the watched behaviors (development only)
+  if (process.env.NODE_ENV === 'development') {
+    useEffect(() => {
+      console.log('🔍 Form Behaviors:', {
+        fieldsLength: fields.length,
+        watchedLength: watchedBehaviors.length
+      });
+    }, [fields.length, watchedBehaviors.length]);
+  }
 
   // Calculate completion progress for only the 6 required fields (4 core behaviors + 2 development fields)
   // Filter for only the 4 specific core company values that should be included
@@ -268,25 +220,6 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
   const totalFieldCount = coreBehaviors.length + 2; // Dynamic core behaviors count + 2 development fields
   
   const progressPercentage = (totalCompletedCount / totalFieldCount) * 100;
-
-  // Debug completion calculation
-  console.log('🔍 Completion Debug:', {
-    allBehaviors: watchedBehaviors.length,
-    coreBehaviors: coreBehaviors.length,
-    completedBehaviors,
-    completedDevelopmentFields,
-    totalCompletedCount,
-    totalFieldCount,
-    coreValueNames,
-    coreBehaviorNames: coreBehaviors.map(b => {
-      const value = companyValues?.find(v => v.id === b.valueId);
-      return value?.name || 'Unknown';
-    }),
-    completedBehaviorNames: coreBehaviors.filter(b => b.description && b.description.trim().length > 0).map(b => {
-      const value = companyValues?.find(v => v.id === b.valueId);
-      return value?.name || 'Unknown';
-    })
-  });
 
   // Notify parent of completion changes (now includes all 6 fields)
   useEffect(() => {
@@ -365,27 +298,6 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
       const behaviorsWithContent = watchedBehaviors.filter(b => 
         (b.description && b.description.trim().length > 0)
       );
-      
-      console.log('🔧 Auto-save triggered:', {
-        allBehaviors: watchedBehaviors,
-        behaviorsWithContent: behaviorsWithContent,
-        currentDataKey: currentDataKey,
-        previousKey: previousValuesRef.current
-      });
-      
-      // ADDITIONAL DEBUG: Check what getValues() sees vs watch()
-      const formValues = getValues();
-      console.log('🔧 getValues() vs watch() comparison:', {
-        getValuesResult: formValues.behaviors,
-        watchResult: watchedBehaviors,
-        directFieldAccess: {
-          behavior0: getValues('behaviors.0.description'),
-          behavior1: getValues('behaviors.1.description'),
-          behavior2: getValues('behaviors.2.description'),
-          behavior3: getValues('behaviors.3.description')
-        }
-      });
-      
       const selfReflection = watch('selfReflection');
       const deepDiveDevelopment = watch('deepDiveDevelopment');
       
@@ -400,21 +312,14 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
         (deepDiveDevelopment && deepDiveDevelopment.trim().length > 0);
       
       if (hasContentToSave) {
-        console.log('🔧 Auto-saving with data:', {
-          behaviors: watchedBehaviors, // Save ALL behaviors, not just ones with content
-          selfReflection,
-          deepDiveDevelopment
-        });
         previousValuesRef.current = currentDataKey;
         debouncedAutoSave({
           behaviors: watchedBehaviors, // Save ALL behaviors, including empty ones
           selfReflection,
           deepDiveDevelopment
         });
-      } else {
-        console.log('🔧 No meaningful content to save');
       }
-    }, 3000); // 3 second debounce to reduce frequency
+    }, 500); // 500ms debounce for faster auto-save (matches CEO review pattern)
 
     return () => clearTimeout(timer);
   }, [currentDataKey, onAutoSave, debouncedAutoSave, watchedBehaviors, watch]);
@@ -467,21 +372,11 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
   // Create a force save function that can be called by parent components
   const forceSave = useCallback(async () => {
     if (!onAutoSave) {
-      console.log('❌ No onAutoSave function provided');
       return;
     }
     
-    console.log('🔧 Force saving current form data');
-    
     const currentData = getValues();
     const currentBehaviors = currentData.behaviors || [];
-    
-    console.log('🔧 Current form data captured:', {
-      behaviors: currentBehaviors,
-      selfReflection: currentData.selfReflection,
-      deepDiveDevelopment: currentData.deepDiveDevelopment,
-      behaviorCount: currentBehaviors.length
-    });
     
     // Save all behaviors (including empty ones) and development data
     await onAutoSave({
@@ -489,8 +384,6 @@ export const StructuredBehaviorForm = forwardRef<StructuredBehaviorFormHandle, S
       selfReflection: currentData.selfReflection || '',
       deepDiveDevelopment: currentData.deepDiveDevelopment || '',
     });
-    
-    console.log('✅ Force save onAutoSave call completed');
   }, [onAutoSave, getValues]);
 
   // Expose forceSave method to parent components via ref

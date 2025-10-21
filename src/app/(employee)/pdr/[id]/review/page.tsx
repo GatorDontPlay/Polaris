@@ -30,13 +30,24 @@ interface ReviewPageProps {
   params: { id: string };
 }
 
-// Helper function to get development data from localStorage
-const getDevelopmentData = (pdrId: string) => {
+// Helper function to get development data from database only (no localStorage)
+const getDevelopmentData = (pdrId: string, pdrEmployeeFields?: any) => {
   if (typeof window === 'undefined') return null;
   
   try {
-    const data = localStorage.getItem(`development_draft_${pdrId}`);
-    return data ? JSON.parse(data) : null;
+    // Load from database (PDR employee_fields)
+    const dbDevelopmentData = pdrEmployeeFields?.developmentFields;
+    
+    if (dbDevelopmentData && (dbDevelopmentData.selfReflection || dbDevelopmentData.deepDiveDevelopment)) {
+      console.log('✅ Loading development data from database:', dbDevelopmentData);
+      return {
+        selfReflection: dbDevelopmentData.selfReflection || '',
+        deepDiveDevelopment: dbDevelopmentData.deepDiveDevelopment || ''
+      };
+    }
+    
+    console.log('ℹ️ No development data found in database');
+    return null;
   } catch (error) {
     console.error('Error retrieving development data:', error);
     return null;
@@ -150,22 +161,20 @@ export default function ReviewPage({ params }: ReviewPageProps) {
   const canAccessMidYear = pdr && ((pdr.currentStep >= 4) || 
                           (pdr.currentStep >= 3 && (pdr.status === 'PLAN_LOCKED' || pdr.status === 'SUBMITTED' || pdr.status === 'MID_YEAR_APPROVED')));
 
-  // Load development data
+  // Load development data from database only (no localStorage)
   useEffect(() => {
-    const devData = getDevelopmentData(params.id);
+    const devData = getDevelopmentData(params.id, pdr?.employeeFields);
     setDevelopmentData(devData);
     
-    // Debug: Check what behavior data exists in localStorage
-    const storedBehaviors = localStorage.getItem(`demo_behaviors_${params.id}`);
-    console.log('🔍 SIMPLE DEBUG - Review page loading:', {
+    // Log review page loading (database only - no localStorage)
+    console.log('📊 Review page loading from database:', {
       pdrId: params.id,
-      localStorageKey: `demo_behaviors_${params.id}`,
-      storedBehaviorsRaw: storedBehaviors,
-      storedBehaviorsParsed: storedBehaviors ? JSON.parse(storedBehaviors) : null,
       hookBehaviorsData: behaviors,
-      totalBehaviorsCount: behaviors?.length || 0
+      totalBehaviorsCount: behaviors?.length || 0,
+      employeeFieldsFromDB: pdr?.employeeFields,
+      developmentDataLoaded: devData
     });
-  }, [params.id]); // Remove behaviors dependency to prevent infinite re-renders
+  }, [params.id, pdr?.employeeFields]); // Include pdr.employeeFields as dependency
   
   // Update PDR step to 3 (Review) when user reaches this page - only if PDR is editable
   useEffect(() => {
@@ -529,6 +538,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
               <Button 
                 size="sm"
                 onClick={() => router.push(`/pdr/${params.id}/mid-year`)}
+                disabled={!['SUBMITTED', 'OPEN_FOR_REVIEW', 'PLAN_LOCKED', 'MID_YEAR_SUBMITTED', 'MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'END_YEAR_APPROVED', 'CLOSED'].includes(pdr?.status || '')}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 <ArrowRight className="h-4 w-4 mr-2" />
@@ -650,6 +660,7 @@ export default function ReviewPage({ params }: ReviewPageProps) {
           {navigationState.showMidYearNavigation && (
             <Button 
               onClick={() => router.push(`/pdr/${params.id}/mid-year`)}
+              disabled={!['SUBMITTED', 'OPEN_FOR_REVIEW', 'PLAN_LOCKED', 'MID_YEAR_SUBMITTED', 'MID_YEAR_APPROVED', 'END_YEAR_SUBMITTED', 'END_YEAR_APPROVED', 'CLOSED'].includes(pdr?.status || '')}
               className="bg-green-600 hover:bg-green-700 text-white px-10 py-8 text-xl shadow-lg"
               size="lg"
             >

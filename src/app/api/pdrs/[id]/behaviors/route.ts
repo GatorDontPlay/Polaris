@@ -148,7 +148,10 @@ export async function POST(
     // Check if behavior already exists for this value
     const { data: existingBehavior, error: checkError } = await supabase
       .from('behaviors')
-      .select('id')
+      .select(`
+        *,
+        value:company_values(*)
+      `)
       .eq('pdr_id', pdrId)
       .eq('value_id', behaviorData.valueId)
       .single();
@@ -157,8 +160,11 @@ export async function POST(
       throw checkError;
     }
 
+    // If behavior already exists, return it instead of error (idempotent behavior)
     if (existingBehavior) {
-      return createApiError('Behavior already exists for this company value', 400, 'BEHAVIOR_EXISTS');
+      console.log('🔧 Behavior already exists, returning existing behavior:', existingBehavior.id);
+      const transformedBehavior = transformBehaviorFields(existingBehavior);
+      return createApiResponse(transformedBehavior, 200);
     }
 
     // Create the behavior

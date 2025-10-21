@@ -79,3 +79,4 @@ WHERE p.status = 'END_YEAR_SUBMITTED'
   AND p.updated_at >= NOW() - INTERVAL '1 minute' -- Only for just-fixed records
   AND eyr.achievements_summary IS NOT NULL;
 
+

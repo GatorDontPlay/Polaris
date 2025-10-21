@@ -77,6 +77,7 @@ interface PDRData {
   updatedAt: string;
   submittedAt?: string;
   ceoFields?: Record<string, any>;
+  employeeFields?: Record<string, any>;
   user: {
     firstName: string;
     lastName: string;
@@ -135,6 +136,14 @@ export default function CEOPDRReviewPage() {
   
   // Ref for the behavior review section
   const behaviorReviewRef = useRef<BehaviorReviewSectionRef>(null);
+  
+  // Debounce timer refs for mid-year check-in auto-save
+  const midYearGoalCheckInTimer = useRef<NodeJS.Timeout>();
+  const midYearBehaviorCheckInTimer = useRef<NodeJS.Timeout>();
+  
+  // Track if mid-year comments are actively being saved (to prevent overwriting during load)
+  const isSavingMidYearGoalComment = useRef<Record<string, boolean>>({});
+  const isSavingMidYearBehaviorComment = useRef<Record<string, boolean>>({});
   
   // CEO feedback state
   const [ceoGoalFeedback, setCeoGoalFeedback] = useState<Record<string, {
@@ -208,23 +217,27 @@ export default function CEOPDRReviewPage() {
     setMetricsRefreshKey(prev => prev + 1);
   }, []);
 
-  // Listen for storage events and custom events to refresh metrics
+  // Cleanup debounce timers on unmount
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key?.includes(`ceo_goal_feedback_${pdrId}`) || e.key?.includes(`ceo_behavior_feedback_${pdrId}`)) {
-        refreshMetrics();
+    return () => {
+      if (midYearGoalCheckInTimer.current) {
+        clearTimeout(midYearGoalCheckInTimer.current);
+      }
+      if (midYearBehaviorCheckInTimer.current) {
+        clearTimeout(midYearBehaviorCheckInTimer.current);
       }
     };
+  }, []);
 
+  // Listen for custom events to refresh metrics
+  useEffect(() => {
     const handleCustomRefresh = () => {
       refreshMetrics();
     };
 
-    window.addEventListener('storage', handleStorageChange);
     window.addEventListener('ceo-feedback-updated', handleCustomRefresh);
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('ceo-feedback-updated', handleCustomRefresh);
     };
   }, [pdrId, refreshMetrics]);
@@ -241,16 +254,7 @@ export default function CEOPDRReviewPage() {
       }
     }));
     
-    // Save to localStorage
-    const feedbackKey = `ceo_goal_feedback_${pdrId}`;
-    const updatedFeedback = {
-      ...ceoGoalFeedback,
-      [goalId]: {
-        ...ceoGoalFeedback[goalId],
-        [field]: value
-      }
-    };
-    localStorage.setItem(feedbackKey, JSON.stringify(updatedFeedback));
+    // Data saved to database via API calls, not localStorage
   };
 
 
@@ -361,24 +365,142 @@ export default function CEOPDRReviewPage() {
     setMeetingBooked(isBooked);
   };
 
+  // Debounced auto-save for goal check-in comments
+  const debouncedSaveGoalCheckIn = useCallback((goalId: string, comment: string) => {
+    if (midYearGoalCheckInTimer.current) {
+      clearTimeout(midYearGoalCheckInTimer.current);
+    }
+    
+    // Mark this comment as being saved
+    isSavingMidYearGoalComment.current[goalId] = true;
+    console.log(`🔒 Locking goal ${goalId} comment from being overwritten during save`);
+    
+    midYearGoalCheckInTimer.current = setTimeout(async () => {
+      try {
+        console.log('💾 Auto-saving goal check-in comment to database...', { goalId, commentLength: comment.length });
+        
+        // Get existing midYearCheckIn data
+        const existingCheckIn = pdr?.ceoFields?.midYearCheckIn || { goals: {}, behaviors: {} };
+        
+        // Update the specific goal's comment
+        const updatedCheckIn = {
+          ...existingCheckIn,
+          goals: {
+            ...existingCheckIn.goals,
+            [goalId]: {
+              comments: comment,
+              savedAt: new Date().toISOString()
+            }
+          }
+        };
+        
+        const response = await fetch(`/api/pdrs/${pdrId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            ceoFields: {
+              ...pdr?.ceoFields,
+              midYearCheckIn: updatedCheckIn
+            }
+          })
+        });
+        
+        if (response.ok) {
+          console.log('✅ Goal check-in comment saved successfully');
+          // Mark save as complete
+          isSavingMidYearGoalComment.current[goalId] = false;
+          console.log(`🔓 Unlocked goal ${goalId} comment after successful save`);
+        } else {
+          console.error('❌ Failed to save goal check-in comment:', response.status);
+          // Clear flag even on failure so user can retry
+          isSavingMidYearGoalComment.current[goalId] = false;
+        }
+      } catch (error) {
+        console.error('❌ Error saving goal check-in comment:', error);
+        // Clear flag on error
+        isSavingMidYearGoalComment.current[goalId] = false;
+      }
+    }, 500);
+  }, [pdr, pdrId]);
 
+  // Debounced auto-save for behavior check-in comments
+  const debouncedSaveBehaviorCheckIn = useCallback((behaviorId: string, comment: string) => {
+    if (midYearBehaviorCheckInTimer.current) {
+      clearTimeout(midYearBehaviorCheckInTimer.current);
+    }
+    
+    // Mark this comment as being saved
+    isSavingMidYearBehaviorComment.current[behaviorId] = true;
+    console.log(`🔒 Locking behavior ${behaviorId} comment from being overwritten during save`);
+    
+    midYearBehaviorCheckInTimer.current = setTimeout(async () => {
+      try {
+        console.log('💾 Auto-saving behavior check-in comment to database...', { behaviorId, commentLength: comment.length });
+        
+        const existingCheckIn = pdr?.ceoFields?.midYearCheckIn || { goals: {}, behaviors: {} };
+        
+        const updatedCheckIn = {
+          ...existingCheckIn,
+          behaviors: {
+            ...existingCheckIn.behaviors,
+            [behaviorId]: {
+              comments: comment,
+              savedAt: new Date().toISOString()
+            }
+          }
+        };
+        
+        const response = await fetch(`/api/pdrs/${pdrId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            ceoFields: {
+              ...pdr?.ceoFields,
+              midYearCheckIn: updatedCheckIn
+            }
+          })
+        });
+        
+        if (response.ok) {
+          console.log('✅ Behavior check-in comment saved successfully');
+          // Mark save as complete
+          isSavingMidYearBehaviorComment.current[behaviorId] = false;
+          console.log(`🔓 Unlocked behavior ${behaviorId} comment after successful save`);
+        } else {
+          console.error('❌ Failed to save behavior check-in comment:', response.status);
+          // Clear flag even on failure so user can retry
+          isSavingMidYearBehaviorComment.current[behaviorId] = false;
+        }
+      } catch (error) {
+        console.error('❌ Error saving behavior check-in comment:', error);
+        // Clear flag on error
+        isSavingMidYearBehaviorComment.current[behaviorId] = false;
+      }
+    }, 500);
+  }, [pdr, pdrId]);
 
   // Separate handlers for goals and behaviors to avoid closure issues
   const handleGoalCommentChange = useCallback((goalId: string, comment: string) => {
     setMidYearGoalComments(prevComments => {
       const updatedComments = { ...prevComments, [goalId]: comment };
-      localStorage.setItem(`mid_year_goal_comments_${pdrId}`, JSON.stringify(updatedComments));
       return updatedComments;
     });
-  }, [pdrId]);
+    
+    // Trigger auto-save to database
+    debouncedSaveGoalCheckIn(goalId, comment);
+  }, [debouncedSaveGoalCheckIn]);
 
   const handleBehaviorCommentChange = useCallback((behaviorId: string, comment: string) => {
     setMidYearBehaviorComments(prevComments => {
       const updatedComments = { ...prevComments, [behaviorId]: comment };
-      localStorage.setItem(`mid_year_behavior_comments_${pdrId}`, JSON.stringify(updatedComments));
       return updatedComments;
     });
-  }, [pdrId]);
+    
+    // Trigger auto-save to database
+    debouncedSaveBehaviorCheckIn(behaviorId, comment);
+  }, [debouncedSaveBehaviorCheckIn]);
 
   // Save final review data
   const saveFinalGoalReview = (goalId: string, field: 'rating' | 'comments', value: number | string) => {
@@ -390,7 +512,7 @@ export default function CEOPDRReviewPage() {
       }
     };
     setFinalGoalReviews(updatedReviews);
-    localStorage.setItem(`final_goal_reviews_${pdrId}`, JSON.stringify(updatedReviews));
+    // Data saved to database on final review completion
   };
 
   const saveFinalBehaviorReview = (behaviorId: string, field: 'rating' | 'comments', value: number | string) => {
@@ -402,7 +524,7 @@ export default function CEOPDRReviewPage() {
       }
     };
     setFinalBehaviorReviews(updatedReviews);
-    localStorage.setItem(`final_behavior_reviews_${pdrId}`, JSON.stringify(updatedReviews));
+    // Data saved to database on final review completion
   };
 
   // Save mid-year check-in comments without closing the review
@@ -475,10 +597,6 @@ export default function CEOPDRReviewPage() {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Failed to save comments: ${response.status}`);
       }
-      
-      // Also save to localStorage for local state management
-      localStorage.setItem(`mid_year_goal_comments_${pdrId}`, JSON.stringify(midYearGoalComments));
-      localStorage.setItem(`mid_year_behavior_comments_${pdrId}`, JSON.stringify(midYearBehaviorComments));
       
       // Show success message
       toast({
@@ -554,8 +672,10 @@ export default function CEOPDRReviewPage() {
       
       const result = await response.json();
       
-      // Update local PDR state with the new status
-      setPdr(result.pdr);
+      // Update local PDR state with the new status from API response
+      if (result.pdr) {
+        setPdr(result.pdr);
+      }
       
       // Close the confirmation dialog
       setIsMidYearSaveConfirmDialogOpen(false);
@@ -565,6 +685,49 @@ export default function CEOPDRReviewPage() {
         title: "✅ Mid-Year Review Completed",
         description: "The PDR has been approved and the employee can now proceed to the final review.",
       });
+      
+      // Optionally refresh data in the background to ensure consistency
+      // This is non-blocking and won't show errors to the user
+      setTimeout(() => {
+        const backgroundRefresh = async () => {
+          try {
+            const refreshResponse = await fetch(`/api/pdrs/${pdrId}`, {
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+            });
+            if (refreshResponse.ok) {
+              const refreshResult = await refreshResponse.json();
+              if (refreshResult.success && refreshResult.data) {
+                const pdrData = refreshResult.data;
+                setPdr({
+                  id: pdrData.id,
+                  userId: pdrData.userId || pdrData.user_id,
+                  status: pdrData.status,
+                  currentStep: pdrData.currentStep || pdrData.current_step || 1,
+                  isLocked: pdrData.isLocked || pdrData.is_locked || false,
+                  meetingBooked: pdrData.meetingBooked || false,
+                  fyLabel: pdrData.fyLabel || pdrData.fy_label || 'Unknown',
+                  fyStartDate: pdrData.fyStartDate || pdrData.fy_start_date,
+                  fyEndDate: pdrData.fyEndDate || pdrData.fy_end_date,
+                  createdAt: pdrData.createdAt || pdrData.created_at,
+                  updatedAt: pdrData.updatedAt || pdrData.updated_at,
+                  submittedAt: pdrData.submittedAt || pdrData.submitted_at,
+                  ceoFields: pdrData.ceoFields || pdrData.ceo_fields,
+                  employeeFields: pdrData.employeeFields || pdrData.employee_fields,
+                  user: {
+                    firstName: pdrData.user?.firstName || pdrData.user?.first_name || 'Unknown',
+                    lastName: pdrData.user?.lastName || pdrData.user?.last_name || 'User',
+                    email: pdrData.user?.email || 'unknown@example.com'
+                  }
+                });
+              }
+            }
+          } catch {
+            // Silent refresh - if it fails, we still have the optimistic update
+          }
+        };
+        backgroundRefresh();
+      }, 1000);
       
     } catch (error) {
       console.error('Error completing mid-year review:', error);
@@ -602,24 +765,9 @@ export default function CEOPDRReviewPage() {
     }
     
     
-    // Check additional behaviors (self-reflection and deep dive) from localStorage
-    const getAdditionalCeoFeedback = () => {
-      if (typeof window === 'undefined') return {};
-      const savedData = localStorage.getItem(`ceo_additional_feedback_${pdrId}`);
-      return savedData ? JSON.parse(savedData) : {};
-    };
-    
-    const additionalCeoFeedback = getAdditionalCeoFeedback();
-    
-    let completedAdditionalBehaviors = 0;
-    if (additionalCeoFeedback) {
-      const hasSelfReflection = additionalCeoFeedback.selfReflection && additionalCeoFeedback.selfReflection.trim().length > 0;
-      const hasDeepDive = additionalCeoFeedback.deepDive && additionalCeoFeedback.deepDive.trim().length > 0;
-      
-      
-      if (hasSelfReflection) completedAdditionalBehaviors++;
-      if (hasDeepDive) completedAdditionalBehaviors++;
-    }
+    // Additional CEO feedback is managed by BehaviorReviewSection component
+    // Validation for behaviors is handled by the component itself
+    const completedAdditionalBehaviors = 0; // Behavior validation handled by component
     
     const totalCompletedBehaviors = completedMainBehaviors + completedAdditionalBehaviors;
     
@@ -647,28 +795,8 @@ export default function CEOPDRReviewPage() {
     }
     
     try {
-      // Get additional CEO feedback
-      const getAdditionalCeoFeedback = () => {
-        if (typeof window === 'undefined') return {};
-        const savedData = localStorage.getItem(`ceo_additional_feedback_${pdrId}`);
-        return savedData ? JSON.parse(savedData) : {};
-      };
-      
-      const additionalCeoFeedback = getAdditionalCeoFeedback();
-      
-      // First save all CEO feedback to localStorage (for persistence)
-    const ceoReviewData = {
-      goalFeedback: ceoGoalFeedback,
-      // behaviorFeedback removed - handled by BehaviorReviewSection
-        additionalFeedback: additionalCeoFeedback || {},
-      reviewedAt: new Date().toISOString(),
-        reviewedBy: 'CEO'
-    };
-    
-      // Save CEO review data to localStorage
-    localStorage.setItem(`ceo_review_${pdrId}`, JSON.stringify(ceoReviewData));
-      
       // Call the API to transition the PDR state
+      // CEO feedback is saved directly to database via API
       const response = await fetch(`/api/pdrs/${pdrId}/submit-ceo-review`, {
         method: 'POST',
         headers: {
@@ -732,13 +860,6 @@ export default function CEOPDRReviewPage() {
       // Update local state
       setPdr(transformedPDR);
     
-    // Trigger a storage event to notify other components
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: `demo_pdr_${pdrId}`,
-      newValue: JSON.stringify(transformedPDR),
-      storageArea: localStorage
-    }));
-    
     setIsLockConfirmDialogOpen(false);
     
     // Show success message
@@ -773,7 +894,7 @@ export default function CEOPDRReviewPage() {
         return;
       }
 
-      // Collect all behavior and goal reviews from localStorage
+      // Collect all behavior and goal reviews from React state
       console.log('📦 Collecting behavior and goal reviews for final submission...');
       console.log('Final behavior reviews:', finalBehaviorReviews);
       console.log('Final goal reviews:', finalGoalReviews);
@@ -790,31 +911,42 @@ export default function CEOPDRReviewPage() {
 
       console.log(`📊 Calculated overall rating: ${overallRating} (from ${allRatings.length} ratings)`);
 
+      // Prepare the final review payload
+      const ceoFinalComments = endYearReviewData?.ceoAssessment?.trim() || 'Final review completed by CEO';
+      
+      // Filter out unrated behaviors and goals (rating must be >= 1)
+      const ratedBehaviorReviews = Object.fromEntries(
+        Object.entries(finalBehaviorReviews).filter(([_, review]) => review.rating && review.rating > 0)
+      );
+      const ratedGoalReviews = Object.fromEntries(
+        Object.entries(finalGoalReviews).filter(([_, review]) => review.rating && review.rating > 0)
+      );
+      
+      const payload = {
+        ceoOverallRating: overallRating,
+        ceoFinalComments: ceoFinalComments,
+        behaviorReviews: ratedBehaviorReviews,
+        goalReviews: ratedGoalReviews,
+      };
+      
+      console.log('📤 Submitting final review with payload:', {
+        ceoOverallRating: payload.ceoOverallRating,
+        ceoFinalCommentsLength: payload.ceoFinalComments?.length,
+        behaviorReviewsCount: Object.keys(payload.behaviorReviews || {}).length,
+        goalReviewsCount: Object.keys(payload.goalReviews || {}).length,
+      });
+
       // Call the new complete final review API with all review data
       const response = await fetch(`/api/pdrs/${pdrId}/complete-final-review`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ceoOverallRating: overallRating,
-          ceoFinalComments: endYearReviewData?.ceoOverallFeedback || 'Final review completed by CEO',
-          behaviorReviews: finalBehaviorReviews,
-          goalReviews: finalGoalReviews,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
         await response.json();
-        
-        // Update localStorage for demo mode
-        const updatedPdr = {
-          ...pdr,
-          status: 'COMPLETED',
-          finalReviewCompletedAt: new Date().toISOString(),
-          finalReviewCompletedBy: 'CEO',
-          updatedAt: new Date().toISOString()
-        };
         
         // Trigger custom events to update other components
         window.dispatchEvent(new CustomEvent('demo-pdr-changed'));
@@ -823,7 +955,14 @@ export default function CEOPDRReviewPage() {
         alert('Final review completed successfully! PDR is now locked and completed.');
       } else {
         const error = await response.json();
-        alert(`Error completing final review: ${error.error || 'Unknown error'}`);
+        console.error('❌ API Error Response:', error);
+        console.error('❌ Response status:', response.status);
+        
+        // Show detailed error message
+        const errorMessage = error.message || error.error || 'Unknown error';
+        const errorDetails = error.details ? `\nDetails: ${JSON.stringify(error.details)}` : '';
+        
+        alert(`Error completing final review: ${errorMessage}${errorDetails}`);
       }
     } catch (error) {
       console.error('Error completing final review:', error);
@@ -846,7 +985,7 @@ export default function CEOPDRReviewPage() {
   };
 
   useEffect(() => {
-    const loadPDRData = async () => {
+    const loadPDRData = async (retryCount = 0) => {
       setIsLoading(true);
       
       try {
@@ -859,6 +998,13 @@ export default function CEOPDRReviewPage() {
         });
 
         if (!response.ok) {
+          // If it's a 404 and we haven't retried yet, wait and retry once
+          // This handles the race condition during status updates
+          if (response.status === 404 && retryCount === 0) {
+            console.log('PDR not found, retrying in 500ms...');
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return loadPDRData(1); // Retry once
+          }
           throw new Error(`Failed to fetch PDR: ${response.status}`);
         }
 
@@ -886,6 +1032,7 @@ export default function CEOPDRReviewPage() {
           updatedAt: pdrData.updatedAt || pdrData.updated_at,
           submittedAt: pdrData.submittedAt || pdrData.submitted_at,
           ceoFields: pdrData.ceoFields || pdrData.ceo_fields,
+          employeeFields: pdrData.employeeFields || pdrData.employee_fields, // Include employee_fields for development data
           user: {
             firstName: pdrData.user?.firstName || pdrData.user?.first_name || 'Unknown',
             lastName: pdrData.user?.lastName || pdrData.user?.last_name || 'User',
@@ -962,7 +1109,7 @@ export default function CEOPDRReviewPage() {
                   employeeRating: behavior.rating,
                   ceoRating: behavior.ceoRating,
                   employeeExamples: behavior.examples,
-                  ceoComments: behavior.comments, // CEO comments are stored in the comments field
+                  ceoComments: behavior.ceoComments, // CEO comments from ceoComments field
                   value: valueData.companyValue
                 }))
               );
@@ -997,6 +1144,157 @@ export default function CEOPDRReviewPage() {
 
       loadPDRData();
   }, [pdrId]);
+
+  // Refresh data when navigating to summary tab to ensure latest feedback is displayed
+  useEffect(() => {
+    if (activeTab === 'summary' && pdr) {
+      console.log('📊 Summary tab activated - refreshing data...');
+      // Reload PDR data to get latest ceoFields and behaviors
+      const loadPDRData = async () => {
+        try {
+          const response = await fetch(`/api/pdrs/${pdrId}`);
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.data) {
+              const pdrData = result.data;
+              setPdr(pdrData);
+              
+              // Reload behaviors from organized API
+              try {
+                const behaviorResponse = await fetch(`/api/pdrs/${pdrId}/behavior-entries/organized`);
+                if (behaviorResponse.ok) {
+                  const behaviorResult = await behaviorResponse.json();
+                  if (behaviorResult.success && behaviorResult.data) {
+                    const organizedBehaviors = behaviorResult.data;
+                    const flatBehaviors = organizedBehaviors.flatMap((valueData: any) => 
+                      (valueData.employeeEntries || []).map((behavior: any) => ({
+                        id: behavior.id,
+                        description: behavior.description || '',
+                        employeeRating: behavior.rating,
+                        ceoRating: behavior.ceoRating,
+                        employeeExamples: behavior.examples,
+                        ceoComments: behavior.ceoComments,
+                        value: valueData.companyValue
+                      }))
+                    );
+                    setBehaviors(flatBehaviors);
+                    console.log('✅ Summary: Reloaded behaviors:', flatBehaviors.length);
+                  }
+                }
+              } catch (behaviorError) {
+                console.error('Failed to reload behaviors:', behaviorError);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('❌ Summary: Error reloading PDR data:', error);
+        }
+      };
+      
+      loadPDRData();
+    }
+  }, [activeTab, pdrId]);
+
+  // Refresh data when navigating to Final Review tab to ensure latest employee ratings are displayed
+  useEffect(() => {
+    if (activeTab === 'final-review' && pdr) {
+      console.log('📊 Final Review tab activated - refreshing all data from database...');
+      
+      const loadFreshData = async () => {
+        try {
+          // Reload PDR with all nested data
+          const response = await fetch(`/api/pdrs/${pdrId}?goals=true&behaviors=true&reviews=true`, {
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          
+          if (!response.ok) {
+            console.error('❌ Final Review: Failed to refresh data:', response.status);
+            return;
+          }
+          
+          const result = await response.json();
+          if (!result.success || !result.data) {
+            console.error('❌ Final Review: Invalid response from PDR API');
+            return;
+          }
+          
+          const freshPdrData = result.data;
+          
+          // Update PDR state
+          setPdr(freshPdrData);
+          console.log('✅ Final Review: Refreshed PDR data:', {
+            id: freshPdrData.id,
+            status: freshPdrData.status,
+            hasEndYearReview: !!freshPdrData.endYearReview
+          });
+          
+          // Update goals with fresh employee ratings from database
+          if (freshPdrData.goals && Array.isArray(freshPdrData.goals)) {
+            const refreshedGoals = freshPdrData.goals.map((goal: any) => ({
+              id: goal.id,
+              title: goal.title,
+              description: goal.description,
+              targetDate: goal.targetDate || goal.target_date,
+              priority: goal.priority,
+              status: goal.status || 'NOT_STARTED',
+              progress: goal.progress || 0,
+              goalMapping: goal.goalMapping || goal.goal_mapping,
+              weighting: goal.weighting,
+              employeeRating: goal.employeeRating || goal.employee_rating, // Fresh from DB
+              employeeProgress: goal.employeeProgress || goal.employee_progress,
+              ceoRating: goal.ceoRating || goal.ceo_rating,
+              ceoComments: goal.ceoComments || goal.ceo_comments,
+            }));
+            
+            setGoals(refreshedGoals);
+            console.log('✅ Final Review: Refreshed goals with employee ratings:', 
+              refreshedGoals.map((g: any) => ({ id: g.id, title: g.title, employeeRating: g.employeeRating }))
+            );
+          }
+          
+          // Update behaviors with fresh employee ratings from database
+          if (freshPdrData.behaviors && Array.isArray(freshPdrData.behaviors)) {
+            const refreshedBehaviors = freshPdrData.behaviors.map((behavior: any) => ({
+              id: behavior.id,
+              valueId: behavior.valueId || behavior.value_id,
+              description: behavior.description || '',
+              examples: behavior.examples,
+              employeeRating: behavior.employeeRating || behavior.employee_rating, // Fresh from DB
+              employeeSelfAssessment: behavior.employeeSelfAssessment || behavior.employee_self_assessment,
+              ceoRating: behavior.ceoRating || behavior.ceo_rating,
+              ceoComments: behavior.ceoComments || behavior.ceo_comments,
+            }));
+            
+            setBehaviors(refreshedBehaviors);
+            console.log('✅ Final Review: Refreshed behaviors with employee ratings:', 
+              refreshedBehaviors.map((b: any) => ({ id: b.id, employeeRating: b.employeeRating }))
+            );
+          }
+          
+          // Update end-year review data
+          if (freshPdrData.endYearReview) {
+            setEndYearReviewData({
+              employeeSelfAssessment: freshPdrData.endYearReview.achievementsSummary || '',
+              employeeOverallRating: freshPdrData.endYearReview.employeeOverallRating || 0,
+              achievementsSummary: freshPdrData.endYearReview.achievementsSummary || '',
+              learningsGrowth: freshPdrData.endYearReview.learningsGrowth || '',
+              challengesFaced: freshPdrData.endYearReview.challengesFaced || '',
+              nextYearGoals: freshPdrData.endYearReview.nextYearGoals || '',
+              ceoAssessment: freshPdrData.endYearReview.ceoFinalComments || '',
+              ceoOverallRating: freshPdrData.endYearReview.ceoOverallRating || 0,
+            });
+            console.log('✅ Final Review: Refreshed end-year review data');
+          }
+          
+        } catch (error) {
+          console.error('❌ Final Review: Error refreshing data:', error);
+        }
+      };
+      
+      loadFreshData();
+    }
+  }, [activeTab, pdrId]);
 
   // CEO feedback is loaded from the database via the PDR data
 
@@ -1047,77 +1345,45 @@ export default function CEOPDRReviewPage() {
           });
         });
 
-        // Load mid-year review comments if available
-        const midYearData = (pdr as any).midYearReview || (pdr as any).mid_year_review;
-        
-        if (midYearData) {
-          console.log('📋 Found mid-year review data:', midYearData);
+        // Load mid-year check-in comments from ceo_fields.midYearCheckIn
+        if (pdr?.ceoFields?.midYearCheckIn) {
+          const checkInData = pdr.ceoFields.midYearCheckIn;
           
-          // Handle both array and single object cases (API might return array)
-          const reviewData = Array.isArray(midYearData) ? midYearData[0] : midYearData;
-          
-          if (reviewData) {
-            // Load CEO feedback from mid-year review
-            if (reviewData.ceo_feedback || reviewData.ceoFeedback) {
-              const ceoFeedbackText = reviewData.ceo_feedback || reviewData.ceoFeedback;
-              
-              // Update goal feedback with mid-year CEO comments
-              setCeoGoalFeedback(prev => {
-                const updated = { ...prev };
-                // Add CEO feedback to first goal as general feedback
-                const firstGoalId = Object.keys(updated)[0];
-                if (firstGoalId && updated[firstGoalId]) {
-                  updated[firstGoalId] = {
-                    ...updated[firstGoalId],
-                    ceoComments: ceoFeedbackText
-                  };
+          // Load goal check-in comments
+          if (checkInData.goals) {
+            setMidYearGoalComments(prev => {
+              const goalComments: Record<string, string> = {};
+              Object.entries(checkInData.goals).forEach(([goalId, data]: [string, any]) => {
+                // Only update if not currently being saved/edited
+                if (isSavingMidYearGoalComment.current[goalId]) {
+                  console.log(`⏭️ Skipping goal ${goalId} load - currently being saved`);
+                  goalComments[goalId] = prev[goalId] || ''; // Keep existing value
+                } else {
+                  goalComments[goalId] = data.comments || '';
                 }
-                return updated;
               });
-            }
-
-            // Load employee mid-year data and map to comments
-            const progressSummary = reviewData.progress_summary || reviewData.progressSummary || '';
-            const blockersChallenges = reviewData.blockers_challenges || reviewData.blockersChallenges || '';
-            const supportNeeded = reviewData.support_needed || reviewData.supportNeeded || '';
-            const employeeComments = reviewData.employee_comments || reviewData.employeeComments || '';
-            
-            // Combine all employee feedback into check-in comments
-            const employeeContent = [
-              progressSummary && `Progress: ${progressSummary}`,
-              blockersChallenges && `Challenges: ${blockersChallenges}`,
-              supportNeeded && `Support needed: ${supportNeeded}`,
-              employeeComments && `Comments: ${employeeComments}`
-            ].filter(Boolean).join('\n\n');
-            
-            // Map to goal comments - add to all goals for now
-            if (employeeContent) {
-              const goalCommentsData: Record<string, string> = {};
-              goals.forEach(goal => {
-                goalCommentsData[goal.id] = employeeContent;
-              });
-              
-              setMidYearGoalComments(goalCommentsData);
-              console.log('📋 Loaded mid-year goal comments from review data:', goalCommentsData);
-            }
+              console.log('📋 Loaded mid-year goal check-in comments from database:', goalComments);
+              return goalComments;
+            });
           }
-        }
-
-        // Load behavior-specific CEO feedback from the behaviors data
-        const behaviorCommentsData: Record<string, string> = {};
-        
-        behaviors.forEach(behavior => {
-          const behaviorUniqueId = behavior.value?.id || behavior.valueId || behavior.id;
           
-          // Load CEO comments from behavior.ceoComments
-          if (behavior.ceoComments) {
-            behaviorCommentsData[behaviorUniqueId] = behavior.ceoComments;
+          // Load behavior check-in comments
+          if (checkInData.behaviors) {
+            setMidYearBehaviorComments(prev => {
+              const behaviorComments: Record<string, string> = {};
+              Object.entries(checkInData.behaviors).forEach(([behaviorId, data]: [string, any]) => {
+                // Only update if not currently being saved/edited
+                if (isSavingMidYearBehaviorComment.current[behaviorId]) {
+                  console.log(`⏭️ Skipping behavior ${behaviorId} load - currently being saved`);
+                  behaviorComments[behaviorId] = prev[behaviorId] || ''; // Keep existing value
+                } else {
+                  behaviorComments[behaviorId] = data.comments || '';
+                }
+              });
+              console.log('📋 Loaded mid-year behavior check-in comments from database:', behaviorComments);
+              return behaviorComments;
+            });
           }
-        });
-
-        if (Object.keys(behaviorCommentsData).length > 0) {
-          setMidYearBehaviorComments(behaviorCommentsData);
-          console.log('📋 Loaded behavior CEO comments:', behaviorCommentsData);
         }
 
         console.log('🔍 Individual behavior employee data:');
@@ -1158,6 +1424,68 @@ export default function CEOPDRReviewPage() {
       loadDatabaseFeedback();
     }
   }, [pdr, pdrId, goals, behaviors]);
+
+  // Separate useEffect for mid-year check-in comments to prevent unnecessary reloads
+  // Only runs when pdr.ceoFields.midYearCheckIn changes, NOT when goals/behaviors change
+  useEffect(() => {
+    console.log('🔄 Mid-year check-in useEffect triggered');
+    
+    if (!pdr?.ceoFields?.midYearCheckIn || !pdrId) {
+      return;
+    }
+
+    const checkInData = pdr.ceoFields.midYearCheckIn;
+    
+    // Load goal check-in comments
+    if (checkInData.goals) {
+      setMidYearGoalComments(prev => {
+        const goalComments: Record<string, string> = { ...prev };
+        let hasChanges = false;
+        
+        Object.entries(checkInData.goals).forEach(([goalId, data]: [string, any]) => {
+          const newComment = data.comments || '';
+          
+          // Only update if not currently being saved AND value is different
+          if (!isSavingMidYearGoalComment.current[goalId]) {
+            if (prev[goalId] !== newComment) {
+              goalComments[goalId] = newComment;
+              hasChanges = true;
+              console.log(`📥 Updated goal ${goalId} comment from database`);
+            }
+          } else {
+            console.log(`⏭️ Skipping goal ${goalId} - currently being saved`);
+          }
+        });
+        
+        return hasChanges ? goalComments : prev;
+      });
+    }
+    
+    // Load behavior check-in comments
+    if (checkInData.behaviors) {
+      setMidYearBehaviorComments(prev => {
+        const behaviorComments: Record<string, string> = { ...prev };
+        let hasChanges = false;
+        
+        Object.entries(checkInData.behaviors).forEach(([behaviorId, data]: [string, any]) => {
+          const newComment = data.comments || '';
+          
+          // Only update if not currently being saved AND value is different
+          if (!isSavingMidYearBehaviorComment.current[behaviorId]) {
+            if (prev[behaviorId] !== newComment) {
+              behaviorComments[behaviorId] = newComment;
+              hasChanges = true;
+              console.log(`📥 Updated behavior ${behaviorId} comment from database`);
+            }
+          } else {
+            console.log(`⏭️ Skipping behavior ${behaviorId} - currently being saved`);
+          }
+        });
+        
+        return hasChanges ? behaviorComments : prev;
+      });
+    }
+  }, [pdr?.ceoFields?.midYearCheckIn, pdrId]);
 
   // Load end-year review data for Final Review tab
   useEffect(() => {
@@ -1236,36 +1564,7 @@ export default function CEOPDRReviewPage() {
           }
         });
 
-        // Load any existing CEO final review data from localStorage
-        const savedGoalReviews = localStorage.getItem(`final_goal_reviews_${pdrId}`);
-        const savedBehaviorReviews = localStorage.getItem(`final_behavior_reviews_${pdrId}`);
-
-        if (savedGoalReviews) {
-          try {
-            const parsed = JSON.parse(savedGoalReviews);
-            Object.keys(parsed).forEach(goalId => {
-              if (goalReviewData[goalId]) {
-                goalReviewData[goalId] = { ...goalReviewData[goalId], ...parsed[goalId] };
-              }
-            });
-          } catch (error) {
-            console.error('Error parsing saved goal reviews:', error);
-          }
-        }
-
-        if (savedBehaviorReviews) {
-          try {
-            const parsed = JSON.parse(savedBehaviorReviews);
-            Object.keys(parsed).forEach(behaviorId => {
-              if (behaviorReviewData[behaviorId]) {
-                behaviorReviewData[behaviorId] = { ...behaviorReviewData[behaviorId], ...parsed[behaviorId] };
-              }
-            });
-          } catch (error) {
-            console.error('Error parsing saved behavior reviews:', error);
-          }
-        }
-
+        // Set final review data (loaded from database only)
         setFinalGoalReviews(goalReviewData);
         setFinalBehaviorReviews(behaviorReviewData);
 
@@ -1461,61 +1760,7 @@ export default function CEOPDRReviewPage() {
          // behaviorFeedback removed - handled by BehaviorReviewSection
         };
       
-      // Check if we're in demo mode
-      const isDemo = typeof window !== 'undefined' && localStorage.getItem('demo_user');
-      
-      if (isDemo) {
-        // For demo mode, save locally and update state immediately
-        console.log('Demo mode: Saving CEO feedback locally', ceoFields);
-        
-        try {
-          // Save to localStorage for demo persistence
-          const demoDataKey = `demo_pdr_ceo_fields_${pdrId}`;
-          
-          // Save goal feedback separately for more reliable storage
-          if (ceoGoalFeedback) {
-            console.log('Saving goal feedback to localStorage');
-            localStorage.setItem(`ceo_goal_feedback_${pdrId}`, JSON.stringify(ceoGoalFeedback));
-          }
-          
-          // Behavior feedback saving removed - handled by BehaviorReviewSection
-          
-          
-          // Save combined ceoFields
-          console.log('Saving combined ceoFields to localStorage');
-          localStorage.setItem(demoDataKey, JSON.stringify(ceoFields));
-          
-          // Update the local PDR state with the new ceoFields
-          setPdr((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              ceoFields: ceoFields as any
-            };
-          });
-          
-          // Show success message for demo
-          toast({
-            title: 'Success',
-            description: 'All CEO feedback saved successfully (Demo mode)',
-          });
-          
-          // Trigger metrics refresh
-          refreshMetrics();
-          window.dispatchEvent(new CustomEvent('ceo-feedback-updated'));
-          
-          return true;
-        } catch (storageError) {
-          console.error('Error saving to localStorage:', storageError);
-          toast({
-            title: 'Storage Error',
-            description: 'Failed to save your feedback. Local storage may be full or unavailable.',
-            variant: 'destructive',
-          });
-          return false;
-        }
-      } else {
-        // For production mode, make API call
+      // Save to Supabase database via API
         const headers: HeadersInit = {
           'Content-Type': 'application/json',
         };
@@ -1561,7 +1806,6 @@ export default function CEOPDRReviewPage() {
         window.dispatchEvent(new CustomEvent('ceo-feedback-updated'));
         
         return true;
-      }
     } catch (error) {
       console.error('Error saving CEO feedback:', error);
       
@@ -1569,18 +1813,6 @@ export default function CEOPDRReviewPage() {
       if (error instanceof Error) {
         console.error('Error message:', error.message);
         console.error('Error stack:', error.stack);
-      }
-      
-      // Check if localStorage is available
-      if (typeof window !== 'undefined' && window.localStorage) {
-        try {
-          // Try a simple localStorage operation to check if it's working
-          localStorage.setItem('test_storage', 'test');
-          localStorage.removeItem('test_storage');
-          console.log('localStorage is working properly');
-        } catch (storageError) {
-          console.error('localStorage error:', storageError);
-        }
       }
       
       // Use toast function from component level
@@ -2143,13 +2375,8 @@ export default function CEOPDRReviewPage() {
                     metricsRefreshKey; // eslint-disable-line @typescript-eslint/no-unused-expressions // This ensures the calculation runs when metrics refresh
                     
                     // Get real CEO feedback data from localStorage
-                    const getCeoGoalFeedback = () => {
-                      if (typeof window === 'undefined') return {};
-                      const savedData = localStorage.getItem(`ceo_goal_feedback_${pdrId}`);
-                      return savedData ? JSON.parse(savedData) : {};
-                    };
-
-                    const realCeoGoalFeedback = getCeoGoalFeedback();
+                    // Use ceoGoalFeedback from component state (loaded from database)
+                    const realCeoGoalFeedback = ceoGoalFeedback;
                     // Real CEO behavior feedback calculation removed - handled by BehaviorReviewSection
                     
                     // Calculate completion based on real system data
@@ -2171,57 +2398,38 @@ export default function CEOPDRReviewPage() {
                       );
                     }).length;
 
-                    // Count completed behaviors (CEO has provided feedback, not employee input)
-                    
-                    // Get CEO behavior feedback from localStorage
-                    const getCeoBehaviorFeedback = () => {
-                      if (typeof window === 'undefined') return {};
-                      const storageKey = `ceo_behavior_feedback_${pdrId}`;
-                      const savedData = localStorage.getItem(storageKey);
-                      console.log('🔍 CEO Behavior Feedback Storage Key:', storageKey);
-                      console.log('🔍 CEO Behavior Feedback Raw Data:', savedData);
-                      const parsed = savedData ? JSON.parse(savedData) : {};
-                      console.log('🔍 CEO Behavior Feedback Parsed:', parsed);
-                      console.log('🔍 CEO Behavior Feedback Keys:', Object.keys(parsed));
-                      return parsed;
-                    };
+                    // Debug logging for summary count
+                    console.log('🔍 Summary Count Debug:');
+                    console.log('- Behaviors array:', behaviors);
+                    console.log('- PDR ceoFields:', pdr?.ceoFields);
+                    console.log('- developmentFeedback:', pdr?.ceoFields?.developmentFeedback);
 
-                    const ceoBehaviorFeedback = getCeoBehaviorFeedback();
-
-                    // Get additional CEO feedback (self-reflection and deep dive)
-                    const getCeoAdditionalFeedback = () => {
-                      if (typeof window === 'undefined') return {};
-                      const storageKey = `ceo_additional_feedback_${pdrId}`;
-                      const savedData = localStorage.getItem(storageKey);
-                      console.log('🔍 CEO Additional Feedback Storage Key:', storageKey);
-                      console.log('🔍 CEO Additional Feedback Raw Data:', savedData);
-                      const parsed = savedData ? JSON.parse(savedData) : {};
-                      console.log('🔍 CEO Additional Feedback Parsed:', parsed);
-                      return parsed;
-                    };
-
-                    const ceoAdditionalFeedback = getCeoAdditionalFeedback();
-
-                    // Count main behaviors (4 company values) - CEO feedback completion
-                    const completedMainBehaviors = Object.keys(ceoBehaviorFeedback).filter(valueId => {
-                      const feedback = ceoBehaviorFeedback[valueId];
-                      console.log(`🔍 Checking valueId: ${valueId}`, feedback);
-                      // CEO has provided feedback if either description or comments are filled
-                      const hasDescription = feedback && feedback.description && feedback.description.trim();
-                      const hasComments = feedback && feedback.comments && feedback.comments.trim();
-                      const isComplete = hasDescription || hasComments;
-                      console.log(`  - Has description: ${!!hasDescription}, Has comments: ${!!hasComments}, Complete: ${isComplete}`);
+                    // Count completed main behaviors (4 company values)
+                    // CEO has provided feedback if they have comments OR rating
+                    const completedMainBehaviors = behaviors.filter(behavior => {
+                      const hasComments = behavior.ceoComments && behavior.ceoComments.trim().length > 0;
+                      const hasRating = behavior.ceoRating && behavior.ceoRating >= 1;
+                      const isComplete = hasComments || hasRating;
+                      
+                      console.log(`  Behavior ${behavior.id}:`, {
+                        ceoComments: behavior.ceoComments,
+                        ceoRating: behavior.ceoRating,
+                        isComplete
+                      });
+                      
                       return isComplete;
                     }).length;
 
-                    // Count additional behaviors (2 development sections) - CEO feedback completion
-                    let completedAdditionalBehaviors = 0;
-                    if (ceoAdditionalFeedback.selfReflection && ceoAdditionalFeedback.selfReflection.trim()) {
-                      completedAdditionalBehaviors++;
-                    }
-                    if (ceoAdditionalFeedback.deepDive && ceoAdditionalFeedback.deepDive.trim()) {
-                      completedAdditionalBehaviors++;
-                    }
+                    // Count completed additional development feedback (2 sections)
+                    // Check if CEO has provided comments on self-reflection or development plan
+                    const completedAdditionalBehaviors = [
+                      pdr?.ceoFields?.developmentFeedback?.selfReflectionComments,
+                      pdr?.ceoFields?.developmentFeedback?.deepDiveComments
+                    ].filter(comment => {
+                      const hasContent = comment && comment.trim().length > 0;
+                      console.log('  Development feedback:', comment ? `"${comment.substring(0, 50)}..."` : 'null', '-> hasContent:', hasContent);
+                      return hasContent;
+                    }).length;
 
                     const completedBehaviors = completedMainBehaviors + completedAdditionalBehaviors;
 
@@ -2356,9 +2564,16 @@ export default function CEOPDRReviewPage() {
                             });
                             
                             if (response.ok) {
-                              // Update local state
-                              const updatedPdr = { ...pdr, status: 'MID_YEAR_APPROVED' };
-                              setPdr(updatedPdr);
+                              const result = await response.json();
+                              
+                              // Update local state with the returned PDR data
+                              if (result.pdr) {
+                                setPdr(result.pdr);
+                              } else {
+                                // Fallback: update status optimistically
+                                setPdr({ ...pdr, status: 'MID_YEAR_APPROVED' });
+                              }
+                              
                               window.dispatchEvent(new CustomEvent('demo-pdr-changed'));
                               
                               toast({
@@ -2367,8 +2582,7 @@ export default function CEOPDRReviewPage() {
                                 variant: "default",
                               });
                               
-                              // Refresh the page to show updated status
-                              window.location.reload();
+                              // No page reload - graceful state update instead
                             } else {
                               const error = await response.json();
                               toast({
@@ -2802,9 +3016,43 @@ export default function CEOPDRReviewPage() {
                                   </p>
                                   <div className="flex items-center gap-2 mt-1">
                                     <span className="text-xs font-medium text-muted-foreground">Employee Rating:</span>
-                                    <span className="font-semibold text-sm text-foreground">
-                                      {goal.employeeRating || (goal as any).employee_rating || 0}/5
-                                    </span>
+                                    {(() => {
+                                      // Diagnostic logging for employee rating display
+                                      const employeeRating = goal.employeeRating;
+                                      const employee_rating = (goal as any).employee_rating;
+                                      const finalRating = employeeRating ?? employee_rating ?? null;
+                                      
+                                      console.log(`🔍 Final Review - Displaying rating for goal "${goal.title}":`, {
+                                        goalId: goal.id,
+                                        employeeRating,
+                                        employee_rating,
+                                        finalRating,
+                                        goalObjectKeys: Object.keys(goal),
+                                      });
+                                      
+                                      // Visual distinction between "not rated", "rated as 0", and "rated 1-5"
+                                      if (finalRating === null || finalRating === undefined) {
+                                        return (
+                                          <span className="font-semibold text-sm text-amber-600 italic">
+                                            Not yet rated by employee
+                                          </span>
+                                        );
+                                      }
+                                      
+                                      if (finalRating === 0) {
+                                        return (
+                                          <span className="font-semibold text-sm text-muted-foreground">
+                                            0/5 <span className="text-xs">(rated as zero)</span>
+                                          </span>
+                                        );
+                                      }
+                                      
+                                      return (
+                                        <span className="font-semibold text-sm text-foreground">
+                                          {finalRating}/5
+                                        </span>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                               </div>

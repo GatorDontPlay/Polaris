@@ -527,8 +527,9 @@ export function useSupabasePDRBehaviors(pdrId: string) {
     staleTime: 30 * 1000,
   });
 
-  // Create behavior mutation
+  // Create behavior mutation with deduplication
   const createBehaviorMutation = useMutation({
+    mutationKey: ['create-behavior', pdrId],
     mutationFn: async (behaviorData: BehaviorFormData): Promise<Behavior> => {
       const response = await fetch(`/api/pdrs/${pdrId}/behaviors`, {
         method: 'POST',
@@ -552,8 +553,9 @@ export function useSupabasePDRBehaviors(pdrId: string) {
     },
   });
 
-  // Update behavior mutation
+  // Update behavior mutation with deduplication
   const updateBehaviorMutation = useMutation({
+    mutationKey: ['update-behavior', pdrId],
     mutationFn: async ({ behaviorId, updates }: { behaviorId: string; updates: Partial<Behavior> }): Promise<Behavior> => {
       const response = await fetch(`/api/behaviors/${behaviorId}`, {
         method: 'PATCH',

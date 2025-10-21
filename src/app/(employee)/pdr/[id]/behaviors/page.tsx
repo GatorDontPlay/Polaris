@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { queryClient } from '@/lib/query-client';
 import { useSupabasePDR, useSupabasePDRBehaviors, useSupabasePDRUpdate } from '@/hooks/use-supabase-pdrs';
@@ -11,42 +11,9 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Heart } from 'lucide-react';
 import { BehaviorFormData } from '@/types';
 import toast, { Toaster } from 'react-hot-toast';
-import { performComprehensiveCleanup, checkAndCleanupStorage } from '@/lib/storage-cleanup';
 
 interface BehaviorsPageProps {
   params: { id: string };
-}
-
-// AGGRESSIVE storage cleanup on module load to prevent quota errors
-if (typeof window !== 'undefined') {
-  console.log('🧹 Behaviors Module: Aggressive cache and storage cleanup on load');
-  
-  // Clear React Query cache completely
-  queryClient.clear();
-  
-  // Clear all React Query localStorage entries
-  try {
-    const reactQueryKeys = Object.keys(localStorage).filter(key => 
-      key.startsWith('REACT_QUERY') || 
-      key.startsWith('react-query') ||
-      key.includes('pdr-') ||
-      key.includes('behavior-') ||
-      key.includes('goal-')
-    );
-    reactQueryKeys.forEach(key => {
-      try {
-        localStorage.removeItem(key);
-      } catch (e) {
-        console.warn('Failed to remove key:', key);
-      }
-    });
-    console.log('✅ Removed', reactQueryKeys.length, 'React Query cache keys');
-  } catch (error) {
-    console.error('❌ Storage cleanup failed:', error);
-  }
-  
-  // Also run comprehensive cleanup from storage-cleanup utility
-  performComprehensiveCleanup();
 }
 
 export default function BehaviorsPage({ params }: BehaviorsPageProps) {
@@ -55,48 +22,6 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
   const [hasCleanedDuplicates, setHasCleanedDuplicates] = useState(false);
   const [formCompletedCount, setFormCompletedCount] = useState(0);
   const [formTotalCount, setFormTotalCount] = useState(6); // 4 core behaviors + 2 development fields
-  
-  // Periodic aggressive cleanup during component lifecycle to prevent quota errors
-  useEffect(() => {
-    const cleanupInterval = setInterval(() => {
-      console.log('🧹 Behaviors: Periodic storage cleanup');
-      try {
-        // Clear React Query cache
-        queryClient.clear();
-        
-        // Clear localStorage cache keys
-        const cacheKeys = Object.keys(localStorage).filter(key => 
-          key.startsWith('REACT_QUERY') || 
-          key.startsWith('react-query') ||
-          key.includes('pdr-') ||
-          key.includes('behavior-') ||
-          key.includes('goal-')
-        );
-        
-        // Only clean if we have excessive keys (>30)
-        if (cacheKeys.length > 30) {
-          cacheKeys.forEach(key => {
-            try {
-              localStorage.removeItem(key);
-            } catch (e) {
-              // Ignore individual errors
-            }
-          });
-          console.log('✅ Periodic cleanup removed', cacheKeys.length, 'cache keys');
-        }
-      } catch (error) {
-        console.error('❌ Periodic cleanup failed:', error);
-      }
-    }, 15000); // Every 15 seconds
-    
-    return () => clearInterval(cleanupInterval);
-  }, []);
-  
-  // Remove localStorage clearing to preserve existing data
-  // useEffect(() => {
-  //   console.log('🧹 Clearing localStorage for fresh test...');
-  //   localStorage.removeItem('demo_behaviors_pdr-1');
-  // }, []);
   
   const { data: pdr, isLoading: pdrLoading } = useSupabasePDR(params.id);
   const { 
@@ -112,34 +37,18 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
   const isLoading = pdrLoading || behaviorsLoading || companyValuesLoading;
   const canEdit = isEditable;
 
-  // Debug loading states and data
-  console.log('🔍 [PAGE] Behaviors Page Debug:', {
-    pdrLoading,
-    behaviorsLoading,
-    companyValuesLoading,
-    companyValuesError,
-    isLoading,
-    pdrData: pdr,
-    behaviorsData: behaviors,
-    companyValuesData: companyValues,
-    companyValuesCount: companyValues?.length,
-    behaviorsCount: behaviors?.length,
-    companyValuesType: typeof companyValues,
-    companyValuesIsArray: Array.isArray(companyValues)
-  });
-
-  // AGGRESSIVE storage cleanup on mount to prevent quota errors
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      console.log('🧹 Behaviors: Starting aggressive storage cleanup...');
-      const cleanupResult = performComprehensiveCleanup();
-      console.log('🧹 Behaviors: Cleanup result:', cleanupResult);
-      
-      if (checkAndCleanupStorage()) {
-        console.log('⚠️ Behaviors: Emergency storage cleanup performed');
-      }
-    }
-  }, [params.id]);
+  // Debug loading states and data (development only)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 [PAGE] Behaviors Page Debug:', {
+      pdrLoading,
+      behaviorsLoading,
+      companyValuesLoading,
+      companyValuesError,
+      isLoading,
+      behaviorsCount: behaviors?.length,
+      companyValuesCount: companyValues?.length,
+    });
+  }
 
   // Update PDR step to 2 (Behaviors) when user reaches this page - only if PDR is editable
   useEffect(() => {
@@ -183,13 +92,17 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
     selfReflection?: string | undefined;
     deepDiveDevelopment?: string | undefined;
   }) => {
-    console.log('🔧 BULK CREATE - Starting database save for behaviors:', data.behaviors.length);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 BULK CREATE - Starting database save for behaviors:', data.behaviors.length);
+    }
     
     try {
       // Save each behavior to the database using the API
       for (const behaviorData of data.behaviors) {
         if (behaviorData.description && behaviorData.description.trim()) {
-          console.log('🔧 Creating behavior for value:', behaviorData.valueName);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔧 Creating behavior for value:', behaviorData.valueName);
+          }
           
           const behaviorFormData: BehaviorFormData = {
             valueId: behaviorData.valueId,
@@ -202,17 +115,35 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
         }
       }
       
-      console.log('✅ All behaviors saved to database successfully');
-      
-      // Save development data as draft
+      // Save development data to database
       if (data.selfReflection || data.deepDiveDevelopment) {
         const developmentData = {
           selfReflection: data.selfReflection || '',
           deepDiveDevelopment: data.deepDiveDevelopment || '',
           updatedAt: new Date().toISOString()
         };
-        localStorage.setItem(`development_draft_${params.id}`, JSON.stringify(developmentData));
-        console.log('✅ Development data saved as draft');
+        
+        // Save to database via PDR PATCH API
+        try {
+          const response = await fetch(`/api/pdrs/${params.id}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              employeeFields: {
+                developmentFields: developmentData
+              }
+            }),
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to save development data: ${response.status}`);
+          }
+        } catch (error) {
+          console.error('❌ Failed to save development data to database:', error);
+          // All data is saved to database only
+        }
       }
       
       toast.success('Behaviors saved successfully!');
@@ -232,7 +163,9 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
     selfReflection?: string | undefined;
     deepDiveDevelopment?: string | undefined;
   }) => {
-    console.log('🔧 AUTO-SAVE - Starting database save for behaviors');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 AUTO-SAVE - Starting database save for behaviors');
+    }
     
     try {
       // Save behaviors with any content to the database
@@ -241,27 +174,30 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
       );
       
       if (behaviorsToSave.length > 0) {
-        console.log('🔧 Auto-saving behaviors to database:', behaviorsToSave.length);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔧 Auto-saving behaviors to database:', behaviorsToSave.length);
+        }
         
         for (const behaviorData of behaviorsToSave) {
-          // Check if behavior already exists
+          // Check if behavior already exists in our local data
           const existingBehavior = behaviors?.find(b => b.valueId === behaviorData.valueId);
           
           if (existingBehavior) {
             // Only update if description has actually changed
             if (existingBehavior.description !== behaviorData.description) {
-              await updateBehavior({
-                behaviorId: existingBehavior.id,
-                updates: {
-                  description: behaviorData.description,
-                }
-              });
-              console.log('🔧 Updated existing behavior for:', behaviorData.valueName);
-            } else {
-              console.log('🔧 Skipping update - no changes for:', behaviorData.valueName);
+              try {
+                await updateBehavior({
+                  behaviorId: existingBehavior.id,
+                  updates: {
+                    description: behaviorData.description,
+                  }
+                });
+              } catch (updateError) {
+                console.error('⚠️ Update failed for:', behaviorData.valueName, updateError);
+              }
             }
           } else {
-            // Create new behavior
+            // Create new behavior - API is now idempotent, so it will return existing if it already exists
             const behaviorFormData: BehaviorFormData = {
               valueId: behaviorData.valueId,
               description: behaviorData.description,
@@ -269,23 +205,41 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
               employeeSelfAssessment: '',
             };
             
-            await createBehavior(behaviorFormData);
-            console.log('🔧 Created new behavior for:', behaviorData.valueName);
+            try {
+              await createBehavior(behaviorFormData);
+            } catch (createError) {
+              // This shouldn't fail now that API is idempotent, but log if it does
+              console.error('⚠️ Create failed for:', behaviorData.valueName, createError);
+            }
           }
         }
-        
-        console.log('✅ Auto-save completed successfully');
       }
       
-      // Auto-save development data as draft
+      // Auto-save development data to database
       if (data.selfReflection || data.deepDiveDevelopment) {
         const developmentData = {
           selfReflection: data.selfReflection || '',
           deepDiveDevelopment: data.deepDiveDevelopment || '',
           updatedAt: new Date().toISOString()
         };
-        localStorage.setItem(`development_draft_${params.id}`, JSON.stringify(developmentData));
-        console.log('✅ Development data auto-saved as draft');
+        
+        // Save to database via PDR PATCH API
+        try {
+          const response = await fetch(`/api/pdrs/${params.id}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              employeeFields: {
+                developmentFields: developmentData
+              }
+            }),
+          });
+          
+        } catch (error) {
+          // Silent failure for auto-save
+        }
       }
     } catch (error) {
       console.error('❌ Auto-save failed:', error);
@@ -295,31 +249,45 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
 
   const handleNext = async () => {
     // Force save all current form values before navigating
-    console.log('🔧 Force saving all form data before navigation');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 Force saving all form data before navigation');
+    }
+    
+    let saveSuccessful = true;
     
     try {
       // Call the form's forceSave method to ensure all data is saved
       if (formRef.current) {
         await formRef.current.forceSave();
-        console.log('✅ Force save completed');
       }
-      
+    } catch (saveError) {
+      console.error('⚠️ Non-critical error during force save:', saveError);
+      // Don't block navigation for save errors - auto-save has been running
+      saveSuccessful = false;
+    }
+    
+    try {
       // Update PDR step to 3 (Review) when moving to next section
-    if (pdr && pdr.currentStep < 3 && isEditable) {
-      console.log('🔧 Updating PDR step from', pdr.currentStep, 'to 3 (Review)');
-      await updatePDR({ currentStep: 3 });
-      console.log('✅ PDR step updated to 3');
+      if (pdr && pdr.currentStep < 3 && isEditable) {
+        await updatePDR({ currentStep: 3 });
+      }
+    } catch (stepError) {
+      console.error('⚠️ Error updating PDR step:', stepError);
+      // Continue navigation even if step update fails
     }
-      
-      // Small delay to ensure localStorage is updated
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      router.push(`/pdr/${params.id}/review`);
-    } catch (error) {
-      console.error('Error during force save:', error);
-      // Navigate anyway - auto-save should have captured most data
-      router.push(`/pdr/${params.id}/review`);
+    
+    // Show informative toast if save had issues
+    if (!saveSuccessful) {
+      toast.success('Navigating to review page. Most recent data saved via auto-save.', {
+        duration: 3000,
+      });
     }
+    
+    // Small delay to ensure database is fully synced
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    // Always navigate - don't block user
+    router.push(`/pdr/${params.id}/review`);
   };
 
   const handlePrevious = () => {
@@ -333,10 +301,26 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
 
   // Callback to receive completion updates from the form
   const handleCompletionChange = useCallback((completed: number, total: number) => {
-    console.log('📊 Form completion update:', completed, '/', total);
     setFormCompletedCount(completed);
     setFormTotalCount(total);
   }, []);
+
+  // Extract development fields from PDR data (stored in employeeFields.developmentFields)
+  const existingDevelopmentFields = useMemo(() => {
+    if (!pdr?.employeeFields) {
+      return { selfReflection: '', deepDiveDevelopment: '' };
+    }
+    
+    const devFields = (pdr.employeeFields as any).developmentFields;
+    if (!devFields) {
+      return { selfReflection: '', deepDiveDevelopment: '' };
+    }
+    
+    return {
+      selfReflection: devFields.selfReflection || '',
+      deepDiveDevelopment: devFields.deepDiveDevelopment || '',
+    };
+  }, [pdr]);
 
   // Loading state
   if (isLoading) {
@@ -430,10 +414,7 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
           </Button>
           
           <Button 
-            onClick={() => {
-              console.log('🔧 Complete Assessment button clicked!');
-              handleNext();
-            }}
+            onClick={handleNext}
             disabled={!isAssessmentComplete}
             className={`flex items-center transition-all duration-300 ${
               isAssessmentComplete 
@@ -451,16 +432,11 @@ export default function BehaviorsPage({ params }: BehaviorsPageProps) {
       {/* Structured Behavior Assessment Form */}
       {companyValues && companyValues.length > 0 && (
         <>
-          {/* Debug existing behaviors being passed to form */}
-          {console.log('🔧 Behaviors page - passing to form:', {
-            companyValuesCount: companyValues.length,
-            behaviorsCount: behaviors?.length || 0,
-            behaviorsData: behaviors
-          })}
           <StructuredBehaviorForm
             ref={formRef}
             companyValues={companyValues}
             existingBehaviors={behaviors || []}
+            existingDevelopmentFields={existingDevelopmentFields}
             onSubmit={handleBulkCreateBehaviors}
             onAutoSave={handleAutoSave}
             isReadOnly={!canEdit}

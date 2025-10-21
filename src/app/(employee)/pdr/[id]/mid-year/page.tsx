@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { StatusBlockingModal } from '@/components/ui/status-blocking-modal';
-import { cleanupPDRStorage, checkAndCleanupStorage, performComprehensiveCleanup, emergencyCleanup } from '@/lib/storage-cleanup';
+// No localStorage cleanup needed - all data stored in database
 import { StorageErrorBoundary } from '@/components/storage-error-boundary';
 import { 
   ArrowLeft, 
@@ -42,11 +42,7 @@ interface MidYearPageProps {
   params: { id: string };
 }
 
-// Clear cache once when module loads, not on every render
-if (typeof window !== 'undefined') {
-  console.log('🧹 Mid-Year Module: One-time cache clear on load');
-  queryClient.clear();
-}
+// Cache is managed by React Query - no manual clearing needed
 
 function MidYearPageContent({ params }: MidYearPageProps) {
   const router = useRouter();
@@ -57,12 +53,9 @@ function MidYearPageContent({ params }: MidYearPageProps) {
     (window as any).debugMidYear = () => {
       console.log('🔍 existingMidYearReview from hook:', existingMidYearReview);
       console.log('🔍 Current form values:', watch());
-      const localData = localStorage.getItem(`demo_midyear_${params.id}`);
-      console.log('🔍 LocalStorage data:', localData ? JSON.parse(localData) : 'No local data');
       const result = {
         fromAPI: existingMidYearReview,
-        fromForm: watch(),
-        fromLocalStorage: localData ? JSON.parse(localData) : null
+        fromForm: watch()
       };
       console.table(result);
       return result;
@@ -123,65 +116,7 @@ function MidYearPageContent({ params }: MidYearPageProps) {
 
   const isLoading = pdrLoading || goalsLoading || midYearLoading;
 
-  // Clean up old localStorage data and load draft on component mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // AGGRESSIVE cleanup before page loads to prevent quota errors
-      console.log('🧹 Mid-Year: Starting aggressive storage cleanup...');
-      
-      // Run comprehensive cleanup first
-      const cleanupResult = performComprehensiveCleanup();
-      console.log('🧹 Mid-Year: Cleanup result:', cleanupResult);
-      
-      // Then check if we need emergency cleanup
-      if (checkAndCleanupStorage()) {
-        console.log('⚠️ Mid-Year: Emergency storage cleanup performed');
-      }
-      
-      // Clean up old demo and temporary keys for this PDR
-      const keysToClean = [
-        `demo_midyear_${params.id}`,
-        `mid_year_review_${params.id}`,
-        `ceo_goal_feedback_${params.id}`,
-        `ceo_behavior_feedback_${params.id}`,
-        `demo_behaviors_${params.id}`,
-        `development_draft_${params.id}`,
-      ];
-      
-      keysToClean.forEach(key => {
-        if (localStorage.getItem(key)) {
-          console.log(`🧹 Cleaning up old storage key: ${key}`);
-          localStorage.removeItem(key);
-        }
-      });
-      
-      // Check for existing draft (after cleanup)
-      const draftData = localStorage.getItem(`mid_year_draft_${params.id}`);
-      
-      if (draftData) {
-        try {
-          const parsed = JSON.parse(draftData);
-          // Load draft data into form
-          reset({
-            progressSummary: parsed.progressSummary || '',
-            blockersChallenges: parsed.blockersChallenges || '',
-            supportNeeded: parsed.supportNeeded || '',
-            employeeComments: parsed.employeeComments || '',
-          });
-          
-          toast({
-            title: "📝 Draft Loaded",
-            description: "Your previously saved draft has been loaded.",
-            variant: "default",
-          });
-        } catch (error) {
-          console.error('Failed to load draft data:', error);
-          // If draft is corrupted, remove it
-          localStorage.removeItem(`mid_year_draft_${params.id}`);
-        }
-      }
-    }
-  }, [params.id, reset, toast]);
+  // No localStorage - all data loads from database only
 
   // Load existing mid-year review data when available
   useEffect(() => {
@@ -223,34 +158,16 @@ function MidYearPageContent({ params }: MidYearPageProps) {
 
 
   // Utility functions
+  // No localStorage - CEO feedback comes from PDR ceoFields in database
   const getCeoFeedbackData = () => {
-    if (typeof window === 'undefined') return { goals: {}, behaviors: {} };
-    
-    const ceoGoalFeedback = localStorage.getItem(`ceo_goal_feedback_${params.id}`);
-    const ceoBehaviorFeedback = localStorage.getItem(`ceo_behavior_feedback_${params.id}`);
-    
     return {
-      goals: ceoGoalFeedback ? JSON.parse(ceoGoalFeedback) : {},
-      behaviors: ceoBehaviorFeedback ? JSON.parse(ceoBehaviorFeedback) : {},
+      goals: pdr?.ceoFields?.midYearCheckIn?.goals || {},
+      behaviors: pdr?.ceoFields?.midYearCheckIn?.behaviors || {},
     };
   };
 
+  // No localStorage - employee behaviors come from behaviors array in database
   const getEmployeeBehaviorData = () => {
-    if (typeof window === 'undefined') return {};
-    const employeeBehaviors = localStorage.getItem(`demo_behaviors_${params.id}`);
-    if (employeeBehaviors) {
-      try {
-        const behaviorsArray = JSON.parse(employeeBehaviors);
-        const behaviorsMap: { [key: string]: any } = {};
-        behaviorsArray.forEach((behavior: any) => {
-          behaviorsMap[behavior.valueId] = behavior;
-        });
-        return behaviorsMap;
-      } catch (error) {
-        console.error('Error parsing employee behaviors:', error);
-        return {};
-      }
-    }
     return {};
   };
 
@@ -282,22 +199,7 @@ function MidYearPageContent({ params }: MidYearPageProps) {
   const onSubmit = async (data: MidYearFormData) => {
     setIsSubmitting(true);
     try {
-      // ULTRA-AGGRESSIVE cleanup before submission to prevent quota errors
-      console.log('🧹 Pre-submission: Emergency storage cleanup...');
-      
-      // Clear ALL React Query cache before submission
-      queryClient.clear();
-      
-      // Emergency cleanup
-      emergencyCleanup();
-      
-      // Wait a moment for cleanup to complete
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      console.log('✅ Pre-submission cleanup complete');
-      
-      // Pre-flight check: Clean up any stale data before submission
-      localStorage.removeItem(`mid_year_draft_${params.id}`);
+      // All data is saved directly to database - no storage cleanup needed
       
       // Determine if we're creating or updating based on existing data
       const method = existingMidYearReview ? 'PUT' : 'POST';
@@ -384,35 +286,13 @@ function MidYearPageContent({ params }: MidYearPageProps) {
     }
   };
 
+  // No draft saving to localStorage - all data saved to database on submit
   const handleSaveDraft = async () => {
-    try {
-      const formData = watch();
-      const draftData = {
-        ...formData,
-        lastSaved: new Date().toISOString(),
-        pdrId: params.id
-      };
-      
-      localStorage.setItem(`mid_year_draft_${params.id}`, JSON.stringify(draftData));
-      
-      // Show success toast
-      toast({
-        title: "💾 Draft Saved",
-        description: "Your progress has been saved as a draft.",
-        variant: "default",
-      });
-      
-
-    } catch (error) {
-      console.error('Failed to save mid-year review draft:', error);
-      
-      // Show error toast
-      toast({
-        title: "❌ Save Failed",
-        description: "There was an error saving your draft. Please try again.",
-        variant: "destructive",
-      });
-    }
+    toast({
+      title: "ℹ️ No Draft Needed",
+      description: "Your data will be saved to the database when you submit the review.",
+      variant: "default",
+    });
   };
 
   const handlePrevious = () => {

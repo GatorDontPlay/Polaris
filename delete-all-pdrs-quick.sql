@@ -50,3 +50,4 @@ SELECT 'End Year Reviews', COUNT(*) FROM end_year_reviews
 UNION ALL
 SELECT 'Behavior Entries', COUNT(*) FROM behavior_entries;
 
+

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useBehaviorEntries } from '@/hooks/use-behavior-entries';
 import type { PDR, AuthUser, OrganizedBehaviorData } from '@/types';
+import { PDRStatus } from '@/types/pdr-status';
 import { MessageSquare, Star, TrendingUp, User, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
 
 interface BehaviorReviewSectionProps {
@@ -53,6 +54,9 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
   // State to track expanded employee descriptions
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({});
 
+  // Ref for debounce timer
+  const saveAdditionalFeedbackTimer = useRef<NodeJS.Timeout>();
+
   // Helper functions for text expansion
   const MAX_DESCRIPTION_LENGTH = 100;
   
@@ -73,23 +77,51 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
   };
 
   // Debounced save function for additional CEO feedback
-  const saveAdditionalFeedbackToStorage = (feedback: { selfReflection?: string; deepDive?: string }) => {
-    if (typeof window !== 'undefined') {
-      try {
-        const additionalFeedbackKey = `ceo_additional_feedback_${pdr.id}`;
-        localStorage.setItem(additionalFeedbackKey, JSON.stringify(feedback));
-        
-        // Also trigger storage event
-        window.dispatchEvent(new StorageEvent('storage', {
-          key: additionalFeedbackKey,
-          newValue: JSON.stringify(feedback),
-          storageArea: localStorage
-        }));
-      } catch (error) {
-        // Silent error handling to prevent console pollution
-      }
+  const debouncedSaveAdditionalFeedback = useCallback((feedback: typeof additionalCeoFeedback) => {
+    // Clear existing timer
+    if (saveAdditionalFeedbackTimer.current) {
+      clearTimeout(saveAdditionalFeedbackTimer.current);
     }
-  };
+
+    // Set new timer to save after 500ms
+    saveAdditionalFeedbackTimer.current = setTimeout(async () => {
+      try {
+        console.log('💾 Auto-saving CEO additional feedback to database...');
+        const response = await fetch(`/api/pdrs/${pdr.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            ceoFields: {
+              developmentFeedback: {
+                selfReflectionComments: feedback.selfReflection || '',
+                deepDiveComments: feedback.deepDive || ''
+              }
+            }
+          })
+        });
+
+        if (response.ok) {
+          console.log('✅ CEO additional feedback saved successfully');
+        } else {
+          console.error('❌ Failed to save CEO additional feedback:', response.status);
+        }
+      } catch (error) {
+        console.error('❌ Error saving CEO additional feedback:', error);
+      }
+    }, 500);
+  }, [pdr.id]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveAdditionalFeedbackTimer.current) {
+        clearTimeout(saveAdditionalFeedbackTimer.current);
+      }
+    };
+  }, []);
+
+  // Additional CEO feedback is saved to database via API calls
 
 
   // Load organized data on component mount
@@ -98,77 +130,40 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
   }, [fetchOrganizedData]);
 
   // CEO behavior feedback is loaded from the database via the organized data
+  // Additional CEO feedback is also loaded from database
 
-  // Load additional CEO feedback from localStorage
+  // Load employee additional data from database
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        const additionalFeedbackKey = `ceo_additional_feedback_${pdr.id}`;
-        const saved = localStorage.getItem(additionalFeedbackKey);
+        // Load from database (PDR employee_fields)
+        const dbDevelopmentData = pdr.employeeFields?.developmentFields;
         
-        if (saved && saved !== 'undefined' && saved !== 'null') {
-          const parsedFeedback = JSON.parse(saved);
-          
-          // Only set if we have meaningful data
-          if (parsedFeedback && (parsedFeedback.selfReflection || parsedFeedback.deepDive)) {
-            setAdditionalCeoFeedback(parsedFeedback);
-          }
+        if (dbDevelopmentData && (dbDevelopmentData.selfReflection || dbDevelopmentData.deepDiveDevelopment)) {
+          console.log('✅ Loading development data from database:', dbDevelopmentData);
+          setEmployeeAdditionalData({
+            selfReflection: dbDevelopmentData.selfReflection || '',
+            deepDiveDevelopment: dbDevelopmentData.deepDiveDevelopment || ''
+          });
         }
       } catch (error) {
-        // Silent error handling
+        console.error('❌ Error loading employee development data:', error);
       }
     }
-  }, [pdr.id]);
+  }, [pdr.id, pdr.employeeFields]);
 
-  // Load employee additional data from localStorage
+  // Load existing CEO additional feedback from database
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const employeeDataKey = `development_draft_${pdr.id}`;
-        const saved = localStorage.getItem(employeeDataKey);
-        if (saved) {
-          const parsedData = JSON.parse(saved);
-          setEmployeeAdditionalData(parsedData);
-        }
-      } catch (error) {
-        // Silent error handling
-      }
+    if (pdr?.ceoFields?.developmentFeedback) {
+      console.log('✅ Loading CEO additional feedback from database:', pdr.ceoFields.developmentFeedback);
+      setAdditionalCeoFeedback({
+        selfReflection: pdr.ceoFields.developmentFeedback.selfReflectionComments || '',
+        deepDive: pdr.ceoFields.developmentFeedback.deepDiveComments || ''
+      });
     }
-  }, [pdr.id]);
+  }, [pdr.id, pdr.ceoFields]);
 
-  // Auto-save additional CEO feedback to localStorage when it changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // Only save if we actually have some feedback to avoid saving empty state on initial load
-      if (additionalCeoFeedback.selfReflection || additionalCeoFeedback.deepDive) {
-        try {
-          const additionalFeedbackKey = `ceo_additional_feedback_${pdr.id}`;
-          localStorage.setItem(additionalFeedbackKey, JSON.stringify(additionalCeoFeedback));
-          
-          // Also trigger a storage event to notify other components
-          window.dispatchEvent(new StorageEvent('storage', {
-            key: additionalFeedbackKey,
-            newValue: JSON.stringify(additionalCeoFeedback),
-            storageArea: localStorage
-          }));
-        } catch (error) {
-          // Silent error handling
-        }
-      }
-    }
-  }, [additionalCeoFeedback, pdr.id]);
-
-  // Auto-save regular behavior feedback to localStorage when it changes
-  useEffect(() => {
-    if (typeof window !== 'undefined' && pdr.id.startsWith('demo-pdr-')) {
-      try {
-        const storageKey = `ceo_behavior_feedback_${pdr.id}`;
-        localStorage.setItem(storageKey, JSON.stringify(ceoFeedback));
-      } catch (error) {
-        // Silent error handling
-      }
-    }
-  }, [ceoFeedback, pdr.id]);
+  // CEO feedback is saved to database via API calls, not localStorage
 
   // Pre-populate form with existing CEO review data from API (only if form is empty and not demo mode)
   useEffect(() => {
@@ -188,9 +183,14 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
           
           // Check all behaviors for this company value to find CEO feedback
           valueData.employeeEntries.forEach((behavior) => {
+            console.log('🔍 Loading behavior:', {
+              id: behavior.id,
+              ceoComments: behavior.ceoComments,
+              hasContent: !!behavior.ceoComments
+            });
             
-            if (behavior.comments && behavior.comments.trim() !== '') {
-              ceoComments = behavior.comments;
+            if (behavior.ceoComments && behavior.ceoComments.trim() !== '') {
+              ceoComments = behavior.ceoComments;
               hasComments = true;
             }
           });
@@ -223,7 +223,7 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
     }
   }, [organizedData, pdr.id]);
 
-  // Update local CEO feedback state and save to localStorage immediately
+  // Update local CEO feedback state and auto-save to database
   const updateCeoFeedback = (valueId: string, field: string, value: string | number) => {
     // Update local state
     setCeoFeedback(prev => {
@@ -235,35 +235,16 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
         }
       };
       
-      // Auto-save functionality for both demo and production modes
+      // Auto-save to database (debounced)
       if (typeof window !== 'undefined') {
-        if (pdr.id.startsWith('demo-pdr-')) {
-          // Demo mode - save to localStorage
-          try {
-            const storageKey = `ceo_behavior_feedback_${pdr.id}`;
-            const existingFeedback = JSON.parse(localStorage.getItem(storageKey) || '{}');
-            
-            existingFeedback[valueId] = {
-              ...(existingFeedback[valueId] || {}),
-              [field]: value,
-              savedAt: new Date().toISOString()
-            };
-            
-            localStorage.setItem(storageKey, JSON.stringify(existingFeedback));
-          } catch (error) {
-            // Silent error handling
-          }
-        } else {
-          // Production mode - auto-save to database
-          const valueData = organizedData?.find(d => d.companyValue.id === valueId);
-          if (valueData && valueData.employeeEntries?.[0]) {
-            // Use a timeout to debounce rapid typing
-            setTimeout(() => {
-              saveCeoReview(valueData).catch(() => {
-                // Silent error handling
-              });
-            }, 500);
-          }
+        const valueData = organizedData?.find(d => d.companyValue.id === valueId);
+        if (valueData && valueData.employeeEntries?.[0]) {
+          // Use a timeout to debounce rapid typing
+          setTimeout(() => {
+            saveCeoReview(valueData).catch(() => {
+              // Silent error handling
+            });
+          }, 500);
         }
       }
       
@@ -281,50 +262,27 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
     const feedback = ceoFeedback[valueData.companyValue.id] || {};
     
     try {
-      // Check if this is demo mode
-      const isDemoMode = typeof window !== 'undefined' && pdr.id.startsWith('demo-pdr-');
-      
-      if (isDemoMode) {
-        // In demo mode, save to localStorage
-        const storageKey = `ceo_behavior_feedback_${pdr.id}`;
-        const existingFeedback = JSON.parse(localStorage.getItem(storageKey) || '{}');
-        
-        existingFeedback[valueData.companyValue.id] = {
-          description: feedback.description || '',
-          comments: feedback.comments || '',
-          companyValueName: valueData.companyValue.name,
-          savedAt: new Date().toISOString(),
-        };
-        
-        localStorage.setItem(storageKey, JSON.stringify(existingFeedback));
-        
-        // Trigger metrics refresh
-        window.dispatchEvent(new CustomEvent('ceo-feedback-updated'));
-      } else {
-        // Production mode - use new CEO feedback API
-        const response = await fetch(`/api/behaviors/${employeeEntry.id}/ceo-feedback`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            ceoNotes: feedback.comments,
-          }),
-        });
+      // Save to database via API
+      const response = await fetch(`/api/behaviors/${employeeEntry.id}/ceo-feedback`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          ceoNotes: feedback.comments,
+        }),
+      });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `Failed to save CEO feedback: ${response.status}`);
-        }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to save CEO feedback: ${response.status}`);
       }
 
       // Keep the form data in local state - don't clear it
       
-      // Trigger metrics refresh for production mode too
-      if (!isDemoMode) {
-        window.dispatchEvent(new CustomEvent('ceo-feedback-updated'));
-      }
+      // Trigger metrics refresh
+      window.dispatchEvent(new CustomEvent('ceo-feedback-updated'));
       
     } catch (error) {
       // Keep the form data even on error so user doesn't lose their input
@@ -333,18 +291,8 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
 
   // Save all CEO reviews at once (for navigation)
   const saveAllReviews = async (): Promise<boolean> => {
-    
-    if (typeof window !== 'undefined' && pdr.id.startsWith('demo-pdr-')) {
-      // Demo mode - save to localStorage
-      try {
-        const storageKey = `ceo_behavior_feedback_${pdr.id}`;
-        localStorage.setItem(storageKey, JSON.stringify(ceoFeedback));
-        return true;
-      } catch (error) {
-        return false;
-      }
-    } else {
-      // Production mode - save all feedback to database
+    try {
+      // Save all feedback to database via API
       let allSaved = true;
       
       for (const valueData of organizedData) {
@@ -378,17 +326,8 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
         }
       }
       
-      // Save additional CEO feedback (self-reflection and deep dive)
-      if (additionalCeoFeedback.selfReflection || additionalCeoFeedback.deepDive) {
-        
-        try {
-          // For now, save to localStorage until we have API endpoints
-          const additionalFeedbackKey = `ceo_additional_feedback_${pdr.id}`;
-          localStorage.setItem(additionalFeedbackKey, JSON.stringify(additionalCeoFeedback));
-        } catch (error) {
-          allSaved = false;
-        }
-      }
+      // Additional CEO feedback is saved via the main API endpoints
+      // No separate save needed here
       
       // Refresh organized data to show updated CEO feedback
       if (allSaved) {
@@ -396,6 +335,9 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
       }
       
       return allSaved;
+    } catch (error) {
+      console.error('Error saving CEO reviews:', error);
+      return false;
     }
   };
 
@@ -505,7 +447,7 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
                             </div>
                           </div>
                           
-                          {employeeEntry.rating && pdr.status !== 'SUBMITTED' && (
+                          {employeeEntry.rating && (pdr.status === PDRStatus.END_YEAR_REVIEW || pdr.status === PDRStatus.END_YEAR_SUBMITTED) && (
                             <div>
                               <Label className="text-sm font-medium">Self Rating</Label>
                               <div className="mt-1 space-y-2">
@@ -651,7 +593,7 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
                             selfReflection: e.target.value
                           };
                           setAdditionalCeoFeedback(newFeedback);
-                          saveAdditionalFeedbackToStorage(newFeedback);
+                          debouncedSaveAdditionalFeedback(newFeedback);
                         }}
                       />
                     </div>
@@ -704,7 +646,7 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
                             deepDive: e.target.value
                           };
                           setAdditionalCeoFeedback(newFeedback);
-                          saveAdditionalFeedbackToStorage(newFeedback);
+                          debouncedSaveAdditionalFeedback(newFeedback);
                         }}
                       />
                     </div>

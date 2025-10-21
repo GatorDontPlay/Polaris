@@ -93,7 +93,9 @@ export async function GET(
       created_at,
       updated_at,
       user:profiles!pdrs_user_id_fkey(id, first_name, last_name, email, role),
-      locked_by_user:profiles!pdrs_locked_by_fkey(id, first_name, last_name)
+      locked_by_user:profiles!pdrs_locked_by_fkey(id, first_name, last_name),
+      employee_fields,
+      ceo_fields
     `;
 
     if (includeGoals) {
@@ -281,6 +283,8 @@ export async function PATCH(
         meeting_booked,
         created_at,
         updated_at,
+        employee_fields,
+        ceo_fields,
         user:profiles!pdrs_user_id_fkey(id, first_name, last_name, email, role),
         goals(id, title, description, target_outcome, success_criteria, priority, weighting, goal_mapping, employee_progress, employee_rating, ceo_comments, ceo_rating),
         behaviors(id, value_id, description, examples, employee_self_assessment, employee_rating, ceo_comments, ceo_rating),
