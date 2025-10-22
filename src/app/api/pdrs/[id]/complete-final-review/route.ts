@@ -7,6 +7,7 @@ import {
   validateRequestBody,
 } from '@/lib/api-helpers';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { createAuditLog } from '@/lib/auth';
 import { z } from 'zod';
 
@@ -51,6 +52,12 @@ export async function POST(
 
     const finalReviewData = validation.data;
     const supabase = await createClient();
+    
+    // Create service role client for operations that need to bypass RLS
+    const supabaseAdmin = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     // Get PDR and verify it's in the correct status
     const { data: pdr, error: pdrError } = await supabase
@@ -87,28 +94,27 @@ export async function POST(
 
     // Save individual behavior reviews if provided
     if (finalReviewData.behaviorReviews) {
-      console.log('💾 Saving behavior reviews:', Object.keys(finalReviewData.behaviorReviews).length);
-      
-      for (const [behaviorId, review] of Object.entries(finalReviewData.behaviorReviews)) {
+      for (const [valueId, review] of Object.entries(finalReviewData.behaviorReviews)) {
         try {
-          const { error: behaviorUpdateError } = await supabase
+          // Frontend sends value_id (company value UUID), not behavior row id
+          // Match by value_id and pdr_id to update the correct behavior
+          // Use supabaseAdmin to bypass RLS policies for CEO updates
+          const { error: behaviorUpdateError } = await supabaseAdmin
             .from('behaviors')
             .update({
               ceo_rating: review.rating,
               ceo_comments: review.comments || '',
               updated_at: new Date().toISOString(),
             })
-            .eq('id', behaviorId)
-            .eq('pdr_id', pdrId); // Extra safety check
+            .eq('value_id', valueId)  // Match by company value UUID
+            .eq('pdr_id', pdrId);  // Extra safety check
 
           if (behaviorUpdateError) {
-            console.error(`Failed to update behavior ${behaviorId}:`, behaviorUpdateError);
+            console.error(`Failed to update behavior ${valueId}:`, behaviorUpdateError);
             // Continue with other behaviors even if one fails
-          } else {
-            console.log(`✅ Updated behavior ${behaviorId} with rating ${review.rating}`);
           }
         } catch (error) {
-          console.error(`Error updating behavior ${behaviorId}:`, error);
+          console.error(`Error updating behavior with value_id ${valueId}:`, error);
           // Continue with other behaviors
         }
       }
@@ -116,11 +122,10 @@ export async function POST(
 
     // Save individual goal reviews if provided
     if (finalReviewData.goalReviews) {
-      console.log('💾 Saving goal reviews:', Object.keys(finalReviewData.goalReviews).length);
-      
       for (const [goalId, review] of Object.entries(finalReviewData.goalReviews)) {
         try {
-          const { error: goalUpdateError } = await supabase
+          // Use supabaseAdmin to bypass RLS policies for CEO updates
+          const { error: goalUpdateError } = await supabaseAdmin
             .from('goals')
             .update({
               ceo_rating: review.rating,
@@ -133,8 +138,6 @@ export async function POST(
           if (goalUpdateError) {
             console.error(`Failed to update goal ${goalId}:`, goalUpdateError);
             // Continue with other goals even if one fails
-          } else {
-            console.log(`✅ Updated goal ${goalId} with rating ${review.rating}`);
           }
         } catch (error) {
           console.error(`Error updating goal ${goalId}:`, error);
@@ -144,7 +147,8 @@ export async function POST(
     }
 
     // Update end-year review with CEO final feedback
-    const { data: updatedReview, error: reviewUpdateError } = await supabase
+    // Use supabaseAdmin to bypass RLS policies
+    const { data: updatedReview, error: reviewUpdateError } = await supabaseAdmin
       .from('end_year_reviews')
       .update({
         ceo_overall_rating: finalReviewData.ceoOverallRating,
@@ -160,7 +164,8 @@ export async function POST(
     }
 
     // Update PDR status to completed - this locks the entire PDR
-    const { data: updatedPdr, error: pdrUpdateError } = await supabase
+    // Use supabaseAdmin to bypass RLS policies
+    const { data: updatedPdr, error: pdrUpdateError } = await supabaseAdmin
       .from('pdrs')
       .update({
         status: 'COMPLETED',

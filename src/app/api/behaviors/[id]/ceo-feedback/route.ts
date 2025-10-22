@@ -13,6 +13,7 @@ import { z } from 'zod';
 // Validation schema for CEO behavior feedback
 const ceoFeedbackSchema = z.object({
   ceoNotes: z.string().optional(),
+  ceoAdjustedInitiative: z.string().optional(),
   ceoRating: z.number().int().min(1).max(5).optional(),
 });
 
@@ -66,6 +67,7 @@ export async function PATCH(
     // Store old values for audit log
     const oldValues = {
       ceo_comments: behavior.ceo_comments,
+      ceo_adjusted_initiative: behavior.ceo_adjusted_initiative,
       ceo_rating: behavior.ceo_rating,
     };
 
@@ -76,6 +78,9 @@ export async function PATCH(
 
     if (feedbackData.ceoNotes !== undefined) {
       updateData.ceo_comments = feedbackData.ceoNotes;
+    }
+    if (feedbackData.ceoAdjustedInitiative !== undefined) {
+      updateData.ceo_adjusted_initiative = feedbackData.ceoAdjustedInitiative;
     }
     if (feedbackData.ceoRating !== undefined) {
       updateData.ceo_rating = feedbackData.ceoRating;

@@ -408,6 +408,16 @@ export default function CEOPDRReviewPage() {
         
         if (response.ok) {
           console.log('✅ Goal check-in comment saved successfully');
+          
+          // ✅ Update local pdr state with the saved data to prevent stale closures
+          setPdr(prev => prev ? {
+            ...prev,
+            ceoFields: {
+              ...prev.ceoFields,
+              midYearCheckIn: updatedCheckIn
+            }
+          } : null);
+          
           // Mark save as complete
           isSavingMidYearGoalComment.current[goalId] = false;
           console.log(`🔓 Unlocked goal ${goalId} comment after successful save`);
@@ -465,6 +475,16 @@ export default function CEOPDRReviewPage() {
         
         if (response.ok) {
           console.log('✅ Behavior check-in comment saved successfully');
+          
+          // ✅ Update local pdr state with the saved data to prevent stale closures
+          setPdr(prev => prev ? {
+            ...prev,
+            ceoFields: {
+              ...prev.ceoFields,
+              midYearCheckIn: updatedCheckIn
+            }
+          } : null);
+          
           // Mark save as complete
           isSavingMidYearBehaviorComment.current[behaviorId] = false;
           console.log(`🔓 Unlocked behavior ${behaviorId} comment after successful save`);
@@ -946,7 +966,143 @@ export default function CEOPDRReviewPage() {
       });
 
       if (response.ok) {
-        await response.json();
+        const result = await response.json();
+        console.log('✅ Final review completed successfully:', result);
+        
+        // Update local PDR state with the completed PDR data
+        if (result.data && result.data.pdr) {
+          const updatedPdrData = result.data.pdr;
+          setPdr({
+            id: updatedPdrData.id,
+            userId: updatedPdrData.userId || updatedPdrData.user_id,
+            status: updatedPdrData.status,
+            currentStep: updatedPdrData.currentStep || updatedPdrData.current_step || 1,
+            isLocked: updatedPdrData.isLocked || updatedPdrData.is_locked || false,
+            meetingBooked: updatedPdrData.meetingBooked || false,
+            fyLabel: updatedPdrData.fyLabel || updatedPdrData.fy_label || 'Unknown',
+            fyStartDate: updatedPdrData.fyStartDate || updatedPdrData.fy_start_date,
+            fyEndDate: updatedPdrData.fyEndDate || updatedPdrData.fy_end_date,
+            createdAt: updatedPdrData.createdAt || updatedPdrData.created_at,
+            updatedAt: updatedPdrData.updatedAt || updatedPdrData.updated_at,
+            submittedAt: updatedPdrData.submittedAt || updatedPdrData.submitted_at,
+            ceoFields: updatedPdrData.ceoFields || updatedPdrData.ceo_fields,
+            employeeFields: updatedPdrData.employeeFields || updatedPdrData.employee_fields,
+            user: {
+              firstName: updatedPdrData.user?.firstName || updatedPdrData.user?.first_name || 'Unknown',
+              lastName: updatedPdrData.user?.lastName || updatedPdrData.user?.last_name || 'User',
+              email: updatedPdrData.user?.email || 'unknown@example.com'
+            }
+          });
+          console.log('✅ Updated local PDR state with completed status');
+        }
+        
+        // Update end-year review data state with the CEO ratings/comments
+        if (result.data && result.data.endYearReview) {
+          const reviewData = result.data.endYearReview;
+          setEndYearReviewData(prev => ({
+            ...prev,
+            employeeSelfAssessment: prev?.employeeSelfAssessment || '',
+            employeeOverallRating: prev?.employeeOverallRating || 0,
+            achievementsSummary: prev?.achievementsSummary || '',
+            learningsGrowth: prev?.learningsGrowth || '',
+            challengesFaced: prev?.challengesFaced || '',
+            nextYearGoals: prev?.nextYearGoals || '',
+            ceoAssessment: reviewData.ceo_final_comments || reviewData.ceoFinalComments || '',
+            ceoOverallRating: reviewData.ceo_overall_rating || reviewData.ceoOverallRating || 0,
+          }));
+          console.log('✅ Updated end-year review state with CEO ratings/comments');
+        }
+        
+        // Reload goals and behaviors to get updated CEO ratings/comments
+        try {
+          const refreshResponse = await fetch(`/api/pdrs/${pdrId}?goals=true&behaviors=true&reviews=true`, {
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          
+          if (refreshResponse.ok) {
+            const refreshResult = await refreshResponse.json();
+            if (refreshResult.success && refreshResult.data) {
+              const freshData = refreshResult.data;
+              
+              // Update goals with CEO ratings/comments
+              if (freshData.goals && Array.isArray(freshData.goals)) {
+                const updatedGoals = freshData.goals.map((goal: any) => ({
+                  id: goal.id,
+                  title: goal.title,
+                  description: goal.description,
+                  targetDate: goal.targetDate || goal.target_date,
+                  priority: goal.priority,
+                  status: goal.status || 'NOT_STARTED',
+                  progress: goal.progress || 0,
+                  goalMapping: goal.goalMapping || goal.goal_mapping,
+                  weighting: goal.weighting,
+                  employeeRating: goal.employeeRating || goal.employee_rating,
+                  ceoRating: goal.ceoRating || goal.ceo_rating,
+                  employeeProgress: goal.employeeProgress || goal.employee_progress
+                }));
+                setGoals(updatedGoals);
+                
+                // Update finalGoalReviews state with the saved CEO ratings/comments
+                const updatedFinalGoalReviews: Record<string, { rating: number; comments: string }> = {};
+                freshData.goals.forEach((goal: any) => {
+                  console.log('🔑 Refreshing goal review after save:', {
+                    goalId: goal.id,
+                    goalTitle: goal.title,
+                    ceoRating: goal.ceo_rating,
+                    ceoComments: goal.ceo_comments
+                  });
+                  updatedFinalGoalReviews[goal.id] = {
+                    rating: goal.ceo_rating || goal.ceoRating || 0,
+                    comments: goal.ceo_comments || goal.ceoComments || ''
+                  };
+                });
+                setFinalGoalReviews(updatedFinalGoalReviews);
+                console.log('✅ Refreshed goals with CEO ratings/comments:', updatedFinalGoalReviews);
+              }
+              
+              // Update behaviors with CEO ratings/comments
+              if (freshData.behaviors && Array.isArray(freshData.behaviors)) {
+                const updatedBehaviors = freshData.behaviors.map((behavior: any) => ({
+                  id: behavior.id,
+                  valueId: behavior.valueId || behavior.value_id,
+                  description: behavior.description || '',
+                  examples: behavior.examples,
+                  employeeRating: behavior.employeeRating || behavior.employee_rating,
+                  employeeSelfAssessment: behavior.employeeSelfAssessment || behavior.employee_self_assessment,
+                  ceoRating: behavior.ceoRating || behavior.ceo_rating,
+                  ceoComments: behavior.ceoComments || behavior.ceo_comments,
+                  value: behavior.value,
+                }));
+                setBehaviors(updatedBehaviors);
+                
+                // Update finalBehaviorReviews state with the saved CEO ratings/comments
+                const updatedFinalBehaviorReviews: Record<string, { rating: number; comments: string }> = {};
+                freshData.behaviors.forEach((behavior: any) => {
+                  // CRITICAL: Use valueId directly for consistency with UI and load logic
+                  // Since behavior.value is undefined from API, UI falls back to valueId
+                  const behaviorKey = behavior.valueId || behavior.value_id;
+                  console.log('🔑 Refreshing behavior review after save:', {
+                    rawValueId: behavior.value_id,
+                    behaviorValueId: behavior.valueId,
+                    chosenKey: behaviorKey,
+                    ceoRating: behavior.ceo_rating,
+                    ceoComments: behavior.ceo_comments
+                  });
+                  updatedFinalBehaviorReviews[behaviorKey] = {
+                    rating: behavior.ceo_rating || behavior.ceoRating || 0,
+                    comments: behavior.ceo_comments || behavior.ceoComments || ''
+                  };
+                });
+                setFinalBehaviorReviews(updatedFinalBehaviorReviews);
+                console.log('✅ Refreshed behaviors with CEO ratings/comments');
+              }
+            }
+          }
+        } catch (refreshError) {
+          console.error('❌ Failed to refresh goals/behaviors after save:', refreshError);
+          // Don't block the success flow if refresh fails
+        }
         
         // Trigger custom events to update other components
         window.dispatchEvent(new CustomEvent('demo-pdr-changed'));
@@ -1251,6 +1407,25 @@ export default function CEOPDRReviewPage() {
             console.log('✅ Final Review: Refreshed goals with employee ratings:', 
               refreshedGoals.map((g: any) => ({ id: g.id, title: g.title, employeeRating: g.employeeRating }))
             );
+            
+            // Populate finalGoalReviews state from database data
+            const goalsWithCeoReviews: Record<string, { rating: number; comments: string }> = {};
+            refreshedGoals.forEach((goal: any) => {
+              console.log('🔑 Loading goal review:', {
+                goalId: goal.id,
+                goalTitle: goal.title,
+                hasCeoData: !!(goal.ceoRating || goal.ceoComments),
+                ceoRating: goal.ceoRating,
+                ceoComments: goal.ceoComments
+              });
+              // Always populate, even if values are empty/falsy
+              goalsWithCeoReviews[goal.id] = {
+                rating: goal.ceoRating || 0,
+                comments: goal.ceoComments || '',
+              };
+            });
+            setFinalGoalReviews(goalsWithCeoReviews);
+            console.log('✅ Final Review: Loaded CEO goal reviews from database:', goalsWithCeoReviews);
           }
           
           // Update behaviors with fresh employee ratings from database
@@ -1270,6 +1445,28 @@ export default function CEOPDRReviewPage() {
             console.log('✅ Final Review: Refreshed behaviors with employee ratings:', 
               refreshedBehaviors.map((b: any) => ({ id: b.id, employeeRating: b.employeeRating }))
             );
+            
+            // Populate finalBehaviorReviews state from database data  
+            const behaviorsWithCeoReviews: Record<string, { rating: number; comments: string }> = {};
+            refreshedBehaviors.forEach((behavior: any) => {
+              // Use valueId from transformed data
+              const behaviorKey = behavior.valueId;
+              console.log('🔑 Loading behavior review:', {
+                behaviorId: behavior.id,
+                valueId: behavior.valueId,
+                chosenKey: behaviorKey,
+                hasCeoData: !!(behavior.ceoRating || behavior.ceoComments),
+                ceoRating: behavior.ceoRating,
+                ceoComments: behavior.ceoComments
+              });
+              // Always populate, even if values are empty/falsy
+              behaviorsWithCeoReviews[behaviorKey] = {
+                rating: behavior.ceoRating || 0,
+                comments: behavior.ceoComments || '',
+              };
+            });
+            setFinalBehaviorReviews(behaviorsWithCeoReviews);
+            console.log('✅ Final Review: Loaded CEO behavior reviews from database:', behaviorsWithCeoReviews);
           }
           
           // Update end-year review data
@@ -1555,7 +1752,7 @@ export default function CEOPDRReviewPage() {
 
         // Load employee ratings and CEO ratings from individual behaviors  
         behaviors.forEach(behavior => {
-          const behaviorId = behavior.id || behavior.value?.id || behavior.valueId;
+          const behaviorId = behavior.valueId || behavior.value?.id || behavior.id;
           if (behaviorId) {
             behaviorReviewData[behaviorId] = {
               rating: behavior.ceoRating || (behavior as any).ceo_rating || 0, // Load saved CEO rating from database
@@ -2934,8 +3131,8 @@ export default function CEOPDRReviewPage() {
                       goalTitle: goal.title,
                       employeeRating: goal.employeeRating,
                       employeeProgress: goal.employeeProgress,
-                      endYearData: endYearReviewData,
-                      finalReview: finalReview
+                      finalReviewFound: finalReview,
+                      finalGoalReviewsState: finalGoalReviews
                     });
                     
                     return (
@@ -3144,13 +3341,14 @@ export default function CEOPDRReviewPage() {
                     
                     // Debug behavior data in Final Review rendering
                     console.log('🔍 Final Review Behavior Debug:', {
-                      behaviorId: behaviorUniqueId,
-                      valueName: behavior.value?.name,
+                      behaviorRowId: behavior.id,
+                      behaviorValueId: behavior.valueId,
+                      behaviorValueObject: behavior.value,
+                      chosenKey: behaviorUniqueId,
+                      finalReviewFound: finalReview,
+                      finalReviewsState: finalBehaviorReviews,
                       employeeRating: behavior.employeeRating,
-                      employeeSelfAssessment: (behavior as any).employeeSelfAssessment,
-                      description: behavior.description,
-                      endYearData: endYearReviewData,
-                      finalReview: finalReview
+                      description: behavior.description
                     });
                     
                     return (

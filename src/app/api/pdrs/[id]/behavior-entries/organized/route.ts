@@ -87,7 +87,8 @@ export async function GET(
         examples: entry.examples,
         selfAssessment: entry.employee_self_assessment || entry.employeeSelfAssessment,
         rating: entry.employee_rating, // Employee rating
-        ceoComments: entry.ceo_comments, // CEO comments (single source of truth)
+        ceoComments: entry.ceo_comments, // CEO comments
+        ceoAdjustedInitiative: entry.ceo_adjusted_initiative, // CEO adjusted initiative (separate field)
         ceoRating: entry.ceo_rating, // CEO rating
         employeeEntryId: null,
         createdAt: new Date(entry.created_at || new Date()),

@@ -179,25 +179,35 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
         // Look for CEO feedback in any of the behavior entries for this company value
         if (valueData.employeeEntries && valueData.employeeEntries.length > 0) {
           let ceoComments = '';
+          let adjustedInitiative = '';
           let hasComments = false;
+          let hasAdjustedInitiative = false;
           
           // Check all behaviors for this company value to find CEO feedback
           valueData.employeeEntries.forEach((behavior) => {
             console.log('🔍 Loading behavior:', {
               id: behavior.id,
               ceoComments: behavior.ceoComments,
-              hasContent: !!behavior.ceoComments
+              ceoAdjustedInitiative: behavior.ceoAdjustedInitiative,
+              hasContent: !!behavior.ceoComments || !!behavior.ceoAdjustedInitiative
             });
             
+            // Load adjusted initiative into description field
+            if (behavior.ceoAdjustedInitiative && behavior.ceoAdjustedInitiative.trim() !== '') {
+              adjustedInitiative = behavior.ceoAdjustedInitiative;
+              hasAdjustedInitiative = true;
+            }
+            
+            // Load comments into comments field
             if (behavior.ceoComments && behavior.ceoComments.trim() !== '') {
               ceoComments = behavior.ceoComments;
               hasComments = true;
             }
           });
           
-          if (hasComments) {
+          if (hasComments || hasAdjustedInitiative) {
             newCeoFeedback[valueData.companyValue.id] = {
-              description: ceoComments, // Using comments as description for now
+              description: adjustedInitiative,
               comments: ceoComments,
             };
             hasExistingData = true;
@@ -271,6 +281,7 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
         credentials: 'include',
         body: JSON.stringify({
           ceoNotes: feedback.comments,
+          ceoAdjustedInitiative: feedback.description,
         }),
       });
 
@@ -311,7 +322,8 @@ export const BehaviorReviewSection = forwardRef<BehaviorReviewSectionRef, Behavi
                   },
                   credentials: 'include',
                   body: JSON.stringify({
-                    ceoNotes: feedback.comments || feedback.description || '',
+                    ceoNotes: feedback.comments || '',
+                    ceoAdjustedInitiative: feedback.description || '',
                   }),
                 });
 

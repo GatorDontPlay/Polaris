@@ -125,6 +125,7 @@ export interface Behavior {
   employeeSelfAssessment?: string;
   employeeRating?: number;
   ceoComments?: string;
+  ceoAdjustedInitiative?: string;
   ceoRating?: number;
   createdAt: Date;
   updatedAt: Date;
@@ -146,6 +147,9 @@ export interface BehaviorEntry {
   selfAssessment?: string;
   rating?: number;
   comments?: string;
+  ceoComments?: string;
+  ceoAdjustedInitiative?: string;
+  ceoRating?: number;
   employeeEntryId?: string;
   createdAt: Date;
   updatedAt: Date;
