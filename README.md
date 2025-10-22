@@ -1,17 +1,15 @@
 # PDR Advanced - Performance & Development Review System
 
-A comprehensive Performance & Development Review (PDR) system built with Next.js 14, TypeScript, Supabase, and Prisma.
+A comprehensive, production-ready Performance & Development Review (PDR) system built with Next.js 14, TypeScript, and Supabase.
 
-## 🚀 **Now with Supabase Integration!**
+## 🚀 Features
 
-**Latest Update**: This application has been fully migrated to **Supabase authentication and database**. Features real user sign-up, authentication, role-based access control, and production-ready data management.
-
-- ✅ **Real Authentication**: Supabase Auth with email confirmation
-- ✅ **Production Database**: PostgreSQL with Row Level Security (RLS)
-- ✅ **Role-Based Access**: Employee and CEO roles with proper permissions
-- ✅ **Real-Time Data**: Live updates and synchronized state management
-
-> See `docs/archive/auth-fixes/SUPABASE_MIGRATION_COMPLETE.md` for detailed migration information.
+- ✅ **Supabase Authentication**: Secure email-based auth with role-based access control
+- ✅ **PostgreSQL Database**: Production-grade database with Row Level Security (RLS)
+- ✅ **Role-Based Permissions**: Separate employee and CEO/admin workflows
+- ✅ **Real-Time Data**: Synchronized state management with Supabase real-time capabilities
+- ✅ **Complete Audit Trail**: Track all changes for compliance and accountability
+- ✅ **Modern Tech Stack**: Next.js 14 App Router, TypeScript strict mode, Tailwind CSS
 
 ## 🎯 Project Overview
 
@@ -50,10 +48,11 @@ The PDR Advanced system streamlines employee performance reviews and development
 - **Zustand** + **React Query** for state management
 
 ### Backend
-- **Supabase** - PostgreSQL database with Row Level Security (RLS)
-- **Supabase Auth** - Authentication and authorization
-- **Type-Safe Database** operations with generated TypeScript types
-- **RESTful API** with Next.js API routes
+- **Supabase PostgreSQL** - Production database with Row Level Security (RLS)
+- **Supabase Auth** - Built-in authentication and authorization
+- **Type-Safe Database** - Auto-generated TypeScript types from database schema
+- **Next.js API Routes** - RESTful API endpoints with server-side validation
+- **Server Components** - Leveraging Next.js 14 App Router for optimal performance
 
 ### Development Tools
 - **TypeScript** strict mode for type safety
@@ -61,34 +60,36 @@ The PDR Advanced system streamlines employee performance reviews and development
 - **Tailwind CSS** with custom PDR color scheme
 - **Git** with conventional commits
 
-## 📊 Database Schema
+## 📊 Database Architecture
 
-The system includes 8 core tables:
+The system uses **Supabase PostgreSQL** with a comprehensive schema including:
 
-- **users** - Employee and CEO user accounts
-- **pdr_periods** - Annual review cycles
-- **pdrs** - Individual performance review instances
-- **goals** - Employee objectives ("What")
-- **company_values** - Organizational values framework
-- **behaviors** - Value-based assessments ("How")
-- **mid_year_reviews** - Mid-year check-in data
-- **end_year_reviews** - Final assessment data
-- **audit_logs** - Complete change tracking
+- **Authentication Tables** - User profiles, roles, and sessions (managed by Supabase Auth)
+- **PDR Core Tables** - Performance review instances, periods, and workflow state
+- **Goals & Behaviors** - Employee objectives and value-based assessments
+- **Review Tables** - Mid-year and end-year review data with ratings
+- **Behavior Entries** - Detailed feedback and development tracking
+- **Audit Logs** - Complete change history for compliance
+- **Company Values** - Organizational values framework
+
+**Security**: All tables protected by Row Level Security (RLS) policies ensuring users can only access their authorized data.
+
+> See the complete schema in `scripts/database/DEPLOY_TO_NEW_SUPABASE.sql`
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 - Node.js 18+ and npm
-- PostgreSQL database
+- Supabase account (free tier available at [supabase.com](https://supabase.com))
 - Git
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
-   cd pdr_advanced
+   git clone https://github.com/CodeFishStudio/Polaris.git
+   cd Polaris
    ```
 
 2. **Install dependencies**
@@ -96,25 +97,33 @@ The system includes 8 core tables:
    npm install
    ```
 
-3. **Set up environment variables**
+3. **Set up Supabase**
+   - Create a new project at [supabase.com](https://supabase.com)
+   - Run the database schema: `scripts/database/DEPLOY_TO_NEW_SUPABASE.sql` in your Supabase SQL Editor
+   - Note your project URL and anon key from Supabase settings
+
+4. **Configure environment variables**
    ```bash
    cp env.example .env.local
-   # Edit . with your database and configuration details
+   # Edit .env.local with your Supabase credentials:
+   # - NEXT_PUBLIC_SUPABASE_URL
+   # - NEXT_PUBLIC_SUPABASE_ANON_KEY
+   # - SUPABASE_SERVICE_ROLE_KEY
    ```
-
-4. **Set up the database**
-   - Follow the [Production Setup Guide](./docs/guides/PRODUCTION_SETUP_GUIDE.md) for complete Supabase setup
-   - Or use [Quick Setup Instructions](./docs/guides/QUICK-SETUP-INSTRUCTIONS.md) for rapid deployment
 
 5. **Start the development server**
    ```bash
    npm run dev
    ```
 
-6. **Open your browser**
+6. **Access the application**
    ```
    http://localhost:3000
    ```
+
+> 📚 For detailed setup instructions, see:
+> - [Production Setup Guide](./docs/guides/PRODUCTION_SETUP_GUIDE.md) - Complete deployment guide
+> - [Quick Setup Instructions](./docs/guides/QUICK-SETUP-INSTRUCTIONS.md) - Fast development setup
 
 ### Available Scripts
 
@@ -144,40 +153,43 @@ node scripts/debug/check-database.js          # Check database connection
 ## 📁 Project Structure
 
 ```
-pdr_advanced/
-├── docs/                      # All documentation
-│   ├── archive/              # Historical fix documentation
-│   │   ├── auth-fixes/      # Authentication-related fixes
-│   │   ├── behavior-fixes/  # Behavior system fixes
-│   │   ├── ceo-fixes/       # CEO dashboard fixes
-│   │   ├── pdr-status-fixes/# PDR workflow fixes
-│   │   ├── storage-fixes/   # LocalStorage & quota fixes
-│   │   ├── rating-fixes/    # Rating system fixes
-│   │   ├── review-fixes/    # Review process fixes
-│   │   └── misc-fixes/      # Other fixes
-│   ├── guides/              # Active reference guides
+Polaris/
+├── docs/                      # Complete documentation
+│   ├── archive/              # Historical fixes and migrations
+│   ├── guides/              # Setup and operational guides
 │   └── implementation/      # Feature implementation docs
 ├── scripts/                   # Utility scripts
-│   ├── database/            # SQL migrations and fixes
+│   ├── database/            # SQL migrations and schema management (71 files)
 │   ├── testing/             # Test and verification scripts
-│   ├── utilities/           # Maintenance scripts
-│   └── debug/               # Debugging scripts
+│   ├── utilities/           # Data maintenance and cleanup
+│   └── debug/               # Debugging and diagnostic tools
 ├── src/
-│   ├── app/                 # Next.js App Router
-│   │   ├── (auth)/         # Authentication routes
-│   │   ├── (employee)/     # Employee routes
-│   │   ├── (ceo)/          # CEO admin routes
-│   │   └── api/            # API endpoints
-│   ├── components/         # Reusable UI components
-│   ├── lib/                # Utility libraries
+│   ├── app/                 # Next.js 14 App Router
+│   │   ├── (auth)/         # Authentication pages
+│   │   ├── (employee)/     # Employee dashboard and PDR pages
+│   │   ├── (ceo)/          # CEO admin dashboard and reviews
+│   │   └── api/            # API route handlers
+│   ├── components/         # Reusable React components
+│   │   ├── admin/         # Admin-specific components
+│   │   ├── auth/          # Authentication components
+│   │   ├── ceo/           # CEO review components
+│   │   ├── dashboard/     # Dashboard components
+│   │   ├── forms/         # Form components
+│   │   ├── pdr/           # PDR-specific components
+│   │   └── ui/            # shadcn/ui components
+│   ├── lib/                # Core utilities and libraries
+│   │   ├── supabase/      # Supabase client configurations
+│   │   ├── auth.ts        # Authentication utilities
+│   │   ├── permissions.ts # Permission checks
+│   │   └── [other libs]   # Various utility modules
 │   ├── types/              # TypeScript type definitions
 │   ├── hooks/              # Custom React hooks
-│   └── utils/              # Helper functions
+│   ├── providers/          # React context providers
+│   └── stores/             # Zustand state stores
 ├── supabase/               # Supabase migrations
-├── design_doc/             # Architecture documentation
+├── design_doc/             # Architecture and design docs
 ├── testing/                # Test plans and documentation
-├── .cursor/                # Cursor IDE rules and configuration
-└── [config files]          # Various configuration files
+└── [config files]          # Next.js, TypeScript, Tailwind configs
 ```
 
 ## 🔄 PDR Workflow
@@ -194,12 +206,13 @@ The system follows a 7-stage workflow:
 
 ## 🔐 Security Features
 
-- **JWT Authentication** with HTTP-only cookies
-- **Role-Based Access Control** (EMPLOYEE/CEO permissions)
-- **Input Validation** with Zod schemas
-- **SQL Injection Protection** via Prisma ORM
-- **XSS Prevention** with input sanitization
-- **Audit Trail** for compliance and change tracking
+- **Supabase Authentication** - Secure, production-grade auth with email verification
+- **Row Level Security (RLS)** - Database-level access control for all tables
+- **Role-Based Access Control** - EMPLOYEE and CEO roles with granular permissions
+- **Input Validation** - Zod schemas for all user inputs
+- **Type-Safe Database Operations** - TypeScript types generated from database schema
+- **XSS Prevention** - Input sanitization and React's built-in protections
+- **Comprehensive Audit Trail** - All changes tracked for compliance
 
 ## 🎨 UI/UX Design
 
@@ -212,11 +225,12 @@ The system follows a 7-stage workflow:
 
 ## 📈 Performance Optimizations
 
-- **Code Splitting** with Next.js automatic optimization
-- **Database Indexing** for query performance
-- **React Query Caching** for efficient data fetching
-- **Image Optimization** with Next.js Image component
-- **Bundle Analysis** for size monitoring
+- **Next.js 14 App Router** - Automatic code splitting and route optimization
+- **Server Components** - Reduced client-side JavaScript bundle
+- **React Query Caching** - Smart data caching and synchronization
+- **Database Indexing** - Optimized queries with proper indexes
+- **Supabase Connection Pooling** - Efficient database connections
+- **Image Optimization** - Next.js Image component with automatic optimization
 
 ## 🧪 Testing Strategy
 
@@ -264,12 +278,13 @@ This project is proprietary. All rights reserved.
 
 ## 🔗 Quick Links
 
+- **Repository**: [GitHub - CodeFishStudio/Polaris](https://github.com/CodeFishStudio/Polaris)
 - **Design Documentation**: [Solution Architecture](./design_doc/solution_architecture.md)
-- **Development Rules**: [Cursor Rules](./.cursor/rules/)
 - **Setup Guide**: [Production Setup](./docs/guides/PRODUCTION_SETUP_GUIDE.md)
 - **Database Scripts**: [SQL Scripts](./scripts/database/)
 - **Test Scripts**: [Testing Scripts](./scripts/testing/)
+- **Documentation Hub**: [docs/README.md](./docs/README.md)
 
 ---
 
-**Built with ❤️ using the VIBE Coding methodology - Architecture First, Performance by Design**
+**Polaris PDR System** - A production-ready performance review platform by CodeFish Studio
