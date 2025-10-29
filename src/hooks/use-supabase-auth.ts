@@ -143,14 +143,20 @@ export function useSupabaseAuth() {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signUp = async (email: string, password: string, metadata?: { first_name?: string; last_name?: string; role?: 'EMPLOYEE' | 'CEO' }) => {
+  const signUp = async (email: string, password: string, metadata?: { first_name?: string; last_name?: string }) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }))
+    
+    // Always set role to EMPLOYEE for new sign-ups
+    const signUpMetadata = {
+      ...metadata,
+      role: 'EMPLOYEE' as const,
+    }
     
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: metadata,
+        data: signUpMetadata,
         emailRedirectTo: `${window.location.origin}/auth/confirm`,
       },
     })

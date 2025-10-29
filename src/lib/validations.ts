@@ -38,7 +38,6 @@ export const registerSchema = z.object({
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
       'Password must contain at least one lowercase letter, one uppercase letter, and one number'
     ),
-  role: z.enum(['EMPLOYEE', 'CEO']).default('EMPLOYEE'),
 });
 
 // Goal schemas

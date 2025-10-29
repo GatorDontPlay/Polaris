@@ -11,8 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Loader2, Mail, Lock, User, UserCog } from 'lucide-react'
+import { Loader2, Mail, Lock, User } from 'lucide-react'
 
 // Validation schemas
 const loginSchema = z.object({
@@ -25,7 +24,6 @@ const signupSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
   first_name: z.string().min(1, 'First name is required'),
   last_name: z.string().min(1, 'Last name is required'),
-  role: z.enum(['EMPLOYEE', 'CEO'], { required_error: 'Please select a role' }),
 })
 
 const forgotPasswordSchema = z.object({
@@ -53,9 +51,6 @@ export default function AuthForm() {
   // Signup form
   const signupForm = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
-    defaultValues: {
-      role: 'EMPLOYEE',
-    },
   })
 
   // Forgot password form
@@ -100,7 +95,7 @@ export default function AuthForm() {
       const { error } = await signUp(data.email, data.password, {
         first_name: data.first_name,
         last_name: data.last_name,
-        role: data.role,
+        role: 'EMPLOYEE',
       })
 
       if (error) {
@@ -296,30 +291,6 @@ export default function AuthForm() {
             {signupForm.formState.errors.password && (
               <p className="text-sm text-destructive">
                 {signupForm.formState.errors.password.message}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="signup-role">Role</Label>
-            <Select
-              defaultValue="EMPLOYEE"
-              onValueChange={(value) => signupForm.setValue('role', value as 'EMPLOYEE' | 'CEO')}
-            >
-              <SelectTrigger className="w-full">
-                <div className="flex items-center">
-                  <UserCog className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <SelectValue placeholder="Select your role" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="EMPLOYEE">Employee</SelectItem>
-                <SelectItem value="CEO">CEO</SelectItem>
-              </SelectContent>
-            </Select>
-            {signupForm.formState.errors.role && (
-              <p className="text-sm text-destructive">
-                {signupForm.formState.errors.role.message}
               </p>
             )}
           </div>
